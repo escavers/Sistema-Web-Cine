@@ -151,12 +151,6 @@ cp .env.example .env
 npm run dev
 ```
 
-Abrir:
-
-```txt
-http://localhost:5173
-```
-
 ## Flujo para probar como cliente
 
 1. Entra a `http://localhost:5173`.
@@ -168,11 +162,7 @@ http://localhost:5173
 
 ## Flujo para boletería
 
-Para entrar como boletería necesitas tener un usuario existente con:
-
-```txt
-Usuario.idRol = BOLETERIA
-```
+Para entrar como boletería necesitas tener un usuario existente
 
 Desde ese perfil se puede registrar clientes presencialmente.
 
@@ -184,22 +174,12 @@ CI + inicial apellido paterno + inicial apellido materno
 
 Ejemplo:
 
-```txt
 CI: 12345678
 Apellido paterno: Perez
 Apellido materno: Mamani
 Contraseña temporal: 12345678PM
-```
-
-En la base de datos se guarda cifrada.
 
 ## Flujo para administrador
-
-Para entrar como administrador necesitas tener un usuario existente con:
-
-```txt
-Usuario.idRol = ADMINISTRADOR
-```
 
 Desde ese perfil se puede:
 
@@ -209,23 +189,7 @@ Desde ese perfil se puede:
 - Dar baja lógica.
 
 La baja lógica solo cambia:
-
-```sql
-estadoA = FALSE
-```
-
 No elimina físicamente el registro.
-
-## Si no tienes ningún administrador
-
-Usa el archivo opcional:
-
-```sql
-sql/03_crear_admin_manual_opcional.sql
-```
-
-Ese archivo no lo ejecuta el sistema automáticamente. Es solo para que puedas crear un administrador manualmente si tu tabla está vacía.
-
 ## Auditoría
 
 No existe vista de auditoría en el frontend. Se guarda solo en MySQL, en la tabla `Auditoria`.
