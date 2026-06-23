@@ -85,8 +85,16 @@ export async function enviarComprobanteEmail(req: Request, res: Response) {
             <div class="s"><div class="l">Método de Pago</div><div class="v">${comprobante.metodoPago}</div>
             <div class="l" style="margin-top:10px">Total</div>
             <div style="font-size:24px;font-weight:bold;color:#d97706">Bs. ${Number(comprobante.montoTotal).toFixed(2)}</div></div>
-            <div class="qr"><div class="l">Escanea para verificar</div>
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" alt="QR" style="max-width:200px"/></div>
+            <div class="qr-container" style="text-align:center;margin:20px 0;">
+              <div class="l" style="margin-bottom:15px;font-size:14px;"><strong>Tus Boletos de Acceso:</strong></div>
+              ${comprobante.asientos.split(', ').map((asiento: string) => `
+                <div style="display:inline-block; margin: 10px; border: 1px dashed #cbd5e1; padding: 15px; border-radius: 8px;">
+                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(asiento)}" alt="QR Boleto ${asiento}" style="max-width:150px; display:block; margin: 0 auto;"/>
+                  <div style="margin-top:10px; font-weight:bold; color:#1e293b; font-size:16px;">${asiento}</div>
+                  <div style="font-size:10px; color:#94a3b8; margin-top:3px;">Código manual</div>
+                </div>
+              `).join('')}
+            </div>
           </div>
           <div class="f"><p>Comprobante generado el ${new Date().toLocaleString('es-BO')}</p><p>Cine La Paz</p></div>
         </div></body></html>`;
