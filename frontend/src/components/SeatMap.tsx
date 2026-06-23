@@ -11,7 +11,7 @@ interface SeatMapProps {
   onToggle: (id: string) => void;
 }
 
-export default function SeatMap({ asientos, selectedAsientos, onToggle }: SeatMapProps) {
+export default function SeatMap({ asientos = [], selectedAsientos = [], onToggle }: SeatMapProps) {
   if (!asientos.length) {
     return <p className="text-cinema-gray text-center py-8">No hay asientos disponibles.</p>;
   }

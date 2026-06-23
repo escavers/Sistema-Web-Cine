@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Message from '../components/Message';
-import SeatMap from '../components/SeatMap';
+import SeatMap from '../components/SeatMap.tsx';
 import { api } from '../services/api';
 
 export default function CompraOnlinePage() {
