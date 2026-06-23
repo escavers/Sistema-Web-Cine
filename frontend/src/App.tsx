@@ -89,7 +89,7 @@ export default function App() {
             } />
 
             <Route path="/acceso/validar" element={
-              <ProtectedRoute roles={['BOLETERIA', 'ADMINISTRADOR']}>
+              <ProtectedRoute roles={['ACCESO', 'ADMINISTRADOR']}>
                 <AccessValidationPage />
               </ProtectedRoute>
             } />
