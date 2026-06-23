@@ -3,6 +3,7 @@ import { pool } from '../config/db.js';
 import { z } from 'zod';
 import { fail, ok } from '../utils/response.js';
 import { createAudit } from '../services/audit.service.js';
+import { sendComprobanteEmailInternal } from './email.controller.js';
 
 const ventaSchema = z.object({
   idCliente: z.number().nullable().optional().default(null),
@@ -23,6 +24,23 @@ export async function crearVenta(req: Request, res: Response) {
   }
 
   const data = parsed.data;
+  const usuario = req.user;
+  if (!usuario) {
+    return fail(res, 'Debe iniciar sesión para continuar.', 401);
+  }
+
+  if (usuario.idRol === 'CLIENTE') {
+    data.idCliente = usuario.idUsuario;
+    data.usuarioA = usuario.idUsuario;
+  }
+  // Si el usuario es encargado de boletería, registrar como encargado
+  if (usuario.idRol === 'BOLETERIA') {
+    data.idEncargado = usuario.idUsuario;
+  }
+  if (!data.usuarioA) {
+    data.usuarioA = usuario.idUsuario;
+  }
+
   const connection = await pool.getConnection();
 
   try {
@@ -88,12 +106,25 @@ export async function crearVenta(req: Request, res: Response) {
       [idVenta, montoTotal, data.formaPago, codigo, data.usuarioA]
     );
 
-    // Crear comprobante
+    // Si no se proporcionó NIT/razón social, intentar obtener del cliente registrado
+    let nitToUse = data.nitCliente || null;
+    let razonToUse = data.razonSocialCliente || null;
+    if ((!nitToUse || !razonToUse) && data.idCliente) {
+      const [clienteRows] = await connection.query<any[]>(
+        'SELECT nit, razonSocial FROM Cliente WHERE idUsuario = ?',
+        [data.idCliente]
+      );
+      if (clienteRows.length) {
+        nitToUse = nitToUse || clienteRows[0].nit;
+        razonToUse = razonToUse || clienteRows[0].razonSocial;
+      }
+    }
+
     const numeroComprobante = `C-${Date.now()}-${idVenta}`;
     await connection.query(
       `INSERT INTO Comprobante (idVenta, numero, fechaEmision, nitCliente, razonSocialCliente, estadoA, usuarioA)
        VALUES (?, ?, NOW(), ?, ?, 1, ?)`,
-      [idVenta, numeroComprobante, data.nitCliente, data.razonSocialCliente, data.usuarioA]
+      [idVenta, numeroComprobante, nitToUse, razonToUse, data.usuarioA]
     );
 
     await connection.commit();
@@ -107,6 +138,11 @@ export async function crearVenta(req: Request, res: Response) {
       detalles: `Venta ${data.tipo} procesada. Monto: Bs. ${montoTotal}. Asientos: ${data.asientos.join(', ')}`
     });
 
+    let emailStatus = { enviado: false, motivo: 'No se envió email' };
+    if (usuario.correo) {
+      emailStatus = await sendComprobanteEmailInternal(idVenta, usuario.correo);
+    }
+
     return ok(res, {
       mensaje: 'Venta procesada correctamente.',
       idVenta,
@@ -114,6 +150,8 @@ export async function crearVenta(req: Request, res: Response) {
       numeroComprobante,
       codigoTransaccion: codigo,
       asientos: data.asientos,
+      emailEnviado: emailStatus.enviado,
+      emailMotivo: emailStatus.motivo,
     }, 201);
 
   } catch (error) {

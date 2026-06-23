@@ -6,8 +6,9 @@ export async function listarFunciones(_req: Request, res: Response) {
   const [rows] = await pool.query(
     `SELECT f.idFuncion, f.idSala, s.tipo AS salaTipo, s.capacidadTotal,
             f.idPelicula, f.fecha, f.horaInicio, f.horaFin, f.precioBase,
-            p.titulo AS peliculaTitulo, p.posterUrl AS peliculaPoster,
-            p.duracionMinutos AS peliculaDuracion, p.clasificacionEdad AS peliculaClasificacion
+            p.titulo AS peliculaTitulo, p.director AS peliculaDirector, p.posterUrl AS peliculaPoster,
+            p.duracionMinutos AS peliculaDuracion, p.clasificacionEdad AS peliculaClasificacion,
+            p.sinopsis AS peliculaSinopsis
      FROM Funcion f
      JOIN Pelicula p ON f.idPelicula = p.idPelicula
      JOIN Sala s ON f.idSala = s.idSala

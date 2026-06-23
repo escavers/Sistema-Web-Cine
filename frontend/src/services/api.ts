@@ -44,6 +44,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+async function requestBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+  const token = getToken();
+  const headers = new Headers(options.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.mensaje ?? 'Error al procesar la solicitud.');
+  }
+  return response.blob();
+}
+
 export const api = {
   health: () => request<{ ok: boolean; mensaje: string; database?: string }>('/health'),
 
@@ -98,7 +112,7 @@ export const api = {
 
   // Ventas
   crearVenta: (payload: Record<string, unknown>) =>
-    request<{ ok: boolean; mensaje: string; idVenta: number; montoTotal: number; numeroComprobante: string }>(
+    request<{ ok: boolean; mensaje: string; idVenta: number; montoTotal: number; numeroComprobante: string; emailEnviado?: boolean; emailMotivo?: string }>(
       '/ventas', { method: 'POST', body: JSON.stringify(payload) }
     ),
   cancelarVenta: (idVenta: number) =>
@@ -107,6 +121,8 @@ export const api = {
   // Comprobantes
   obtenerComprobante: (numero: string) =>
     request<{ ok: boolean; comprobante: any }>(`/comprobantes/${encodeURIComponent(numero)}`),
+  descargarComprobantePdf: (numero: string) =>
+    requestBlob(`/comprobantes/${encodeURIComponent(numero)}/pdf`),
 
   // Email
   enviarComprobanteEmail: (idVenta: number, email: string) =>

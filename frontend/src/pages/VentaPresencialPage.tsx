@@ -12,6 +12,8 @@ export default function VentaPresencialPage() {
   const [selectedAsientos, setSelectedAsientos] = useState<string[]>([]);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [formaPago, setFormaPago] = useState('EFECTIVO');
+  const [nit, setNit] = useState('');
+  const [razonSocial, setRazonSocial] = useState('');
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
@@ -49,11 +51,15 @@ export default function VentaPresencialPage() {
         tipo: 'PRESENCIAL',
         formaPago,
         asientos: selectedAsientos,
+        nitCliente: nit || null,
+        razonSocialCliente: razonSocial || null,
         usuarioA: user.idUsuario,
       });
       setResultado(res);
       setStep(3);
       setMessage({ type: 'ok', text: 'Venta procesada correctamente.' });
+      // Marcar asientos como vendidos en la UI
+      setAsientos(prev => prev.map(a => selectedAsientos.includes(a.idAsiento) ? { ...a, estado: 0 } : a));
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al procesar la venta.' });
     } finally {
@@ -145,6 +151,17 @@ export default function VentaPresencialPage() {
                 <option value="TARJETA">Tarjeta</option>
               </select>
             </label>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="label-cine">NIT (opcional)</span>
+                <input className="input-cine" value={nit} onChange={e => setNit(e.target.value)} placeholder="NIT o CI" />
+              </label>
+              <label className="block">
+                <span className="label-cine">Razón social (opcional)</span>
+                <input className="input-cine" value={razonSocial} onChange={e => setRazonSocial(e.target.value)} placeholder="Razón social" />
+              </label>
+            </div>
 
             <div className="flex gap-3">
               <button className="btn-secondary" onClick={() => setStep(1)}>Volver</button>

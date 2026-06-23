@@ -6,11 +6,10 @@ import { reporteOcupacion, reporteMasVistas, reporteVentas, historialCliente } f
 const router = Router();
 
 router.use(authMiddleware);
-router.use(requireRoles('ADMINISTRADOR'));
 
-router.get('/ocupacion', reporteOcupacion);
-router.get('/mas-vistas', reporteMasVistas);
-router.get('/ventas', reporteVentas);
-router.get('/historial/:idCliente', historialCliente);
+router.get('/ocupacion', requireRoles('ADMINISTRADOR'), reporteOcupacion);
+router.get('/mas-vistas', requireRoles('ADMINISTRADOR'), reporteMasVistas);
+router.get('/ventas', requireRoles('ADMINISTRADOR'), reporteVentas);
+router.get('/historial/:idCliente', requireRoles('CLIENTE', 'BOLETERIA', 'ADMINISTRADOR'), historialCliente);
 
 export default router;

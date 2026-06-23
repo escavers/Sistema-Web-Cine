@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Field from '../components/Field';
 import Message from '../components/Message';
@@ -16,9 +16,16 @@ export default function RegisterPage() {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function update(name: string, value: string) {
-    setForm((c) => ({ ...c, [name]: value }));
-  }
+    // Auto-llenar NIT con CI
+    useEffect(() => {
+      if (form.ci && !form.nit) {
+        setForm(c => ({ ...c, nit: form.ci }));
+      }
+    }, [form.ci]);
+
+    function update(name: string, value: string) {
+      setForm((c) => ({ ...c, [name]: value }));
+    }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

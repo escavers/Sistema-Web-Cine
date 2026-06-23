@@ -21,24 +21,35 @@ export async function cancelarVenta(req: Request, res: Response) {
   try {
     await connection.beginTransaction();
 
-    // Obtener venta y fecha de función más cercana
+    // Obtener venta, cliente propietario y fecha de función más cercana
     const [ventaRows] = await connection.query<any[]>(
-      `SELECT v.idVenta, MIN(CONCAT(f.fecha, ' ', f.horaInicio)) AS fechaHoraFuncion
+      `SELECT v.idVenta, v.idCliente, v.estado, MIN(CONCAT(f.fecha, ' ', f.horaInicio)) AS fechaHoraFuncion
        FROM Venta v
        JOIN Boleto b ON v.idVenta = b.idVenta
        JOIN Funcion f ON b.idFuncion = f.idFuncion
        WHERE v.idVenta = ? AND v.estadoA = 1
-       GROUP BY v.idVenta`,
+       GROUP BY v.idVenta, v.idCliente, v.estado`,
       [idVenta]
     );
 
     if (!ventaRows.length) {
       await connection.rollback();
-      return fail(res, 'Venta no encontrada o ya fue cancelada.', 404);
+      return fail(res, 'Venta no encontrada.', 404);
+    }
+
+    const venta = ventaRows[0];
+    if (venta.estado !== 'COMPLETADA') {
+      await connection.rollback();
+      return fail(res, 'Solo se pueden cancelar ventas completadas.', 400);
+    }
+
+    if (actor.idRol === 'CLIENTE' && venta.idCliente !== actor.idUsuario) {
+      await connection.rollback();
+      return fail(res, 'No puede cancelar una venta que no le pertenece.', 403);
     }
 
     // Verificar 24 horas de anticipación
-    const fechaHoraFuncion = new Date(ventaRows[0].fechaHoraFuncion);
+    const fechaHoraFuncion = new Date(String(ventaRows[0].fechaHoraFuncion).replace(' ', 'T'));
     const ahora = new Date();
     const diferenciaMs = fechaHoraFuncion.getTime() - ahora.getTime();
     const diferenciaHoras = diferenciaMs / (1000 * 60 * 60);
@@ -74,6 +85,12 @@ export async function cancelarVenta(req: Request, res: Response) {
       );
     }
 
+    // Marcar boletos como cancelados para que no entren en reportes activos
+    await connection.query(
+      'UPDATE Boleto SET estadoA = 0, fechaA = NOW(), usuarioA = ? WHERE idVenta = ?',
+      [actor.idUsuario, idVenta]
+    );
+
     // Marcar venta como cancelada
     await connection.query(
       `UPDATE Venta SET estado = 'CANCELADA', fechaA = NOW(), usuarioA = ? WHERE idVenta = ?`,
@@ -92,7 +109,7 @@ export async function cancelarVenta(req: Request, res: Response) {
     });
 
     return ok(res, {
-      mensaje: 'Cancelación registrada correctamente.',
+      mensaje: 'Su solicitud de cancelación ha sido enviada exitosamente. Un administrador se pondrá en contacto contigo para coordinar el reembolso.',
       idVenta,
       asientosLiberados: boletosRows.map((r: any) => r.idAsiento),
     });

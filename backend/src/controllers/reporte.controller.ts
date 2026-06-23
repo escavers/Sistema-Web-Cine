@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { pool } from '../config/db.js';
-import { ok } from '../utils/response.js';
+import { ok, fail } from '../utils/response.js';
 
 export async function reporteOcupacion(req: Request, res: Response) {
   const { fechaInicio, fechaFin } = req.query;
@@ -80,6 +80,7 @@ export async function reporteVentas(req: Request, res: Response) {
        ROUND(AVG(v.montoTotal), 2) AS ventaPromedio
      FROM Venta v
      ${where}
+       AND v.estado = 'COMPLETADA'
      GROUP BY DATE(v.fechaCompra), v.tipo
      ORDER BY fecha DESC`,
     params
@@ -90,9 +91,19 @@ export async function reporteVentas(req: Request, res: Response) {
 
 export async function historialCliente(req: Request, res: Response) {
   const idCliente = Number(req.params.idCliente);
+  const usuario = req.user;
+
+  if (!usuario) {
+    return fail(res, 'Debe iniciar sesión para continuar.', 401);
+  }
+
+  if (usuario.idRol === 'CLIENTE' && usuario.idUsuario !== idCliente) {
+    return fail(res, 'No puede acceder al historial de otro cliente.', 403);
+  }
 
   const [rows] = await pool.query(
     `SELECT
+       v.idVenta,
        c.numero,
        p.titulo AS peliculaTitulo,
        f.fecha,
@@ -108,8 +119,8 @@ export async function historialCliente(req: Request, res: Response) {
      JOIN Pelicula p ON f.idPelicula = p.idPelicula
      JOIN Sala s ON f.idSala = s.idSala
      JOIN Asiento a ON b.idAsiento = a.idAsiento
-     WHERE v.idCliente = ?
-     GROUP BY c.idComprobante, c.numero, p.titulo, f.fecha, f.horaInicio, s.tipo, v.montoTotal, v.estado
+     WHERE v.idCliente = ? AND v.estadoA = 1 AND v.estado = 'COMPLETADA'
+     GROUP BY c.idComprobante, c.numero, p.titulo, f.fecha, f.horaInicio, s.tipo, v.montoTotal, v.estado, v.idVenta
      ORDER BY f.fecha DESC, f.horaInicio DESC`,
     [idCliente]
   );
