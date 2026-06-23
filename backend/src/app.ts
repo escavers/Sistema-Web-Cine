@@ -4,6 +4,11 @@ import { testDatabaseConnection } from './config/db.js';
 import { env } from './config/env.js';
 import authRoutes from './routes/auth.routes.js';
 import usuarioRoutes from './routes/usuario.routes.js';
+import ventaRoutes from './routes/venta.routes.js';
+import peliculaRoutes from './routes/pelicula.routes.js';
+import salaRoutes from './routes/sala.routes.js';
+import funcionRoutes from './routes/funcion.routes.js';
+import reporteRoutes from './routes/reporte.routes.js';
 
 const app = express();
 
@@ -33,6 +38,11 @@ app.get('/api/health', async (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/peliculas', peliculaRoutes);
+app.use('/api/salas', salaRoutes);
+app.use('/api/funciones', funcionRoutes);
+app.use('/api/reportes', reporteRoutes);
+app.use('/api', ventaRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({

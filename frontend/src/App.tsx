@@ -1,75 +1,96 @@
-import { useMemo, useState } from 'react';
-import Header from './components/Header';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import HomePage from './pages/HomePage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import BoleteriaPage from './pages/BoleteriaPage';
-import HomePage from './pages/HomePage';
-import PublicAccessPage from './pages/PublicAccessPage';
-import { clearSession, getStoredUser } from './services/api';
-import type { AuthUser } from './types';
+import PeliculasPage from './pages/PeliculasPage';
+import SalasPage from './pages/SalasPage';
+import FuncionesPage from './pages/FuncionesPage';
+import VentaPresencialPage from './pages/VentaPresencialPage';
+import CompraOnlinePage from './pages/CompraOnlinePage';
+import HistorialPage from './pages/HistorialPage';
+import ReportesPage from './pages/ReportesPage';
 
-type View = 'inicio' | 'registro-presencial' | 'usuarios';
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 export default function App() {
-  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser());
-  const [view, setView] = useState<View>('inicio');
-
-  const menu = useMemo(() => {
-    if (!user) return [];
-
-    const items = [{ id: 'inicio' as View, label: 'Inicio' }];
-
-    if (user.idRol === 'BOLETERIA' || user.idRol === 'ADMINISTRADOR') {
-      items.push({ id: 'registro-presencial', label: 'Registro presencial' });
-    }
-
-    if (user.idRol === 'ADMINISTRADOR') {
-      items.push({ id: 'usuarios', label: 'Usuarios' });
-    }
-
-    return items;
-  }, [user]);
-
-  function handleLogin(nextUser: AuthUser) {
-    setUser(nextUser);
-    setView('inicio');
-  }
-
-  function logout() {
-    clearSession();
-    setUser(null);
-    setView('inicio');
-  }
-
-  if (!user) {
-    return (
-      <>
-        <Header user={null} onLogout={logout} />
-        <PublicAccessPage onLogin={handleLogin} />
-      </>
-    );
-  }
-
   return (
-    <>
-      <Header user={user} onLogout={logout} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+            <Route path="/registro" element={<PublicRoute><RegisterPage /></PublicRoute>} />
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        <nav className="mb-8 flex flex-wrap gap-3">
-          {menu.map((item) => (
-            <button
-              key={item.id}
-              className={item.id === view ? 'btn-primary' : 'btn-secondary'}
-              onClick={() => setView(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+            <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
 
-        {view === 'inicio' && <HomePage user={user} onNavigate={setView} />}
-        {view === 'registro-presencial' && <BoleteriaPage />}
-        {view === 'usuarios' && <AdminUsersPage />}
-      </main>
-    </>
+            <Route path="/usuarios" element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <AdminUsersPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/peliculas" element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <PeliculasPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/salas" element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <SalasPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/funciones" element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <FuncionesPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/boleteria/registro" element={
+              <ProtectedRoute roles={['BOLETERIA', 'ADMINISTRADOR']}>
+                <BoleteriaPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/boleteria/venta" element={
+              <ProtectedRoute roles={['BOLETERIA', 'ADMINISTRADOR']}>
+                <VentaPresencialPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/compra" element={
+              <ProtectedRoute roles={['CLIENTE']}>
+                <CompraOnlinePage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/historial" element={
+              <ProtectedRoute roles={['CLIENTE']}>
+                <HistorialPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/reportes" element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <ReportesPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

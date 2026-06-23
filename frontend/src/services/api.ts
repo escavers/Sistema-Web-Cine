@@ -1,6 +1,6 @@
 import type { AuthUser, LoginResponse, Usuario } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 export function getToken() {
   return localStorage.getItem('cine_token');
@@ -19,7 +19,6 @@ export function clearSession() {
 export function getStoredUser(): AuthUser | null {
   const raw = localStorage.getItem('cine_usuario');
   if (!raw) return null;
-
   try {
     return JSON.parse(raw) as AuthUser;
   } catch {
@@ -31,80 +30,103 @@ export function getStoredUser(): AuthUser | null {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers = new Headers(options.headers);
-
   if (!(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
-
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers
-  });
-
+  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
   const data = await response.json().catch(() => ({}));
-
   if (!response.ok) {
     throw new Error(data.mensaje ?? 'Error al procesar la solicitud.');
   }
-
   return data as T;
 }
 
 export const api = {
-  health: () =>
-    request<{ ok: boolean; mensaje: string; database?: string }>('/health'),
+  health: () => request<{ ok: boolean; mensaje: string; database?: string }>('/health'),
 
+  // Auth
   login: (payload: { correo: string; contrasena: string }) =>
-    request<LoginResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    }),
-
-  me: () =>
-    request<{ ok: boolean; usuario: AuthUser }>('/auth/me'),
-
+    request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  me: () => request<{ ok: boolean; usuario: AuthUser }>('/auth/me'),
   registroCliente: (payload: Record<string, unknown>) =>
-    request<{ ok: boolean; mensaje: string }>('/auth/registro-cliente', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    }),
-
+    request<{ ok: boolean; mensaje: string }>('/auth/registro-cliente', { method: 'POST', body: JSON.stringify(payload) }),
   registroPresencial: (payload: Record<string, unknown>) =>
-    request<{
-      ok: boolean;
-      mensaje: string;
-      cliente: {
-        idUsuario: number;
-        correo: string;
-        ci: string;
-        contrasenaTemporal: string;
-      };
-    }>('/auth/registro-presencial', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    }),
+    request<{ ok: boolean; mensaje: string; cliente: { idUsuario: number; correo: string; ci: string; contrasenaTemporal: string } }>(
+      '/auth/registro-presencial', { method: 'POST', body: JSON.stringify(payload) }
+    ),
 
-  listarUsuarios: () =>
-    request<{ ok: boolean; usuarios: Usuario[] }>('/usuarios'),
-
+  // Usuarios
+  listarUsuarios: () => request<{ ok: boolean; usuarios: Usuario[] }>('/usuarios'),
   crearUsuario: (payload: Record<string, unknown>) =>
-    request<{ ok: boolean; mensaje: string; idUsuario: number }>('/usuarios', {
-      method: 'POST',
-      body: JSON.stringify(payload)
+    request<{ ok: boolean; mensaje: string; idUsuario: number }>('/usuarios', { method: 'POST', body: JSON.stringify(payload) }),
+  actualizarUsuario: (id: number, payload: Record<string, unknown>) =>
+    request<{ ok: boolean; mensaje: string }>(`/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  darBajaUsuario: (id: number) =>
+    request<{ ok: boolean; mensaje: string }>(`/usuarios/${id}`, { method: 'DELETE' }),
+
+  // Películas
+  listarPeliculas: () => request<{ ok: boolean; peliculas: any[] }>('/peliculas'),
+  crearPelicula: (payload: Record<string, unknown>) =>
+    request<{ ok: boolean; mensaje: string; idPelicula: number }>('/peliculas', { method: 'POST', body: JSON.stringify(payload) }),
+  actualizarPelicula: (id: number, payload: Record<string, unknown>) =>
+    request<{ ok: boolean; mensaje: string }>(`/peliculas/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  eliminarPelicula: (id: number) =>
+    request<{ ok: boolean; mensaje: string }>(`/peliculas/${id}`, { method: 'DELETE' }),
+
+  // Salas
+  listarSalas: () => request<{ ok: boolean; salas: any[] }>('/salas'),
+  crearSala: (payload: Record<string, unknown>) =>
+    request<{ ok: boolean; mensaje: string; idSala: string }>('/salas', { method: 'POST', body: JSON.stringify(payload) }),
+  actualizarSala: (id: string, payload: Record<string, unknown>) =>
+    request<{ ok: boolean; mensaje: string }>(`/salas/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  eliminarSala: (id: string) =>
+    request<{ ok: boolean; mensaje: string }>(`/salas/${id}`, { method: 'DELETE' }),
+
+  // Funciones
+  listarFunciones: () => request<{ ok: boolean; funciones: any[] }>('/funciones'),
+  crearFuncion: (payload: Record<string, unknown>) =>
+    request<{ ok: boolean; mensaje: string; idFuncion: number }>('/funciones', { method: 'POST', body: JSON.stringify(payload) }),
+  eliminarFuncion: (id: number) =>
+    request<{ ok: boolean; mensaje: string }>(`/funciones/${id}`, { method: 'DELETE' }),
+
+  // Asientos
+  obtenerAsientosPorFuncion: (idFuncion: number) =>
+    request<{ ok: boolean; asientos: any[] }>(`/funciones/${idFuncion}/asientos`),
+
+  // Ventas
+  crearVenta: (payload: Record<string, unknown>) =>
+    request<{ ok: boolean; mensaje: string; idVenta: number; montoTotal: number; numeroComprobante: string }>(
+      '/ventas', { method: 'POST', body: JSON.stringify(payload) }
+    ),
+  cancelarVenta: (idVenta: number) =>
+    request<{ ok: boolean; mensaje: string }>('/cancelaciones', { method: 'POST', body: JSON.stringify({ idVenta }) }),
+
+  // Comprobantes
+  obtenerComprobante: (numero: string) =>
+    request<{ ok: boolean; comprobante: any }>(`/comprobantes/${encodeURIComponent(numero)}`),
+
+  // Email
+  enviarComprobanteEmail: (idVenta: number, email: string) =>
+    request<{ ok: boolean; mensaje: string }>('/enviar-comprobante-email', {
+      method: 'POST', body: JSON.stringify({ idVenta, email })
     }),
 
-  actualizarUsuario: (idUsuario: number, payload: Record<string, unknown>) =>
-    request<{ ok: boolean; mensaje: string }>(`/usuarios/${idUsuario}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload)
-    }),
-
-  darBajaUsuario: (idUsuario: number) =>
-    request<{ ok: boolean; mensaje: string }>(`/usuarios/${idUsuario}`, {
-      method: 'DELETE'
-    })
+  // Reportes
+  reporteOcupacion: (params?: { fechaInicio?: string; fechaFin?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return request<{ ok: boolean; reporte: any[] }>(`/reportes/ocupacion${qs}`);
+  },
+  reporteMasVistas: (params?: { fechaInicio?: string; fechaFin?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return request<{ ok: boolean; reporte: any[] }>(`/reportes/mas-vistas${qs}`);
+  },
+  reporteVentas: (params?: { fechaInicio?: string; fechaFin?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return request<{ ok: boolean; reporte: any[] }>(`/reportes/ventas${qs}`);
+  },
+  historialCliente: (idCliente: number) =>
+    request<{ ok: boolean; historial: any[] }>(`/reportes/historial/${idCliente}`),
 };

@@ -10,7 +10,8 @@ export const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  dateStrings: true
+  dateStrings: true,
+  decimalNumbers: true
 });
 
 export async function testDatabaseConnection() {
