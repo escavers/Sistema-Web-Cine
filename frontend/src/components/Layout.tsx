@@ -6,6 +6,7 @@ const roleLabels: Record<Rol, string> = {
   ADMINISTRADOR: 'Administrador',
   BOLETERIA: 'Boletería',
   CLIENTE: 'Cliente',
+  ACCESO: 'Encargado de Acceso',
 };
 
 interface NavItem {
@@ -22,7 +23,7 @@ const navItems: NavItem[] = [
   { to: '/usuarios', label: 'Usuarios', roles: ['ADMINISTRADOR'] },
   { to: '/boleteria/registro', label: 'Registro presencial', roles: ['BOLETERIA', 'ADMINISTRADOR'] },
   { to: '/boleteria/venta', label: 'Venta boletería', roles: ['BOLETERIA', 'ADMINISTRADOR'] },
-  { to: '/acceso/validar', label: 'Control de acceso', roles: ['BOLETERIA', 'ADMINISTRADOR'] },
+  { to: '/acceso/validar', label: 'Control de acceso', roles: ['ACCESO', 'ADMINISTRADOR'] },
   { to: '/compra', label: 'Comprar boletos', roles: ['CLIENTE'] },
   { to: '/historial', label: 'Mi historial', roles: ['CLIENTE'] },
   { to: '/reportes', label: 'Reportes', roles: ['ADMINISTRADOR'] },

@@ -1,10 +1,12 @@
 import express from 'express';
 import { validateQrPass } from '../controllers/accessController.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { requireRoles } from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
 // Endpoint para validar pase QR escaneado (HU-16)
-router.post('/validate', async (req: express.Request, res: express.Response): Promise<any> => {
+router.post('/validate', authMiddleware, requireRoles('ADMINISTRADOR', 'ACCESO'), async (req: express.Request, res: express.Response): Promise<any> => {
   const { qrCode } = req.body;
 
   if (!qrCode) {
@@ -12,7 +14,8 @@ router.post('/validate', async (req: express.Request, res: express.Response): Pr
   }
 
   try {
-    const resultado = await validateQrPass(String(qrCode));
+    const idEncargado = req.user?.idUsuario;
+    const resultado = await validateQrPass(String(qrCode), idEncargado);
 
     if (resultado.valido) {
       return res.status(200).json({ 

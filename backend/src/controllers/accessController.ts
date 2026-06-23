@@ -9,7 +9,40 @@ import { pool } from '../config/db.js';
  * @param {string} qrCode - El código escaneado del pase (puede coincidir con idBoleto o idAsiento).
  * @returns {Promise<object>} Objeto con el estado de la validez y detalles del acceso.
  */
-export async function validateQrPass(qrCode: string): Promise<any> {
+export async function validateQrPass(qrCode: string, idEncargado?: number): Promise<any> {
+  const result = await _validateQrPassInternal(qrCode);
+
+  // Registrar el escaneo en la tabla EscanearBoleto si tenemos el ID del encargado
+  if (idEncargado) {
+    try {
+      let idBoleto = null;
+      if (result.detalle?.idBoleto) {
+        idBoleto = result.detalle.idBoleto;
+      } else {
+        // Intentar recuperar el idBoleto aunque el escaneo haya fallado
+        const isNumeric = /^\d+$/.test(qrCode);
+        const [boletos] = await pool.query<any[]>(
+          isNumeric 
+            ? 'SELECT idBoleto FROM Boleto WHERE idBoleto = ? LIMIT 1'
+            : 'SELECT idBoleto FROM Boleto WHERE idAsiento = ? LIMIT 1',
+          [isNumeric ? Number(qrCode) : qrCode]
+        );
+        if (boletos.length > 0) idBoleto = boletos[0].idBoleto;
+      }
+
+      await pool.query(
+        'INSERT INTO EscanearBoleto (fechaHora, resultado, idBoleto, idEncargado, estadoA, fechaA, usuarioA) VALUES (NOW(), ?, ?, ?, 1, CURDATE(), ?)',
+        [result.motivo, idBoleto, idEncargado, idEncargado]
+      );
+    } catch (e) {
+      console.error("Error al registrar en EscanearBoleto:", e);
+    }
+  }
+
+  return result;
+}
+
+async function _validateQrPassInternal(qrCode: string): Promise<any> {
   // Determinar si el qrCode es numérico (idBoleto) o texto (idAsiento)
   const isNumeric = /^\d+$/.test(qrCode);
   

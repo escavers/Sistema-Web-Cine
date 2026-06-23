@@ -56,6 +56,11 @@ CREATE TABLE Administrador (
     FOREIGN KEY (idUsuario) REFERENCES Usuario(idUsuario) ON DELETE CASCADE
 );
 
+CREATE TABLE EncargadoAcceso (
+    idUsuario INT PRIMARY KEY,
+    FOREIGN KEY (idUsuario) REFERENCES Usuario(idUsuario) ON DELETE CASCADE
+);
+
 CREATE TABLE Promocion (
     idPromocion VARCHAR(50) PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
@@ -198,6 +203,19 @@ CREATE TABLE Boleto (
     FOREIGN KEY (idFuncion) REFERENCES Funcion(idFuncion),
     FOREIGN KEY (idAsiento) REFERENCES Asiento(idAsiento),
     FOREIGN KEY (idVenta) REFERENCES Venta(idVenta) ON DELETE CASCADE
+);
+
+CREATE TABLE EscanearBoleto (
+    idEscaneo INT AUTO_INCREMENT PRIMARY KEY,
+    fechaHora DATETIME NOT NULL,
+    resultado VARCHAR(100) NOT NULL,
+    estadoA BOOLEAN DEFAULT TRUE,
+    fechaA DATE,
+    usuarioA INT,
+    idBoleto INT,
+    idEncargado INT,
+    FOREIGN KEY (idBoleto) REFERENCES Boleto(idBoleto) ON DELETE CASCADE,
+    FOREIGN KEY (idEncargado) REFERENCES EncargadoAcceso(idUsuario) ON DELETE SET NULL
 );
 
 CREATE TABLE Auditoria (

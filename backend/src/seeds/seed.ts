@@ -15,6 +15,7 @@ async function seed() {
       { id: 'ADMINISTRADOR', nombre: 'Administrador', desc: 'Control total del sistema' },
       { id: 'BOLETERIA', nombre: 'Encargado de Boletería', desc: 'Gestión de ventas presenciales y registro de clientes' },
       { id: 'CLIENTE', nombre: 'Cliente', desc: 'Cliente del cine con acceso al portal web' },
+      { id: 'ACCESO', nombre: 'Encargado de Acceso', desc: 'Control de acceso a salas mediante validación de boletos QR' },
     ];
 
     for (const rol of roles) {
@@ -31,6 +32,7 @@ async function seed() {
     const hash = await bcrypt.hash('admin123', 10);
     const hashBol = await bcrypt.hash('boleteria123', 10);
     const hashCli = await bcrypt.hash('cliente123', 10);
+    const hashAcc = await bcrypt.hash('acceso123', 10);
     const hashDemo = await bcrypt.hash('demo123', 10);
 
     // Admin
@@ -57,6 +59,19 @@ async function seed() {
     const bolId = bolRow[0]?.idUsuario;
     if (bolId) {
       await connection.query('INSERT IGNORE INTO EncargadoBoleteria (idUsuario) VALUES (?)', [bolId]);
+    }
+
+    // Encargado de Acceso
+    await connection.query(
+      `INSERT INTO Usuario (nombre1, nombre2, apellidoP, apellidoM, ci, correo, telefono, fechaNacimiento, contrasena, idRol, estado, estadoA, fechaA)
+       VALUES ('Jorge', NULL, 'Mendoza', 'Perez', '8901234', 'acceso@cinelapaz.com', '76543212', '1992-05-14', ?, 'ACCESO', 1, 1, CURDATE())
+       ON DUPLICATE KEY UPDATE contrasena = VALUES(contrasena)`,
+      [hashAcc]
+    );
+    const [accRow] = await connection.query<any[]>('SELECT idUsuario FROM Usuario WHERE correo = ? LIMIT 1', ['acceso@cinelapaz.com']);
+    const accId = accRow[0]?.idUsuario;
+    if (accId) {
+      await connection.query('INSERT IGNORE INTO EncargadoAcceso (idUsuario) VALUES (?)', [accId]);
     }
 
     // Clientes demo
