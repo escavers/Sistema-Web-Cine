@@ -32,17 +32,19 @@ export default function AccessValidationPage() {
       gain.connect(ctx.destination);
       
       if (success) {
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(800, ctx.currentTime); // Beep agudo para éxito
         gain.gain.setValueAtTime(0.1, ctx.currentTime);
         osc.start();
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
         osc.stop(ctx.currentTime + 0.15);
       } else {
+        osc.type = 'sawtooth'; // Sonido más rasposo/áspero para error
         osc.frequency.setValueAtTime(150, ctx.currentTime); // Zumbido grave para error
-        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
         osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-        osc.stop(ctx.currentTime + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        osc.stop(ctx.currentTime + 0.5);
       }
     } catch (e) {
       // Ignorar fallos de audio si el navegador bloquea la reproducción autónoma
