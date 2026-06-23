@@ -1,3 +1,4 @@
+
 # Sistema-Web-Cine
 
 ## Justificación Técnica de Modificaciones a la Base de Datos (Rama Correcciones D4)
@@ -58,3 +59,197 @@ Adicional a la base de datos, se aplicaron las siguientes correcciones ineludibl
 | boleteria@cinelapaz.com | boleteria123 | BOLETERIA |
 | cliente@cinelapaz.com | cliente123 | CLIENTE |
 | acceso@cinelapaz.com | acceso123 | ACCESO |
+=======
+# Sistema-Web-Cine# Portal Cine - Módulo de Seguridad, Autenticación y Usuarios
+
+## Incluye
+
+- Login con JWT.
+- Contraseñas cifradas con BCrypt.
+- Registro web de cliente.
+- Registro presencial de cliente para boletería.
+- Gestión de usuarios para administrador.
+- Control de acceso por roles.
+- Auditoría guardada solo en la base de datos.
+- Conexión real a MySQL mediante `mysql2/promise`.
+- Frontend en React + Vite + TypeScript + Tailwind.
+- Backend en Node.js + Express + TypeScript.
+
+
+## Configurar backend
+
+En una terminal:
+
+```bash
+cd backend
+npm install
+copy .env.example .env
+```
+
+En Git Bash o Linux:
+
+```bash
+cp .env.example .env
+```
+
+Edita `.env` según tu MySQL:
+
+```env
+PORT=3000
+
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=cine_db
+
+JWT_SECRET=cambia_esta_clave_super_segura_2026
+JWT_EXPIRES_IN=8h
+
+FRONTEND_URL=http://localhost:5173
+```
+
+Probar conexión:
+
+```bash
+npm run db:test
+```
+
+Levantar backend:
+
+```bash
+npm run dev
+```
+
+API:
+
+```txt
+http://localhost:3000/api
+```
+
+Prueba en navegador:
+
+```txt
+http://localhost:3000/api/health
+```
+
+## Configurar frontend
+
+En otra terminal:
+
+```bash
+cd frontend
+npm install
+copy .env.example .env
+npm run dev
+```
+
+En Git Bash o Linux:
+
+```bash
+cp .env.example .env
+npm run dev
+```
+
+Abrir:
+
+```txt
+http://localhost:5173
+```
+
+## Flujo para probar como cliente
+
+1. Entra a `http://localhost:5173`.
+2. Presiona `Crear cuenta`.
+3. Registra un cliente con correo y contraseña.
+4. El sistema guarda la contraseña cifrada en `Usuario.contrasena`.
+5. Después inicia sesión con ese correo y contraseña.
+6. El sistema muestra el panel de cliente.
+
+## Flujo para boletería
+
+Para entrar como boletería necesitas tener un usuario existente con:
+
+```txt
+Usuario.idRol = BOLETERIA
+```
+
+Desde ese perfil se puede registrar clientes presencialmente.
+
+La contraseña temporal se genera así:
+
+```txt
+CI + inicial apellido paterno + inicial apellido materno
+```
+
+Ejemplo:
+
+```txt
+CI: 12345678
+Apellido paterno: Perez
+Apellido materno: Mamani
+Contraseña temporal: 12345678PM
+```
+
+En la base de datos se guarda cifrada.
+
+## Flujo para administrador
+
+Para entrar como administrador necesitas tener un usuario existente con:
+
+```txt
+Usuario.idRol = ADMINISTRADOR
+```
+
+Desde ese perfil se puede:
+
+- Listar usuarios.
+- Crear usuarios.
+- Activar/inactivar.
+- Dar baja lógica.
+
+La baja lógica solo cambia:
+
+```sql
+estadoA = FALSE
+```
+
+No elimina físicamente el registro.
+
+## Si no tienes ningún administrador
+
+Usa el archivo opcional:
+
+```sql
+sql/03_crear_admin_manual_opcional.sql
+```
+
+Ese archivo no lo ejecuta el sistema automáticamente. Es solo para que puedas crear un administrador manualmente si tu tabla está vacía.
+
+## Auditoría
+
+No existe vista de auditoría en el frontend. Se guarda solo en MySQL, en la tabla `Auditoria`.
+
+Eventos principales:
+
+```txt
+LOGIN_EXITOSO
+LOGIN_FALLIDO_DATOS_INVALIDOS
+LOGIN_FALLIDO_CORREO_NO_REGISTRADO_POSIBLE_TYPO
+LOGIN_FALLIDO_PASSWORD_INCORRECTA
+LOGIN_FALLIDO_USUARIO_INACTIVO
+TOKEN_NO_ENVIADO
+TOKEN_INVALIDO
+ROL_NO_AUTORIZADO
+REGISTRO_WEB_CLIENTE
+REGISTRO_WEB_FALLIDO_DATOS_INVALIDOS
+REGISTRO_WEB_FALLIDO_DUPLICADO
+REGISTRO_BOLETERIA_CLIENTE
+REGISTRO_BOLETERIA_FALLIDO_DATOS_INVALIDOS
+REGISTRO_BOLETERIA_FALLIDO_DUPLICADO
+USUARIO_CREADO
+USUARIO_MODIFICADO
+USUARIO_DADO_BAJA
+```
+
+Por seguridad, cuando el login falla por contraseña incorrecta, no se guarda la contraseña escrita por el usuario.

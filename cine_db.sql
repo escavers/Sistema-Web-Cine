@@ -1,5 +1,5 @@
 -- ============================================================
--- CINE LA PAZ - Versión Simplificada (Sin Tablas de Herencia)
+-- CINE LA PAZ - Versión Simplificada 
 -- ============================================================
 
 DROP DATABASE IF EXISTS cine_db;
