@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+  background-color: #0a0a0f;
+  color: #e2e8f0;
+}
+
+/* ── Card principal cine ── */
+.card-cine {
+  @apply rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur;
+}
+
+/* ── Card suave ── */
+.soft-card {
+  @apply rounded-2xl border border-white/5 bg-white/[0.03] p-5;
+}
+
+/* ── Botón primario (dorado) ── */
+.btn-primary {
+  @apply rounded-xl bg-cinema-gold px-5 py-2.5 text-sm font-semibold text-cinema-black transition hover:bg-cinema-goldLight active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* ── Botón secundario (outline) ── */
+.btn-secondary {
+  @apply rounded-xl border border-white/15 bg-white/[0.05] px-5 py-2.5 text-sm font-semibold text-cinema-cream transition hover:bg-white/[0.1] active:scale-[0.97];
+}
+
+/* ── Input de formulario ── */
+.input-cine {
+  @apply mt-2 w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder-cinema-gray/50 outline-none transition focus:border-cinema-gold/50 focus:ring-1 focus:ring-cinema-gold/30;
+}
+
+/* ── Label de formulario ── */
+.label-cine {
+  @apply block text-xs font-semibold uppercase tracking-[0.15em] text-cinema-cream/70;
+}
+
+/* ── Scrollbar personalizado ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}

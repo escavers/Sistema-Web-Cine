@@ -1,0 +1,107 @@
+import type { Request, Response } from 'express';
+import { pool } from '../config/db.js';
+import { z } from 'zod';
+import { fail, ok } from '../utils/response.js';
+import { createAudit } from '../services/audit.service.js';
+
+const cancelacionSchema = z.object({
+  idVenta: z.number().min(1, 'ID de venta requerido'),
+});
+
+export async function cancelarVenta(req: Request, res: Response) {
+  const parsed = cancelacionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return fail(res, 'Datos inválidos.', 400, { errores: parsed.error.flatten() });
+  }
+
+  const { idVenta } = parsed.data;
+  const actor = req.user!;
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Obtener venta y fecha de función más cercana
+    const [ventaRows] = await connection.query<any[]>(
+      `SELECT v.idVenta, MIN(CONCAT(f.fecha, ' ', f.horaInicio)) AS fechaHoraFuncion
+       FROM Venta v
+       JOIN Boleto b ON v.idVenta = b.idVenta
+       JOIN Funcion f ON b.idFuncion = f.idFuncion
+       WHERE v.idVenta = ? AND v.estadoA = 1
+       GROUP BY v.idVenta`,
+      [idVenta]
+    );
+
+    if (!ventaRows.length) {
+      await connection.rollback();
+      return fail(res, 'Venta no encontrada o ya fue cancelada.', 404);
+    }
+
+    // Verificar 24 horas de anticipación
+    const fechaHoraFuncion = new Date(ventaRows[0].fechaHoraFuncion);
+    const ahora = new Date();
+    const diferenciaMs = fechaHoraFuncion.getTime() - ahora.getTime();
+    const diferenciaHoras = diferenciaMs / (1000 * 60 * 60);
+
+    if (diferenciaHoras < 24) {
+      await connection.rollback();
+      return fail(res, 'No es posible cancelar con menos de 24 horas de anticipación a la función.', 400);
+    }
+
+    // Obtener asientos de la venta
+    const [boletosRows] = await connection.query<any[]>(
+      'SELECT idAsiento FROM Boleto WHERE idVenta = ?',
+      [idVenta]
+    );
+
+    if (!boletosRows.length) {
+      await connection.rollback();
+      return fail(res, 'No se encontraron boletos para esta venta.', 404);
+    }
+
+    // Registrar cancelación
+    await connection.query(
+      `INSERT INTO Cancelacion (idVenta, fechaHora, estado, estadoA, fechaA, usuarioA)
+       VALUES (?, NOW(), 'APROBADA', 1, NOW(), ?)`,
+      [idVenta, actor.idUsuario]
+    );
+
+    // Liberar asientos
+    for (const { idAsiento } of boletosRows) {
+      await connection.query(
+        'UPDATE Asiento SET estado = 1, usuarioA = ? WHERE idAsiento = ?',
+        [actor.idUsuario, idAsiento]
+      );
+    }
+
+    // Marcar venta como cancelada
+    await connection.query(
+      `UPDATE Venta SET estado = 'CANCELADA', fechaA = NOW(), usuarioA = ? WHERE idVenta = ?`,
+      [actor.idUsuario, idVenta]
+    );
+
+    await connection.commit();
+
+    await createAudit({
+      tablaNombre: 'Venta',
+      registroId: idVenta,
+      accion: 'VENTA_CANCELADA',
+      usuarioA: actor.idUsuario,
+      req,
+      detalles: `Venta cancelada. Asientos liberados: ${boletosRows.map((r: any) => r.idAsiento).join(', ')}`
+    });
+
+    return ok(res, {
+      mensaje: 'Cancelación registrada correctamente.',
+      idVenta,
+      asientosLiberados: boletosRows.map((r: any) => r.idAsiento),
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error(error);
+    return fail(res, 'No se pudo procesar la cancelación.', 500);
+  } finally {
+    connection.release();
+  }
+}

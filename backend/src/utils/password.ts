@@ -1,0 +1,16 @@
+import bcrypt from 'bcryptjs';
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
+}
+
+export async function comparePassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
+}
+
+export function generarContrasenaTemporal(ci: string, apellidoP: string, apellidoM: string): string {
+  const inicialP = apellidoP.trim().charAt(0).toUpperCase();
+  const inicialM = apellidoM.trim().charAt(0).toUpperCase();
+  return `${ci}${inicialP}${inicialM}`;
+}
