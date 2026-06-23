@@ -229,6 +229,31 @@ async function seed() {
       }
     }
 
+    // --- INSERTAR BOLETOS DE PRUEBA PARA SIMULACIÓN DE ACCESOS (HU-16) ---
+    const [funcionesRow] = await connection.query<any[]>('SELECT idFuncion FROM Funcion LIMIT 1');
+    const [clientesRow] = await connection.query<any[]>('SELECT idUsuario FROM Cliente LIMIT 1');
+    if (funcionesRow.length > 0 && clientesRow.length > 0) {
+      const funcId = funcionesRow[0].idFuncion;
+      const clienteId = clientesRow[0].idUsuario;
+      
+      // Crear Venta Dummy
+      const [ventaRes] = await connection.query<any>(
+        `INSERT INTO Venta (idCliente, idEncargado, fechaCompra, tipo, montoTotal, estado, estadoA, fechaA, usuarioA)
+         VALUES (?, NULL, CURDATE(), 'WEB', 100.00, 'COMPLETADA', 1, CURDATE(), 1)`, [clienteId]
+      );
+      const idVentaTest = ventaRes.insertId;
+
+      // Boletos de prueba para los botones de simulador
+      await connection.query(
+        `INSERT INTO Boleto (idBoleto, idVenta, idAsiento, idFuncion, precioPagado, estadoA, fechaA, usuarioA)
+         VALUES 
+         (1, ?, 'SALA-1-A1', ?, 50.00, 1, CURDATE(), 1),
+         (2, ?, 'SALA-1-A2', ?, 50.00, 0, CURDATE(), 1)`
+         , [idVentaTest, funcId, idVentaTest, funcId]
+      );
+      console.log(`  - Boletos de simulación insertados (idBoleto=1, idAsiento=SALA-1-A1, idAsiento=SALA-1-A2)`);
+    }
+
     await connection.commit();
     console.log(`\nSeed completado exitosamente!`);
     console.log(`  - ${roles.length} roles`);
