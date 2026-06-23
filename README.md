@@ -43,4 +43,9 @@ Para asegurar que no haya problemas de conexión al probar estos cambios, **es o
 1. Abre otra terminal en la carpeta `/frontend`.
 2. Instala las dependencias: `npm install`.
 3. Levanta el cliente React: `npm run dev`.
-4. Abre `http://localhost:5173` en tu navegador y prueba el flujo con el usuario de Accesos (`acceso@cinelapaz.com`).
+4. Abre `http://localhost:5173` en tu navegador.
+
+### 🔑 Credenciales de Prueba para Control de Accesos
+Para que el equipo de desarrollo pueda probar la simulación del escáner y los códigos QR corregidos, inicien sesión con:
+* **Usuario/Correo:** `acceso@cinelapaz.com`
+* **Contraseña:** `acceso123`
