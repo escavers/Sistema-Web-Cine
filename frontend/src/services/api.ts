@@ -39,7 +39,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { ...options, headers });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.mensaje ?? 'Error al procesar la solicitud.');
+    const error = new Error(data.mensaje ?? 'Error al procesar la solicitud.');
+    (error as any).motivo = data.motivo;
+    throw error;
   }
   return data as T;
 }

@@ -63,7 +63,7 @@ export default function AccessValidationPage() {
     setResult(null);
 
     try {
-      const response = await api.validarAcceso({ qrCode: code });
+      const response = await api.validarAcceso(code);
       
       if (response.ok) {
         setResult({
@@ -83,7 +83,7 @@ export default function AccessValidationPage() {
     } catch (err: any) {
       setResult({
         success: false,
-        motivo: 'ERROR_CONEXION',
+        motivo: err.motivo || 'ERROR_CONEXION',
         mensaje: err.message || 'Error de conexión con el servidor. Verifique si la base de datos está activa.'
       });
       playBeep(false);
