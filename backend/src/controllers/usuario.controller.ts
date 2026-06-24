@@ -15,7 +15,7 @@ const crearUsuarioSchema = z.object({
   telefono: z.string().optional().nullable(),
   fechaNacimiento: z.string().optional().nullable(),
   contrasena: z.string().min(6),
-  idRol: z.enum(['ADMINISTRADOR', 'BOLETERIA', 'CLIENTE']),
+  idRol: z.enum(['ADMINISTRADOR', 'BOLETERIA', 'CLIENTE', 'ACCESO']),
   nit: z.string().optional().nullable(),
   razonSocial: z.string().optional().nullable()
 });
