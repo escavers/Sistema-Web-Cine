@@ -1,4 +1,4 @@
-export type Rol = 'ADMINISTRADOR' | 'BOLETERIA' | 'CLIENTE';
+export type Rol = 'ADMINISTRADOR' | 'BOLETERIA' | 'CLIENTE' | 'ACCESO';
 
 export interface AuthUser {
   idUsuario: number;

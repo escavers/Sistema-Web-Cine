@@ -39,7 +39,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { ...options, headers });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.mensaje ?? 'Error al procesar la solicitud.');
+    const error = new Error(data.mensaje ?? 'Error al procesar la solicitud.');
+    (error as any).motivo = data.motivo;
+    throw error;
   }
   return data as T;
 }
@@ -145,4 +147,9 @@ export const api = {
   },
   historialCliente: (idCliente: number) =>
     request<{ ok: boolean; historial: any[] }>(`/reportes/historial/${idCliente}`),
+  validarAcceso: (qrCode: string) =>
+    request<{ ok: boolean; mensaje: string; detalle: any }>('/acceso/validate', {
+      method: 'POST',
+      body: JSON.stringify({ qrCode })
+    }),
 };

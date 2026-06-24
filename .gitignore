@@ -30,3 +30,6 @@ frontend/dist/
 # Temp
 .tmp/
 temp/
+
+# Agent skills (no subir al repositorio)
+.agents/

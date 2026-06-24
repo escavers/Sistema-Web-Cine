@@ -41,6 +41,10 @@ app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/peliculas', peliculaRoutes);
 app.use('/api/salas', salaRoutes);
 app.use('/api/funciones', funcionRoutes);
+
+// --- Desarrollador 4: NUEVO ENDPOINT DE ACCESO (HU-16) ---
+import accessRoutes from './routes/accessRoutes.js';
+app.use('/api/acceso', accessRoutes);
 app.use('/api/reportes', reporteRoutes);
 app.use('/api', ventaRoutes);
 
