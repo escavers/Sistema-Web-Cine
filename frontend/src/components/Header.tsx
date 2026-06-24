@@ -8,10 +8,13 @@ interface HeaderProps {
 const roleLabels: Record<string, string> = {
   ADMINISTRADOR: 'Administrador',
   BOLETERIA: 'Boletería',
-  CLIENTE: 'Cliente'
+  CLIENTE: 'Cliente',
+  ACCESO: 'Encargado de Acceso',
 };
 
 export default function Header({ user, onLogout }: HeaderProps) {
+  const rolesDisplay = user?.idRol.map(r => roleLabels[r] ?? r).join(', ') || '';
+
   return (
     <header className="border-b border-white/10 bg-cinema-black/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
@@ -24,7 +27,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
           <div className="flex items-center gap-4">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold text-white">{user.nombreCompleto}</p>
-              <p className="text-xs text-cinema-gray">{roleLabels[user.idRol] ?? user.idRol}</p>
+              <p className="text-xs text-cinema-gray">{rolesDisplay}</p>
             </div>
             <button className="btn-secondary" onClick={onLogout}>Cerrar sesión</button>
           </div>

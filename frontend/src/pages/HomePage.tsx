@@ -1,15 +1,24 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import type { Rol } from '../types';
 
-const roleLabels = { ADMINISTRADOR: 'Administrador', BOLETERIA: 'Boletería', CLIENTE: 'Cliente' };
+const roleLabels: Record<Rol, string> = {
+  ADMINISTRADOR: 'Administrador',
+  BOLETERIA: 'Boletería',
+  CLIENTE: 'Cliente',
+  ACCESO: 'Encargado de Acceso',
+};
 
 export default function HomePage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const isAdmin = user.idRol === 'ADMINISTRADOR';
-  const isBoleteria = user.idRol === 'BOLETERIA';
-  const isCliente = user.idRol === 'CLIENTE';
+  const isAdmin = user.idRol.includes('ADMINISTRADOR');
+  const isBoleteria = user.idRol.includes('BOLETERIA');
+  const isCliente = user.idRol.includes('CLIENTE');
+  const isAcceso = user.idRol.includes('ACCESO');
+
+  const rolesDisplay = user.idRol.map(r => roleLabels[r]).join(', ');
 
   return (
     <section className="space-y-8">
@@ -21,11 +30,11 @@ export default function HomePage() {
             </div>
             <h2 className="mt-5 text-3xl font-bold text-white">Hola, {user.nombreCompleto}</h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-cinema-gray">
-              Bienvenido al portal de Cine La Paz. Las opciones disponibles se muestran según el perfil con el que ingresaste.
+              Bienvenido al portal de Cine La Paz. Las opciones disponibles se muestran según los perfiles con los que ingresaste.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 px-5 py-4 text-sm leading-7 text-cinema-gray">
-            <p><span className="font-semibold text-cinema-cream">Rol:</span> {roleLabels[user.idRol]}</p>
+            <p><span className="font-semibold text-cinema-cream">Roles:</span> {rolesDisplay}</p>
             <p><span className="font-semibold text-cinema-cream">Correo:</span> {user.correo}</p>
             <p><span className="font-semibold text-cinema-cream">CI:</span> {user.ci || 'No registrado'}</p>
           </div>
@@ -97,6 +106,16 @@ export default function HomePage() {
               </Link>
             </>
           )}
+        </div>
+      )}
+
+      {isAcceso && !isAdmin && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Link to="/acceso/validar" className="card-cine p-7 transition hover:border-cinema-gold/30">
+            <h3 className="text-xl font-semibold text-white">Control de acceso</h3>
+            <p className="mt-3 text-sm leading-7 text-cinema-gray">Valide boletos QR para el ingreso a salas.</p>
+            <span className="btn-primary mt-6 inline-block">Validar acceso</span>
+          </Link>
         </div>
       )}
     </section>

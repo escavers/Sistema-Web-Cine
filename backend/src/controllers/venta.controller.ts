@@ -29,12 +29,11 @@ export async function crearVenta(req: Request, res: Response) {
     return fail(res, 'Debe iniciar sesión para continuar.', 401);
   }
 
-  if (usuario.idRol === 'CLIENTE') {
+  if (usuario.idRol.includes('CLIENTE')) {
     data.idCliente = usuario.idUsuario;
     data.usuarioA = usuario.idUsuario;
   }
-  // Si el usuario es encargado de boletería, registrar como encargado
-  if (usuario.idRol === 'BOLETERIA') {
+  if (usuario.idRol.includes('BOLETERIA')) {
     data.idEncargado = usuario.idUsuario;
   }
   if (!data.usuarioA) {
@@ -46,7 +45,6 @@ export async function crearVenta(req: Request, res: Response) {
   try {
     await connection.beginTransaction();
 
-    // Obtener precio base
     const [funcionRows] = await connection.query<any[]>(
       'SELECT precioBase FROM Funcion WHERE idFuncion = ? AND estadoA = 1',
       [data.idFuncion]
@@ -60,23 +58,22 @@ export async function crearVenta(req: Request, res: Response) {
     const precioBase = parseFloat(funcionRows[0].precioBase);
     const montoTotal = Number((precioBase * data.asientos.length).toFixed(2));
 
-    // Crear venta
+    const codigo = `TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
     const [ventaResult] = await connection.query<any>(
-      `INSERT INTO Venta (idCliente, idEncargado, idPromocion, fechaCompra, tipo, montoTotal, estado, estadoA, fechaA, usuarioA)
-       VALUES (?, ?, NULL, NOW(), ?, ?, 'COMPLETADA', 1, NOW(), ?)`,
-      [data.idCliente, data.idEncargado, data.tipo, montoTotal, data.usuarioA]
+      `INSERT INTO Venta (idCliente, idEncargado, idFuncion, idPromocion, fechaCompra, tipo, montoTotal, estadoVenta, metodoPago, estadoPago, codigoTransaccion, fechaPago, estadoA, fechaA, usuarioA)
+       VALUES (?, ?, ?, NULL, NOW(), ?, ?, 'COMPLETADA', ?, 'APROBADO', ?, NOW(), 1, NOW(), ?)`,
+      [data.idCliente, data.idEncargado, data.idFuncion, data.tipo, montoTotal, data.formaPago, codigo, data.usuarioA]
     );
     const idVenta = ventaResult.insertId as number;
 
-    // Crear boletos y ocupar asientos
     for (const idAsiento of data.asientos) {
       await connection.query(
-        `INSERT INTO Boleto (idFuncion, idAsiento, idVenta, precioPagado, estadoA, fechaA, usuarioA)
-         VALUES (?, ?, ?, ?, 1, NOW(), ?)`,
-        [data.idFuncion, idAsiento, idVenta, montoTotal / data.asientos.length, data.usuarioA]
+        `INSERT INTO Boleto (idAsiento, idVenta, precioPagado, estadoA, fechaA, usuarioA)
+         VALUES (?, ?, ?, 1, NOW(), ?)`,
+        [idAsiento, idVenta, montoTotal / data.asientos.length, data.usuarioA]
       );
 
-      // Bloquear asiento con FOR UPDATE
       const [seatRows] = await connection.query<any[]>(
         'SELECT estado FROM Asiento WHERE idAsiento = ? FOR UPDATE',
         [idAsiento]
@@ -98,20 +95,11 @@ export async function crearVenta(req: Request, res: Response) {
       );
     }
 
-    // Crear pago
-    const codigo = `TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    await connection.query(
-      `INSERT INTO Pago (idVenta, fechaPago, montoTotal, metodoPago, estado, codigoTransaccion, estadoA, fechaA, usuarioA)
-       VALUES (?, NOW(), ?, ?, 'APROBADO', ?, 1, NOW(), ?)`,
-      [idVenta, montoTotal, data.formaPago, codigo, data.usuarioA]
-    );
-
-    // Si no se proporcionó NIT/razón social, intentar obtener del cliente registrado
     let nitToUse = data.nitCliente || null;
     let razonToUse = data.razonSocialCliente || null;
     if ((!nitToUse || !razonToUse) && data.idCliente) {
       const [clienteRows] = await connection.query<any[]>(
-        'SELECT nit, razonSocial FROM Cliente WHERE idUsuario = ?',
+        'SELECT nit, razonSocial FROM Usuario WHERE idUsuario = ?',
         [data.idCliente]
       );
       if (clienteRows.length) {

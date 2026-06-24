@@ -1,6 +1,5 @@
 -- ============================================================
--- CINE LA PAZ - Script completo de base de datos
--- Ejecutar en MySQL Workbench: Copiar todo > Execute
+-- CINE LA PAZ - Versión Simplificada (Sin Tablas de Herencia)
 -- ============================================================
 
 DROP DATABASE IF EXISTS cine_db;
@@ -20,6 +19,7 @@ CREATE TABLE Rol (
     usuarioA INT
 );
 
+-- SE INTEGRAN NIT Y RAZON SOCIAL AQUÍ
 CREATE TABLE Usuario (
     idUsuario INT AUTO_INCREMENT PRIMARY KEY,
     nombre1 VARCHAR(50) NOT NULL,
@@ -31,34 +31,22 @@ CREATE TABLE Usuario (
     telefono VARCHAR(20),
     fechaNacimiento DATE,
     contrasena VARCHAR(255) NOT NULL,
-    idRol VARCHAR(50) NOT NULL,
+    -- Campos exclusivos para clientes (pueden ser NULL)
+    nit VARCHAR(20) NULL,
+    razonSocial VARCHAR(100) NULL,
     estado BOOLEAN DEFAULT TRUE,
     estadoA BOOLEAN DEFAULT TRUE,
     fechaA DATE,
-    usuarioA INT,
-    FOREIGN KEY (idRol) REFERENCES Rol(idRol)
+    usuarioA INT
 );
 
-CREATE TABLE Cliente (
-    idUsuario INT PRIMARY KEY,
-    nit VARCHAR(20),
-    razonSocial VARCHAR(100),
-    FOREIGN KEY (idUsuario) REFERENCES Usuario(idUsuario) ON DELETE CASCADE
-);
-
-CREATE TABLE EncargadoBoleteria (
-    idUsuario INT PRIMARY KEY,
-    FOREIGN KEY (idUsuario) REFERENCES Usuario(idUsuario) ON DELETE CASCADE
-);
-
-CREATE TABLE Administrador (
-    idUsuario INT PRIMARY KEY,
-    FOREIGN KEY (idUsuario) REFERENCES Usuario(idUsuario) ON DELETE CASCADE
-);
-
-CREATE TABLE EncargadoAcceso (
-    idUsuario INT PRIMARY KEY,
-    FOREIGN KEY (idUsuario) REFERENCES Usuario(idUsuario) ON DELETE CASCADE
+-- TABLA INTERMEDIA MULTIROLES (Gobierna los permisos de empleados y clientes)
+CREATE TABLE Usuario_Rol (
+    idUsuario INT NOT NULL,
+    idRol VARCHAR(50) NOT NULL,
+    PRIMARY KEY (idUsuario, idRol),
+    FOREIGN KEY (idUsuario) REFERENCES Usuario(idUsuario) ON DELETE CASCADE,
+    FOREIGN KEY (idRol) REFERENCES Rol(idRol) ON DELETE CASCADE
 );
 
 CREATE TABLE Promocion (
@@ -126,35 +114,28 @@ CREATE TABLE Funcion (
     FOREIGN KEY (idPelicula) REFERENCES Pelicula(idPelicula)
 );
 
+-- VENTA UNIFICADA (incluye campos de pago anteriormente en tabla Pago)
 CREATE TABLE Venta (
     idVenta INT AUTO_INCREMENT PRIMARY KEY,
     idCliente INT,
     idEncargado INT,
+    idFuncion INT NOT NULL,
     idPromocion VARCHAR(50),
     fechaCompra DATETIME NOT NULL,
     tipo VARCHAR(50),
     montoTotal DECIMAL(10, 2) NOT NULL,
-    estado VARCHAR(50),
-    estadoA BOOLEAN DEFAULT TRUE,
-    fechaA DATE,
-    usuarioA INT,
-    FOREIGN KEY (idCliente) REFERENCES Cliente(idUsuario),
-    FOREIGN KEY (idEncargado) REFERENCES EncargadoBoleteria(idUsuario),
-    FOREIGN KEY (idPromocion) REFERENCES Promocion(idPromocion)
-);
-
-CREATE TABLE Pago (
-    idPago INT AUTO_INCREMENT PRIMARY KEY,
-    idVenta INT UNIQUE NOT NULL,
-    fechaPago DATETIME NOT NULL,
-    montoTotal DECIMAL(10, 2) NOT NULL,
+    estadoVenta VARCHAR(50),
     metodoPago VARCHAR(50),
-    estado VARCHAR(50),
+    estadoPago VARCHAR(50),
     codigoTransaccion VARCHAR(100),
+    fechaPago DATETIME,
     estadoA BOOLEAN DEFAULT TRUE,
     fechaA DATE,
     usuarioA INT,
-    FOREIGN KEY (idVenta) REFERENCES Venta(idVenta) ON DELETE CASCADE
+    FOREIGN KEY (idCliente) REFERENCES Usuario(idUsuario),
+    FOREIGN KEY (idEncargado) REFERENCES Usuario(idUsuario),
+    FOREIGN KEY (idFuncion) REFERENCES Funcion(idFuncion),
+    FOREIGN KEY (idPromocion) REFERENCES Promocion(idPromocion)
 );
 
 CREATE TABLE Comprobante (
@@ -188,19 +169,18 @@ CREATE TABLE Reporte (
     estadoA BOOLEAN DEFAULT TRUE,
     fechaA DATE,
     usuarioA INT,
-    FOREIGN KEY (idAdministrador) REFERENCES Administrador(idUsuario)
+    FOREIGN KEY (idAdministrador) REFERENCES Usuario(idUsuario)
 );
 
+-- BOLETO SIN RELACIÓN DIRECTA A FUNCIÓN (la función se obtiene via Venta)
 CREATE TABLE Boleto (
     idBoleto INT AUTO_INCREMENT PRIMARY KEY,
-    idFuncion INT NOT NULL,
     idAsiento VARCHAR(50) NOT NULL,
     idVenta INT NOT NULL,
     precioPagado DECIMAL(10, 2) NOT NULL,
     estadoA BOOLEAN DEFAULT TRUE,
     fechaA DATE,
     usuarioA INT,
-    FOREIGN KEY (idFuncion) REFERENCES Funcion(idFuncion),
     FOREIGN KEY (idAsiento) REFERENCES Asiento(idAsiento),
     FOREIGN KEY (idVenta) REFERENCES Venta(idVenta) ON DELETE CASCADE
 );
@@ -215,7 +195,7 @@ CREATE TABLE EscanearBoleto (
     idBoleto INT,
     idEncargado INT,
     FOREIGN KEY (idBoleto) REFERENCES Boleto(idBoleto) ON DELETE CASCADE,
-    FOREIGN KEY (idEncargado) REFERENCES EncargadoAcceso(idUsuario) ON DELETE SET NULL
+    FOREIGN KEY (idEncargado) REFERENCES Usuario(idUsuario) ON DELETE SET NULL
 );
 
 CREATE TABLE Auditoria (
@@ -239,6 +219,7 @@ CREATE TABLE Auditoria (
 
 DELIMITER $$
 
+-- AUDITORÍA: ROL
 CREATE TRIGGER tr_Rol_Alta AFTER INSERT ON Rol FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
@@ -257,16 +238,17 @@ BEGIN
     VALUES ('Rol', OLD.idRol, 'DELETE', CONCAT(OLD.idRol, '|', OLD.nombre), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
+-- AUDITORÍA: USUARIO (Incluye NIT y Razón Social)
 CREATE TRIGGER tr_Usuario_Alta AFTER INSERT ON Usuario FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Usuario', NEW.idUsuario, 'INSERT', NULL, CONCAT(NEW.nombre1, '|', NEW.apellidoP, '|', NEW.correo, '|', NEW.idRol), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Usuario', NEW.idUsuario, 'INSERT', NULL, CONCAT(NEW.nombre1, '|', NEW.apellidoP, '|', NEW.correo, '|NIT:', IFNULL(NEW.nit, 'N/A')), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Usuario_Modificacion AFTER UPDATE ON Usuario FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Usuario', NEW.idUsuario, 'UPDATE', CONCAT(OLD.nombre1, '|', OLD.apellidoP, '|', OLD.estado), CONCAT(NEW.nombre1, '|', NEW.apellidoP, '|', NEW.estado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Usuario', NEW.idUsuario, 'UPDATE', CONCAT(OLD.nombre1, '|', OLD.apellidoP, '|', OLD.estado, '|NIT:', IFNULL(OLD.nit, 'N/A')), CONCAT(NEW.nombre1, '|', NEW.apellidoP, '|', NEW.estado, '|NIT:', IFNULL(NEW.nit, 'N/A')), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Usuario_Baja AFTER DELETE ON Usuario FOR EACH ROW
@@ -275,48 +257,20 @@ BEGIN
     VALUES ('Usuario', OLD.idUsuario, 'DELETE', CONCAT(OLD.nombre1, '|', OLD.apellidoP), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
-CREATE TRIGGER tr_Cliente_Alta AFTER INSERT ON Cliente FOR EACH ROW
+-- AUDITORÍA: USUARIO_ROL (Multiroles)
+CREATE TRIGGER tr_UsuarioRol_Alta AFTER INSERT ON Usuario_Rol FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Cliente', NEW.idUsuario, 'INSERT', NULL, CONCAT(NEW.idUsuario, '|', IFNULL(NEW.nit, ''), '|', IFNULL(NEW.razonSocial, '')), NULL, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Usuario_Rol', CONCAT(NEW.idUsuario, '-', NEW.idRol), 'INSERT', NULL, CONCAT('User:', NEW.idUsuario, '|Rol:', NEW.idRol), NULL, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
-CREATE TRIGGER tr_Cliente_Modificacion AFTER UPDATE ON Cliente FOR EACH ROW
+CREATE TRIGGER tr_UsuarioRol_Baja AFTER DELETE ON Usuario_Rol FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Cliente', NEW.idUsuario, 'UPDATE', CONCAT(OLD.nit, '|', OLD.razonSocial), CONCAT(NEW.nit, '|', NEW.razonSocial), NULL, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Usuario_Rol', CONCAT(OLD.idUsuario, '-', OLD.idRol), 'DELETE', CONCAT('User:', OLD.idUsuario, '|Rol:', OLD.idRol), NULL, NULL, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
-CREATE TRIGGER tr_Cliente_Baja AFTER DELETE ON Cliente FOR EACH ROW
-BEGIN
-    INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Cliente', OLD.idUsuario, 'DELETE', CONCAT(OLD.idUsuario, '|', IFNULL(OLD.nit, '')), NULL, NULL, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
-END$$
-
-CREATE TRIGGER tr_EncargadoBoleteria_Alta AFTER INSERT ON EncargadoBoleteria FOR EACH ROW
-BEGIN
-    INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('EncargadoBoleteria', NEW.idUsuario, 'INSERT', NULL, CONCAT(NEW.idUsuario), NULL, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
-END$$
-
-CREATE TRIGGER tr_EncargadoBoleteria_Baja AFTER DELETE ON EncargadoBoleteria FOR EACH ROW
-BEGIN
-    INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('EncargadoBoleteria', OLD.idUsuario, 'DELETE', CONCAT(OLD.idUsuario), NULL, NULL, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
-END$$
-
-CREATE TRIGGER tr_Administrador_Alta AFTER INSERT ON Administrador FOR EACH ROW
-BEGIN
-    INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Administrador', NEW.idUsuario, 'INSERT', NULL, CONCAT(NEW.idUsuario), NULL, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
-END$$
-
-CREATE TRIGGER tr_Administrador_Baja AFTER DELETE ON Administrador FOR EACH ROW
-BEGIN
-    INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Administrador', OLD.idUsuario, 'DELETE', CONCAT(OLD.idUsuario), NULL, NULL, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
-END$$
-
+-- AUDITORÍA: PROMOCIÓN
 CREATE TRIGGER tr_Promocion_Alta AFTER INSERT ON Promocion FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
@@ -335,42 +289,29 @@ BEGIN
     VALUES ('Promocion', OLD.idPromocion, 'DELETE', CONCAT(OLD.nombre), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
+-- AUDITORÍA: VENTA (Tabla Fusionada Venta + Pago)
 CREATE TRIGGER tr_Venta_Alta AFTER INSERT ON Venta FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Venta', NEW.idVenta, 'INSERT', NULL, CONCAT(NEW.tipo, '|', NEW.montoTotal, '|', NEW.estado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Venta', NEW.idVenta, 'INSERT', NULL, CONCAT(NEW.tipo, '|Monto:', NEW.montoTotal, '|EstVenta:', IFNULL(NEW.estadoVenta, ''), '|Metodo:', IFNULL(NEW.metodoPago, ''), '|EstPago:', IFNULL(NEW.estadoPago, '')), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Venta_Modificacion AFTER UPDATE ON Venta FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Venta', NEW.idVenta, 'UPDATE', CONCAT(OLD.tipo, '|', OLD.montoTotal, '|', OLD.estado), CONCAT(NEW.tipo, '|', NEW.montoTotal, '|', NEW.estado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Venta', NEW.idVenta, 'UPDATE',
+            CONCAT(OLD.tipo, '|Monto:', OLD.montoTotal, '|EstVenta:', IFNULL(OLD.estadoVenta, ''), '|EstPago:', IFNULL(OLD.estadoPago, '')),
+            CONCAT(NEW.tipo, '|Monto:', NEW.montoTotal, '|EstVenta:', IFNULL(NEW.estadoVenta, ''), '|EstPago:', IFNULL(NEW.estadoPago, '')),
+            NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Venta_Baja AFTER DELETE ON Venta FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Venta', OLD.idVenta, 'DELETE', CONCAT(OLD.tipo, '|', OLD.montoTotal), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Venta', OLD.idVenta, 'DELETE', CONCAT(OLD.tipo, '|Monto:', OLD.montoTotal), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
-CREATE TRIGGER tr_Pago_Alta AFTER INSERT ON Pago FOR EACH ROW
-BEGIN
-    INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Pago', NEW.idPago, 'INSERT', NULL, CONCAT(NEW.metodoPago, '|', NEW.montoTotal, '|', NEW.estado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
-END$$
-
-CREATE TRIGGER tr_Pago_Modificacion AFTER UPDATE ON Pago FOR EACH ROW
-BEGIN
-    INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Pago', NEW.idPago, 'UPDATE', CONCAT(OLD.metodoPago, '|', OLD.estado), CONCAT(NEW.metodoPago, '|', NEW.estado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
-END$$
-
-CREATE TRIGGER tr_Pago_Baja AFTER DELETE ON Pago FOR EACH ROW
-BEGIN
-    INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Pago', OLD.idPago, 'DELETE', CONCAT(OLD.metodoPago, '|', OLD.montoTotal), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
-END$$
-
+-- AUDITORÍA: COMPROBANTE
 CREATE TRIGGER tr_Comprobante_Alta AFTER INSERT ON Comprobante FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
@@ -383,24 +324,27 @@ BEGIN
     VALUES ('Comprobante', OLD.idComprobante, 'DELETE', CONCAT(OLD.numero), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
+-- AUDITORÍA: CANCELACIÓN
 CREATE TRIGGER tr_Cancelacion_Alta AFTER INSERT ON Cancelacion FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Cancelacion', NEW.idCancelacion, 'INSERT', NULL, CONCAT(NEW.idVenta, '|', NEW.estado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Cancelacion', NEW.idCancelacion, 'INSERT', NULL, CONCAT('Venta:', NEW.idVenta, '|', NEW.estado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Cancelacion_Baja AFTER DELETE ON Cancelacion FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Cancelacion', OLD.idCancelacion, 'DELETE', CONCAT(OLD.idVenta, '|', OLD.estado), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Cancelacion', OLD.idCancelacion, 'DELETE', CONCAT('Venta:', OLD.idVenta, '|', OLD.estado), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
+-- AUDITORÍA: REPORTE
 CREATE TRIGGER tr_Reporte_Alta AFTER INSERT ON Reporte FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Reporte', NEW.idReporte, 'INSERT', NULL, CONCAT(NEW.tipo), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Reporte', NEW.idReporte, 'INSERT', NULL, CONCAT('Admin:', NEW.idAdministrador, '|Tipo:', NEW.tipo), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
+-- AUDITORÍA: PELÍCULA
 CREATE TRIGGER tr_Pelicula_Alta AFTER INSERT ON Pelicula FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
@@ -419,70 +363,74 @@ BEGIN
     VALUES ('Pelicula', OLD.idPelicula, 'DELETE', CONCAT(OLD.titulo, '|', IFNULL(OLD.director, '')), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
+-- AUDITORÍA: SALA
 CREATE TRIGGER tr_Sala_Alta AFTER INSERT ON Sala FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Sala', NEW.idSala, 'INSERT', NULL, CONCAT(NEW.tipo, '|', NEW.capacidadTotal), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Sala', NEW.idSala, 'INSERT', NULL, CONCAT(NEW.tipo, '|Capacidad:', NEW.capacidadTotal), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Sala_Modificacion AFTER UPDATE ON Sala FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Sala', NEW.idSala, 'UPDATE', CONCAT(OLD.tipo, '|', OLD.capacidadTotal), CONCAT(NEW.tipo, '|', NEW.capacidadTotal), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Sala', NEW.idSala, 'UPDATE', CONCAT(OLD.tipo, '|Capacidad:', OLD.capacidadTotal), CONCAT(NEW.tipo, '|Capacidad:', NEW.capacidadTotal), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Sala_Baja AFTER DELETE ON Sala FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Sala', OLD.idSala, 'DELETE', CONCAT(OLD.tipo, '|', OLD.capacidadTotal), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Sala', OLD.idSala, 'DELETE', CONCAT(OLD.tipo, '|Capacidad:', OLD.capacidadTotal), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
+-- AUDITORÍA: ASIENTO
 CREATE TRIGGER tr_Asiento_Alta AFTER INSERT ON Asiento FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Asiento', NEW.idAsiento, 'INSERT', NULL, CONCAT(NEW.fila, NEW.columna, '|', NEW.estado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Asiento', NEW.idAsiento, 'INSERT', NULL, CONCAT(NEW.fila, NEW.columna, '|Sala:', NEW.idSala), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Asiento_Modificacion AFTER UPDATE ON Asiento FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Asiento', NEW.idAsiento, 'UPDATE', CONCAT(OLD.fila, OLD.columna, '|', OLD.estado), CONCAT(NEW.fila, NEW.columna, '|', NEW.estado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Asiento', NEW.idAsiento, 'UPDATE', CONCAT(OLD.fila, OLD.columna, '|Estado:', OLD.estado), CONCAT(NEW.fila, NEW.columna, '|Estado:', NEW.estado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Asiento_Baja AFTER DELETE ON Asiento FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Asiento', OLD.idAsiento, 'DELETE', CONCAT(OLD.fila, OLD.columna, '|', OLD.estado), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Asiento', OLD.idAsiento, 'DELETE', CONCAT(OLD.fila, OLD.columna, '|Sala:', OLD.idSala), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
+-- AUDITORÍA: FUNCIÓN
 CREATE TRIGGER tr_Funcion_Alta AFTER INSERT ON Funcion FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Funcion', NEW.idFuncion, 'INSERT', NULL, CONCAT(NEW.idSala, '|', NEW.fecha, '|', NEW.horaInicio, '|', NEW.precioBase), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Funcion', NEW.idFuncion, 'INSERT', NULL, CONCAT('Sala:', NEW.idSala, '|Fecha:', NEW.fecha, '|Hora:', NEW.horaInicio, '|Precio:', NEW.precioBase), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Funcion_Modificacion AFTER UPDATE ON Funcion FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Funcion', NEW.idFuncion, 'UPDATE', CONCAT(OLD.horaInicio, '|', OLD.precioBase), CONCAT(NEW.horaInicio, '|', NEW.precioBase), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Funcion', NEW.idFuncion, 'UPDATE', CONCAT('Hora:', OLD.horaInicio, '|Precio:', OLD.precioBase), CONCAT('Hora:', NEW.horaInicio, '|Precio:', NEW.precioBase), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Funcion_Baja AFTER DELETE ON Funcion FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Funcion', OLD.idFuncion, 'DELETE', CONCAT(OLD.idSala, '|', OLD.fecha, '|', OLD.horaInicio), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Funcion', OLD.idFuncion, 'DELETE', CONCAT('Sala:', OLD.idSala, '|Fecha:', OLD.fecha, '|Hora:', OLD.horaInicio), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
+-- AUDITORÍA: BOLETO (Sin rastro de idFuncion)
 CREATE TRIGGER tr_Boleto_Alta AFTER INSERT ON Boleto FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Boleto', NEW.idBoleto, 'INSERT', NULL, CONCAT(NEW.idFuncion, '|', NEW.idAsiento, '|', NEW.precioPagado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Boleto', NEW.idBoleto, 'INSERT', NULL, CONCAT('Asiento:', NEW.idAsiento, '|Venta:', NEW.idVenta, '|PrecioPagado:', NEW.precioPagado), NEW.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 CREATE TRIGGER tr_Boleto_Baja AFTER DELETE ON Boleto FOR EACH ROW
 BEGIN
     INSERT INTO Auditoria (TablaNombre, RegistroId, Accion, ValorAnterior, ValorNuevo, UsuarioA, FechaA, DireccionIP)
-    VALUES ('Boleto', OLD.idBoleto, 'DELETE', CONCAT(OLD.idFuncion, '|', OLD.idAsiento, '|', OLD.precioPagado), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
+    VALUES ('Boleto', OLD.idBoleto, 'DELETE', CONCAT('Asiento:', OLD.idAsiento, '|Venta:', OLD.idVenta, '|PrecioPagado:', OLD.precioPagado), NULL, OLD.usuarioA, NOW(), SUBSTRING_INDEX(USER(), '@', -1));
 END$$
 
 DELIMITER ;
@@ -495,31 +443,30 @@ DELIMITER ;
 INSERT INTO Rol (idRol, nombre, descripcion) VALUES
 ('ADMINISTRADOR', 'Administrador', 'Control total del sistema'),
 ('BOLETERIA', 'Encargado de Boletería', 'Gestión de ventas presenciales y registro de clientes'),
-('CLIENTE', 'Cliente', 'Cliente del cine con acceso al portal web');
+('CLIENTE', 'Cliente', 'Cliente del cine con acceso al portal web'),
+('ACCESO', 'Encargado de Acceso', 'Control de acceso a salas mediante validación de boletos QR');
 
 -- 3.2 USUARIOS (contraseñas hasheadas con bcrypt, rounds=10)
--- admin123    -> $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
--- boleteria123
--- cliente123
+INSERT INTO Usuario (nombre1, nombre2, apellidoP, apellidoM, ci, correo, telefono, fechaNacimiento, contrasena, nit, razonSocial) VALUES
+('Admin', NULL, 'General', NULL, '1234567', 'admin@cinelapaz.com', '76543210', '1985-03-15', '$2a$10$nGiF8Yjg26jMfvB.RjnpR.XJz5l.x3VJ4b9K1GrSAQfY.ZB1DhCWm', NULL, NULL),
+('María', 'Elena', 'Gonzales', 'Mamani', '7890123', 'boleteria@cinelapaz.com', '76543211', '1990-07-22', '$2a$10$dAeDvl5.boGs.U792xkdWeT5cRFMGqN42ljMXvr/bIQNex.5jFkWq', NULL, NULL),
+('Carlos', NULL, 'Mamani', 'Condori', '4567890', 'cliente@cinelapaz.com', '71234567', '1995-01-10', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', '4567890', 'Carlos Mamani Condori'),
+('Ana', 'Lucía', 'Flores', 'Ríos', '5678901', 'ana.flores@email.com', '72345678', '1998-06-15', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', '5678901', 'Ana Lucía Flores Ríos'),
+('Luis', NULL, 'Quispe', 'Torres', '6789012', 'luis.quispe@email.com', '73456789', '1992-11-20', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', '6789012', 'Luis Quispe Torres'),
+('María', 'Fernanda', 'Vargas', 'López', '7890124', 'maria.vargas@email.com', '74567890', '2000-03-08', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', '7890124', 'María Fernanda Vargas López'),
+('Pedro', NULL, 'Huanca', 'Ramos', '8901234', 'pedro.huanca@email.com', '75678901', '1988-09-25', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', '8901234', 'Pedro Huanca Ramos'),
+('Jorge', NULL, 'Mendoza', 'Perez', '9012345', 'acceso@cinelapaz.com', '76543212', '1992-05-14', '$2a$10$dAeDvl5.boGs.U792xkdWeT5cRFMGqN42ljMXvr/bIQNex.5jFkWq', NULL, NULL);
 
-INSERT INTO Usuario (nombre1, nombre2, apellidoP, apellidoM, ci, correo, telefono, fechaNacimiento, contrasena, idRol) VALUES
-('Admin', NULL, 'General', NULL, '1234567', 'admin@cinelapaz.com', '76543210', '1985-03-15', '$2a$10$nGiF8Yjg26jMfvB.RjnpR.XJz5l.x3VJ4b9K1GrSAQfY.ZB1DhCWm', 'ADMINISTRADOR'),
-('María', 'Elena', 'Gonzales', 'Mamani', '7890123', 'boleteria@cinelapaz.com', '76543211', '1990-07-22', '$2a$10$dAeDvl5.boGs.U792xkdWeT5cRFMGqN42ljMXvr/bIQNex.5jFkWq', 'BOLETERIA'),
-('Carlos', NULL, 'Mamani', 'Condori', '4567890', 'cliente@cinelapaz.com', '71234567', '1995-01-10', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', 'CLIENTE'),
-('Ana', 'Lucía', 'Flores', 'Ríos', '5678901', 'ana.flores@email.com', '72345678', '1998-06-15', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', 'CLIENTE'),
-('Luis', NULL, 'Quispe', 'Torres', '6789012', 'luis.quispe@email.com', '73456789', '1992-11-20', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', 'CLIENTE'),
-('María', 'Fernanda', 'Vargas', 'López', '7890124', 'maria.vargas@email.com', '74567890', '2000-03-08', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', 'CLIENTE'),
-('Pedro', NULL, 'Huanca', 'Ramos', '8901234', 'pedro.huanca@email.com', '75678901', '1988-09-25', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', 'CLIENTE');
-
--- 3.3 TABLAS DE HERENCIA
-INSERT INTO Administrador (idUsuario) VALUES (1);
-INSERT INTO EncargadoBoleteria (idUsuario) VALUES (2);
-INSERT INTO Cliente (idUsuario, nit, razonSocial) VALUES
-(3, '4567890', 'Carlos Mamani Condori'),
-(4, '5678901', 'Ana Lucía Flores Ríos'),
-(5, '6789012', 'Luis Quispe Torres'),
-(6, '7890124', 'María Fernanda Vargas López'),
-(7, '8901234', 'Pedro Huanca Ramos');
+-- 3.3 USUARIO_ROL (Multiroles)
+INSERT INTO Usuario_Rol (idUsuario, idRol) VALUES
+(1, 'ADMINISTRADOR'),
+(2, 'BOLETERIA'),
+(3, 'CLIENTE'),
+(4, 'CLIENTE'),
+(5, 'CLIENTE'),
+(6, 'CLIENTE'),
+(7, 'CLIENTE'),
+(8, 'ACCESO');
 
 -- 3.4 SALAS
 INSERT INTO Sala (idSala, tipo, capacidadTotal, filas, columnas) VALUES
@@ -653,6 +600,115 @@ INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase)
 ('SALA-3', 3, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '16:30:00', '18:58:00', 40.00),
 ('SALA-4', 12, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '14:00:00', '17:35:00', 20.00),
 ('SALA-4', 2, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '19:00:00', '21:08:00', 20.00);
+
+-- ============================================================
+-- FASE 4: STORED PROCEDURES PARA REPORTES
+-- ============================================================
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_reporte_ocupacion$$
+CREATE PROCEDURE sp_reporte_ocupacion(
+    IN p_fechaInicio DATE,
+    IN p_fechaFin DATE
+)
+BEGIN
+    SELECT
+        f.fecha,
+        f.idSala,
+        s.tipo AS salaTipo,
+        p.titulo AS pelicula,
+        f.horaInicio,
+        s.capacidadTotal,
+        COUNT(b.idBoleto) AS boletosVendidos,
+        ROUND(COUNT(b.idBoleto) / s.capacidadTotal * 100, 1) AS ocupacionPorcentaje
+    FROM Funcion f
+    JOIN Sala s ON f.idSala = s.idSala
+    JOIN Pelicula p ON f.idPelicula = p.idPelicula
+    LEFT JOIN Venta v ON v.idFuncion = f.idFuncion AND v.estadoA = 1
+    LEFT JOIN Boleto b ON b.idVenta = v.idVenta AND b.estadoA = 1
+    WHERE f.estadoA = 1
+      AND (p_fechaInicio IS NULL OR f.fecha >= p_fechaInicio)
+      AND (p_fechaFin IS NULL OR f.fecha <= p_fechaFin)
+    GROUP BY f.idFuncion, f.fecha, f.idSala, s.tipo, p.titulo, f.horaInicio, s.capacidadTotal
+    ORDER BY f.fecha DESC, f.horaInicio;
+END$$
+
+DROP PROCEDURE IF EXISTS sp_reporte_mas_vistas$$
+CREATE PROCEDURE sp_reporte_mas_vistas(
+    IN p_fechaInicio DATE,
+    IN p_fechaFin DATE
+)
+BEGIN
+    SELECT
+        p.titulo AS pelicula,
+        p.director,
+        COUNT(b.idBoleto) AS totalBoletosVendidos,
+        ROUND(SUM(b.precioPagado), 2) AS ingresoTotal
+    FROM Boleto b
+    JOIN Venta v ON b.idVenta = v.idVenta
+    JOIN Funcion f ON v.idFuncion = f.idFuncion
+    JOIN Pelicula p ON f.idPelicula = p.idPelicula
+    WHERE f.estadoA = 1
+      AND b.estadoA = 1
+      AND (p_fechaInicio IS NULL OR f.fecha >= p_fechaInicio)
+      AND (p_fechaFin IS NULL OR f.fecha <= p_fechaFin)
+    GROUP BY p.idPelicula, p.titulo, p.director
+    ORDER BY totalBoletosVendidos DESC
+    LIMIT 10;
+END$$
+
+DROP PROCEDURE IF EXISTS sp_reporte_ventas$$
+CREATE PROCEDURE sp_reporte_ventas(
+    IN p_fechaInicio DATE,
+    IN p_fechaFin DATE
+)
+BEGIN
+    SELECT
+        DATE(v.fechaCompra) AS fecha,
+        v.tipo AS canal,
+        COUNT(v.idVenta) AS totalVentas,
+        SUM(v.montoTotal) AS ingresoTotal,
+        ROUND(AVG(v.montoTotal), 2) AS ventaPromedio
+    FROM Venta v
+    WHERE v.estadoA = 1
+      AND v.estadoVenta = 'COMPLETADA'
+      AND (p_fechaInicio IS NULL OR DATE(v.fechaCompra) >= p_fechaInicio)
+      AND (p_fechaFin IS NULL OR DATE(v.fechaCompra) <= p_fechaFin)
+    GROUP BY DATE(v.fechaCompra), v.tipo
+    ORDER BY fecha DESC;
+END$$
+
+DROP PROCEDURE IF EXISTS sp_historial_cliente$$
+CREATE PROCEDURE sp_historial_cliente(
+    IN p_idCliente INT
+)
+BEGIN
+    SELECT
+        v.idVenta,
+        c.numero,
+        p.titulo AS peliculaTitulo,
+        f.fecha,
+        f.horaInicio,
+        s.tipo AS salaTipo,
+        GROUP_CONCAT(CONCAT(a.fila, a.columna) ORDER BY a.fila, a.columna SEPARATOR ', ') AS asientos,
+        v.montoTotal,
+        v.estadoVenta
+    FROM Comprobante c
+    JOIN Venta v ON c.idVenta = v.idVenta
+    JOIN Boleto b ON v.idVenta = b.idVenta
+    JOIN Funcion f ON v.idFuncion = f.idFuncion
+    JOIN Pelicula p ON f.idPelicula = p.idPelicula
+    JOIN Sala s ON f.idSala = s.idSala
+    JOIN Asiento a ON b.idAsiento = a.idAsiento
+    WHERE v.idCliente = p_idCliente
+      AND v.estadoA = 1
+      AND v.estadoVenta = 'COMPLETADA'
+    GROUP BY c.idComprobante, c.numero, p.titulo, f.fecha, f.horaInicio, s.tipo, v.montoTotal, v.estadoVenta, v.idVenta
+    ORDER BY f.fecha DESC, f.horaInicio DESC;
+END$$
+
+DELIMITER ;
 
 -- ============================================================
 -- FIN DEL SCRIPT

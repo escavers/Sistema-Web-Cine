@@ -15,7 +15,7 @@ const crearUsuarioSchema = z.object({
   telefono: z.string().optional().nullable(),
   fechaNacimiento: z.string().optional().nullable(),
   contrasena: z.string().min(6),
-  idRol: z.enum(['ADMINISTRADOR', 'BOLETERIA', 'CLIENTE', 'ACCESO']),
+  idRol: z.array(z.enum(['ADMINISTRADOR', 'BOLETERIA', 'CLIENTE', 'ACCESO'])).min(1),
   nit: z.string().optional().nullable(),
   razonSocial: z.string().optional().nullable()
 });
@@ -33,27 +33,36 @@ export async function listarUsuarios(_req: Request, res: Response) {
   const [rows] = await pool.query(
     `
     SELECT
-      idUsuario,
-      nombre1,
-      nombre2,
-      apellidoP,
-      apellidoM,
-      ci,
-      correo,
-      telefono,
-      fechaNacimiento,
-      idRol,
-      estado,
-      estadoA,
-      fechaA,
-      usuarioA
-    FROM Usuario
-    WHERE estadoA = TRUE
-    ORDER BY idUsuario DESC
+      u.idUsuario,
+      u.nombre1,
+      u.nombre2,
+      u.apellidoP,
+      u.apellidoM,
+      u.ci,
+      u.correo,
+      u.telefono,
+      u.fechaNacimiento,
+      u.nit,
+      u.razonSocial,
+      u.estado,
+      u.estadoA,
+      u.fechaA,
+      u.usuarioA,
+      GROUP_CONCAT(ur.idRol) AS idRol
+    FROM Usuario u
+    LEFT JOIN Usuario_Rol ur ON u.idUsuario = ur.idUsuario
+    WHERE u.estadoA = TRUE
+    GROUP BY u.idUsuario
+    ORDER BY u.idUsuario DESC
     `
   );
 
-  return ok(res, { usuarios: rows });
+  const usuarios = (rows as any[]).map(u => ({
+    ...u,
+    idRol: u.idRol ? u.idRol.split(',') : []
+  }));
+
+  return ok(res, { usuarios });
 }
 
 export async function crearUsuario(req: Request, res: Response) {
@@ -84,13 +93,14 @@ export async function crearUsuario(req: Request, res: Response) {
         telefono,
         fechaNacimiento,
         contrasena,
-        idRol,
+        nit,
+        razonSocial,
         estado,
         estadoA,
         fechaA,
         usuarioA
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE, CURDATE(), ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE, CURDATE(), ?)
       `,
       [
         data.nombre1,
@@ -102,25 +112,18 @@ export async function crearUsuario(req: Request, res: Response) {
         data.telefono ?? null,
         data.fechaNacimiento ?? null,
         hashedPassword,
-        data.idRol,
+        data.nit ?? null,
+        data.razonSocial ?? null,
         actor.idUsuario
       ]
     );
 
     const idUsuario = result.insertId as number;
 
-    if (data.idRol === 'ADMINISTRADOR') {
-      await connection.query(`INSERT INTO Administrador (idUsuario) VALUES (?)`, [idUsuario]);
-    }
-
-    if (data.idRol === 'BOLETERIA') {
-      await connection.query(`INSERT INTO EncargadoBoleteria (idUsuario) VALUES (?)`, [idUsuario]);
-    }
-
-    if (data.idRol === 'CLIENTE') {
+    for (const rol of data.idRol) {
       await connection.query(
-        `INSERT INTO Cliente (idUsuario, nit, razonSocial) VALUES (?, ?, ?)`,
-        [idUsuario, data.nit ?? null, data.razonSocial ?? null]
+        `INSERT INTO Usuario_Rol (idUsuario, idRol) VALUES (?, ?)`,
+        [idUsuario, rol]
       );
     }
 
@@ -132,7 +135,7 @@ export async function crearUsuario(req: Request, res: Response) {
       accion: 'USUARIO_CREADO',
       usuarioA: actor.idUsuario,
       req,
-      detalles: `Usuario creado desde administración con rol ${data.idRol}.`
+      detalles: `Usuario creado desde administración con roles [${data.idRol.join(', ')}].`
     });
 
     return ok(res, { mensaje: 'Usuario creado correctamente.', idUsuario }, 201);
@@ -144,7 +147,7 @@ export async function crearUsuario(req: Request, res: Response) {
     }
 
     if (error?.code === 'ER_NO_REFERENCED_ROW_2') {
-      return fail(res, `Falta el rol ${data.idRol} en la tabla Rol. Ejecute el script SQL de roles mínimos.`, 500);
+      return fail(res, `Falta uno de los roles en la tabla Rol. Ejecute el script SQL de roles mínimos.`, 500);
     }
 
     console.error(error);

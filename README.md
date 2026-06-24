@@ -24,28 +24,37 @@ Adicional a la base de datos, se aplicaron las siguientes correcciones ineludibl
 
 ---
 
-## 🛠️ Instrucciones de Despliegue y Ejecución Local (Obligatorio para los Devs)
+## 🛠️ Instrucciones de Despliegue y Ejecución Local
 
-Para asegurar que no haya problemas de conexión al probar estos cambios, **es obligatorio seguir estos pasos en orden**:
+### 1. Base de Datos
+1. Abre MySQL Workbench (o tu gestor).
+2. Ejecuta el archivo `cine_db.sql` completo.
+   Esto crea la DB, tablas, triggers, datos de prueba y stored procedures.
 
-### 1. Configurar y Levantar Base de Datos
-1. Abre tu gestor de MySQL (phpMyAdmin, DBeaver, MySQL Workbench, etc.).
-2. **Ejecuta por completo el archivo `cine_db.sql`** ubicado en la raíz. Esto limpiará y creará la base de datos con las nuevas tablas (`EscanearBoleto` y `EncargadoAcceso`).
+### 2. Backend
+1. Crea el archivo `backend/.env` con tus credenciales MySQL:
+   ```
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=tu_password
+   DB_NAME=cine_db
+   PORT=4000
+   EMAIL_SERVICE=gmail
+   EMAIL_USER=tu_correo
+   EMAIL_PASSWORD=tu_contraseña
+   FRONTEND_URL=http://localhost:5173
+   ```
+2. En la terminal: `cd backend && npm install && npm run dev`
 
-### 2. Configurar Entorno del Backend
-1. Abre una terminal en la carpeta `/backend`.
-2. Verifica que el archivo `/backend/.env` tenga las credenciales correctas de tu MySQL local (usuario, contraseña y puerto `3306`).
-3. Instala dependencias (si no lo hiciste antes): `npm install`.
-4. **¡Paso Crítico! Ejecuta el Seed:** `npm run db:seed` o `npx tsx src/seeds/seed.ts`. Esto insertará los roles obligatorios y los datos de prueba, incluyendo al usuario `acceso@cinelapaz.com` (`acceso123`).
-5. Levanta el servidor: `npm run dev`. (Debe mostrar `API disponible en http://localhost:4000/api`).
+### 3. Frontend
+1. En otra terminal: `cd frontend && npm install && npm run dev`
+2. Abre http://localhost:5173
 
-### 3. Levantar Frontend
-1. Abre otra terminal en la carpeta `/frontend`.
-2. Instala las dependencias: `npm install`.
-3. Levanta el cliente React: `npm run dev`.
-4. Abre `http://localhost:5173` en tu navegador.
-
-### 🔑 Credenciales de Prueba para Control de Accesos
-Para que el equipo de desarrollo pueda probar la simulación del escáner y los códigos QR corregidos, inicien sesión con:
-* **Usuario/Correo:** `acceso@cinelapaz.com`
-* **Contraseña:** `acceso123`
+### 🔑 Credenciales de Prueba
+| Usuario | Contraseña | Rol |
+|---------|-----------|-----|
+| admin@cinelapaz.com | admin123 | ADMINISTRADOR |
+| boleteria@cinelapaz.com | boleteria123 | BOLETERIA |
+| cliente@cinelapaz.com | cliente123 | CLIENTE |
+| acceso@cinelapaz.com | acceso123 | ACCESO |

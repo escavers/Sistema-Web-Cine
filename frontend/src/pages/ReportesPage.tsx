@@ -10,6 +10,7 @@ export default function ReportesPage() {
   const [data, setData] = useState<any[]>([]);
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   async function loadReport() {
     setLoading(true);
@@ -31,6 +32,34 @@ export default function ReportesPage() {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al cargar reporte.' });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function downloadPdf() {
+    setDownloading(true);
+    setMessage(null);
+    try {
+      const params: any = {};
+      if (fechaInicio) params.fechaInicio = fechaInicio;
+      if (fechaFin) params.fechaFin = fechaFin;
+
+      let blob: Blob;
+      if (tab === 'ocupacion') blob = await api.descargarReporteOcupacionPdf(params);
+      else if (tab === 'mas-vistas') blob = await api.descargarReporteMasVistasPdf(params);
+      else blob = await api.descargarReporteVentasPdf(params);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte-${tab}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al descargar PDF.' });
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -59,6 +88,13 @@ export default function ReportesPage() {
           <Field label="Hasta" name="fechaFin" type="date" value={fechaFin} onChange={(_, v) => setFechaFin(v)} />
           <button className="btn-primary" disabled={loading} onClick={loadReport}>
             {loading ? 'Cargando...' : 'Consultar'}
+          </button>
+          <button
+            className="rounded-lg border border-cinema-gold/40 bg-cinema-gold/10 px-4 py-2 text-xs font-semibold text-cinema-gold transition hover:bg-cinema-gold/20 disabled:opacity-50"
+            disabled={downloading}
+            onClick={downloadPdf}
+          >
+            {downloading ? 'Generando...' : 'Descargar PDF'}
           </button>
         </div>
       </div>

@@ -11,7 +11,7 @@ async function getComprobanteData(idVenta: number) {
       c.razonSocialCliente,
       v.montoTotal,
       v.fechaCompra,
-      p.metodoPago,
+      v.metodoPago,
       f.fecha,
       f.horaInicio,
       f.idSala,
@@ -20,15 +20,14 @@ async function getComprobanteData(idVenta: number) {
       GROUP_CONCAT(CONCAT(a.fila, a.columna) ORDER BY a.fila, a.columna SEPARATOR ', ') AS asientos
     FROM Venta v
     LEFT JOIN Comprobante c ON v.idVenta = c.idVenta
-    LEFT JOIN Pago p ON v.idVenta = p.idVenta
     LEFT JOIN Boleto b ON v.idVenta = b.idVenta
     LEFT JOIN Asiento a ON b.idAsiento = a.idAsiento
-    LEFT JOIN Funcion f ON b.idFuncion = f.idFuncion
+    JOIN Funcion f ON v.idFuncion = f.idFuncion
     LEFT JOIN Sala s ON f.idSala = s.idSala
     LEFT JOIN Pelicula pel ON f.idPelicula = pel.idPelicula
     WHERE v.idVenta = ?
     GROUP BY v.idVenta, c.numero, c.nitCliente, c.razonSocialCliente, v.montoTotal,
-      v.fechaCompra, p.metodoPago, f.fecha, f.horaInicio, f.idSala, s.tipo, pel.titulo`,
+      v.fechaCompra, v.metodoPago, f.fecha, f.horaInicio, f.idSala, s.tipo, pel.titulo`,
     [idVenta]
   );
 
@@ -111,6 +110,10 @@ export async function enviarComprobanteEmail(req: Request, res: Response) {
   }
 
   try {
+<<<<<<< HEAD
+=======
+    const resultado = await sendComprobanteEmailInternal(idVenta, email);
+>>>>>>> df6c751514ff27b963d072478a816cd8d7c12568
     const [rows] = await pool.query(
       `SELECT
         c.numero,
@@ -118,7 +121,7 @@ export async function enviarComprobanteEmail(req: Request, res: Response) {
         c.razonSocialCliente,
         v.montoTotal,
         v.fechaCompra,
-        p.metodoPago,
+        v.metodoPago,
         f.fecha,
         f.horaInicio,
         f.idSala,
@@ -127,15 +130,14 @@ export async function enviarComprobanteEmail(req: Request, res: Response) {
         GROUP_CONCAT(CONCAT(a.fila, a.columna) ORDER BY a.fila, a.columna SEPARATOR ', ') AS asientos
       FROM Venta v
       LEFT JOIN Comprobante c ON v.idVenta = c.idVenta
-      LEFT JOIN Pago p ON v.idVenta = p.idVenta
       LEFT JOIN Boleto b ON v.idVenta = b.idVenta
       LEFT JOIN Asiento a ON b.idAsiento = a.idAsiento
-      LEFT JOIN Funcion f ON b.idFuncion = f.idFuncion
+      JOIN Funcion f ON v.idFuncion = f.idFuncion
       LEFT JOIN Sala s ON f.idSala = s.idSala
       LEFT JOIN Pelicula pel ON f.idPelicula = pel.idPelicula
       WHERE v.idVenta = ?
       GROUP BY v.idVenta, c.numero, c.nitCliente, c.razonSocialCliente, v.montoTotal,
-        v.fechaCompra, p.metodoPago, f.fecha, f.horaInicio, f.idSala, s.tipo, pel.titulo`,
+        v.fechaCompra, v.metodoPago, f.fecha, f.horaInicio, f.idSala, s.tipo, pel.titulo`,
       [idVenta]
     );
 
@@ -145,9 +147,6 @@ export async function enviarComprobanteEmail(req: Request, res: Response) {
 
     const comprobante = (rows as any[])[0];
     const qrUrl = `${env.frontendUrl}/comprobante/${encodeURIComponent(comprobante.numero)}`;
-
-    // Intentar enviar email (no falla si no está configurado)
-    let resultado = { enviado: false, motivo: 'Email no configurado' };
 
     if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
       try {
@@ -206,12 +205,9 @@ export async function enviarComprobanteEmail(req: Request, res: Response) {
           html,
         });
 
-        resultado = { enviado: true, motivo: '' };
       } catch (err: any) {
-        resultado = { enviado: false, motivo: err.message };
       }
     }
-
     return ok(res, {
       mensaje: resultado.enviado ? 'Email enviado correctamente' : `No se pudo enviar el email: ${resultado.motivo}`,
       ...resultado,

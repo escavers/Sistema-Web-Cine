@@ -147,6 +147,19 @@ export const api = {
   },
   historialCliente: (idCliente: number) =>
     request<{ ok: boolean; historial: any[] }>(`/reportes/historial/${idCliente}`),
+
+  descargarReporteOcupacionPdf: (params?: { fechaInicio?: string; fechaFin?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return requestBlob(`/reportes/ocupacion/pdf${qs}`);
+  },
+  descargarReporteMasVistasPdf: (params?: { fechaInicio?: string; fechaFin?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return requestBlob(`/reportes/mas-vistas/pdf${qs}`);
+  },
+  descargarReporteVentasPdf: (params?: { fechaInicio?: string; fechaFin?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return requestBlob(`/reportes/ventas/pdf${qs}`);
+  },
   validarAcceso: (qrCode: string) =>
     request<{ ok: boolean; mensaje: string; detalle: any }>('/acceso/validate', {
       method: 'POST',

@@ -6,23 +6,19 @@ import { pool } from '../config/db.js';
 
 /**
  * Valida si un identificador de pase QR corresponde a una entrada válida para la función en tiempo real.
- * @param {string} qrCode - El código escaneado del pase (puede coincidir con idBoleto o idAsiento).
- * @returns {Promise<object>} Objeto con el estado de la validez y detalles del acceso.
  */
 export async function validateQrPass(qrCode: string, idEncargado?: number): Promise<any> {
   const result = await _validateQrPassInternal(qrCode);
 
-  // Registrar el escaneo en la tabla EscanearBoleto si tenemos el ID del encargado
   if (idEncargado) {
     try {
       let idBoleto = null;
       if (result.detalle?.idBoleto) {
         idBoleto = result.detalle.idBoleto;
       } else {
-        // Intentar recuperar el idBoleto aunque el escaneo haya fallado
         const isNumeric = /^\d+$/.test(qrCode);
         const [boletos] = await pool.query<any[]>(
-          isNumeric 
+          isNumeric
             ? 'SELECT idBoleto FROM Boleto WHERE idBoleto = ? LIMIT 1'
             : 'SELECT idBoleto FROM Boleto WHERE idAsiento = ? LIMIT 1',
           [isNumeric ? Number(qrCode) : qrCode]
@@ -43,12 +39,11 @@ export async function validateQrPass(qrCode: string, idEncargado?: number): Prom
 }
 
 async function _validateQrPassInternal(qrCode: string): Promise<any> {
-  // Determinar si el qrCode es numérico (idBoleto) o texto (idAsiento)
   const isNumeric = /^\d+$/.test(qrCode);
-  
+
   let query = '';
   let params: any[] = [];
-  
+
   if (isNumeric) {
     query = 'SELECT * FROM Boleto WHERE idBoleto = ? LIMIT 1';
     params = [Number(qrCode)];
@@ -57,71 +52,77 @@ async function _validateQrPassInternal(qrCode: string): Promise<any> {
     params = [qrCode];
   }
 
-  // 1. Obtener la información del boleto
   const [boletos] = await pool.query<any[]>(query, params);
 
   if (boletos.length === 0) {
-    return { 
-      valido: false, 
-      motivo: 'BOLETO_NO_ENCONTRADO', 
-      mensaje: 'Boleto inválido o no registrado en el sistema.' 
+    return {
+      valido: false,
+      motivo: 'BOLETO_NO_ENCONTRADO',
+      mensaje: 'Boleto inválido o no registrado en el sistema.'
     };
   }
 
   const boleto = boletos[0];
 
-  // 2. Verificar estado del boleto (¿Ya fue utilizado o está cancelado?)
   if (boleto.estadoA === 0 || boleto.estadoA === false) {
-    return { 
-      valido: false, 
-      motivo: 'BOLETO_INVALIDADO', 
-      mensaje: 'Esta entrada ya ha sido utilizada, invalidada o cancelada.' 
+    return {
+      valido: false,
+      motivo: 'BOLETO_INVALIDADO',
+      mensaje: 'Esta entrada ya ha sido utilizada, invalidada o cancelada.'
     };
   }
 
-  // 3. Verificar validez de la función
+  const [ventaRows] = await pool.query<any[]>(
+    'SELECT v.idFuncion FROM Venta v WHERE v.idVenta = ?',
+    [boleto.idVenta]
+  );
+
+  if (!ventaRows.length) {
+    return {
+      valido: false,
+      motivo: 'VENTA_NO_ENCONTRADA',
+      mensaje: 'No se encontró la venta asociada a este boleto.'
+    };
+  }
+
+  const idFuncion = ventaRows[0].idFuncion;
+
   const [funciones] = await pool.query<any[]>(
     'SELECT f.*, p.titulo FROM Funcion f JOIN Pelicula p ON f.idPelicula = p.idPelicula WHERE f.idFuncion = ? AND f.estadoA = 1',
-    [boleto.idFuncion]
+    [idFuncion]
   );
 
   if (funciones.length === 0) {
-    return { 
-      valido: false, 
-      motivo: 'FUNCION_INEXISTENTE', 
-      mensaje: 'La función asociada a esta entrada no está activa o fue cancelada.' 
+    return {
+      valido: false,
+      motivo: 'FUNCION_INEXISTENTE',
+      mensaje: 'La función asociada a esta entrada no está activa o fue cancelada.'
     };
   }
 
   const funcion = funciones[0];
 
-  // 4. Verificar validez de fecha
-  // Obtener fecha actual en formato local de Bolivia (YYYY-MM-DD)
-  // Nota: Dado que el servidor corre en hora del sistema local, usamos la fecha local.
-  const today = new Date().toLocaleDateString('sv-SE'); // sv-SE da formato YYYY-MM-DD
+  const today = new Date().toLocaleDateString('sv-SE');
   if (funcion.fecha !== today) {
-    return { 
-      valido: false, 
-      motivo: 'FECHA_INCORRECTA', 
-      mensaje: `Esta entrada es para la fecha ${funcion.fecha}. Fecha actual del sistema: ${today}.` 
+    return {
+      valido: false,
+      motivo: 'FECHA_INCORRECTA',
+      mensaje: `Esta entrada es para la fecha ${funcion.fecha}. Fecha actual del sistema: ${today}.`
     };
   }
 
-  // 5. Verificar validez de la hora: la función no debe haber finalizado.
-  const currentTime = new Date().toTimeString().split(' ')[0]; // HH:MM:SS
+  const currentTime = new Date().toTimeString().split(' ')[0];
   if (funcion.horaFin < currentTime) {
-    return { 
-      valido: false, 
-      motivo: 'FUNCION_EXPIRADA', 
-      mensaje: `La función asociada a esta entrada ya finalizó a las ${funcion.horaFin}.` 
+    return {
+      valido: false,
+      motivo: 'FUNCION_EXPIRADA',
+      mensaje: `La función asociada a esta entrada ya finalizó a las ${funcion.horaFin}.`
     };
   }
 
-  // *** LÓGICA DE REGISTRO DE ACCESO EXITOSO ***
-  // Si todo es correcto, marcar como usado (estadoA = 0) para evitar doble lectura.
   try {
     await pool.query(
-      'UPDATE Boleto SET estadoA = 0 WHERE idBoleto = ?', 
+      'UPDATE Boleto SET estadoA = 0 WHERE idBoleto = ?',
       [boleto.idBoleto]
     );
 
@@ -132,7 +133,7 @@ async function _validateQrPassInternal(qrCode: string): Promise<any> {
       detalle: {
         idBoleto: boleto.idBoleto,
         asientoId: boleto.idAsiento,
-        idFuncion: boleto.idFuncion,
+        idFuncion: idFuncion,
         pelicula: funcion.titulo,
         horaInicio: funcion.horaInicio,
         horaFin: funcion.horaFin
@@ -141,10 +142,10 @@ async function _validateQrPassInternal(qrCode: string): Promise<any> {
 
   } catch (e) {
     console.error("Error al registrar uso de boleto:", e);
-    return { 
-      valido: false, 
-      motivo: 'ERROR_BD', 
-      mensaje: 'Error de base de datos al registrar el acceso.' 
+    return {
+      valido: false,
+      motivo: 'ERROR_BD',
+      mensaje: 'Error de base de datos al registrar el acceso.'
     };
   }
 }
