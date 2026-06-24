@@ -13,7 +13,9 @@ export interface UsuarioRow extends RowDataPacket {
   telefono: string | null;
   fechaNacimiento: string | null;
   contrasena: string;
-  idRol: Rol;
+  nit: string | null;
+  razonSocial: string | null;
+  idRol: Rol[];
   estado: number | boolean;
   estadoA: number | boolean;
   fechaA: string | null;
@@ -21,32 +23,41 @@ export interface UsuarioRow extends RowDataPacket {
 }
 
 export async function findUserByEmail(correo: string): Promise<UsuarioRow | null> {
-  const [rows] = await pool.query<UsuarioRow[]>(
+  const [rows] = await pool.query(
     `
     SELECT
-      idUsuario,
-      nombre1,
-      nombre2,
-      apellidoP,
-      apellidoM,
-      ci,
-      correo,
-      telefono,
-      fechaNacimiento,
-      contrasena,
-      idRol,
-      estado,
-      estadoA,
-      fechaA,
-      usuarioA
-    FROM Usuario
-    WHERE correo = ?
+      u.idUsuario,
+      u.nombre1,
+      u.nombre2,
+      u.apellidoP,
+      u.apellidoM,
+      u.ci,
+      u.correo,
+      u.telefono,
+      u.fechaNacimiento,
+      u.contrasena,
+      u.nit,
+      u.razonSocial,
+      u.estado,
+      u.estadoA,
+      u.fechaA,
+      u.usuarioA,
+      GROUP_CONCAT(ur.idRol) AS idRol
+    FROM Usuario u
+    LEFT JOIN Usuario_Rol ur ON u.idUsuario = ur.idUsuario
+    WHERE u.correo = ?
+    GROUP BY u.idUsuario
     LIMIT 1
     `,
     [correo]
   );
 
-  return rows[0] ?? null;
+  const raw = (rows as any[])[0] ?? null;
+  if (!raw) return null;
+
+  const user = raw as UsuarioRow;
+  user.idRol = (raw.idRol ? raw.idRol.split(',') : []) as Rol[];
+  return user;
 }
 
 export function publicUser(usuario: UsuarioRow) {

@@ -14,7 +14,7 @@ const initial = {
   telefono: '',
   fechaNacimiento: '',
   contrasena: '',
-  idRol: 'CLIENTE' as Rol,
+  idRol: ['CLIENTE'] as Rol[],
   nit: '',
   razonSocial: ''
 };
@@ -22,10 +22,11 @@ const initial = {
 const roleLabels: Record<Rol, string> = {
   CLIENTE: 'Cliente',
   BOLETERIA: 'Boletería',
-  ADMINISTRADOR: 'Administrador'
+  ADMINISTRADOR: 'Administrador',
+  ACCESO: 'Acceso',
 };
 
-const roles: Rol[] = ['CLIENTE', 'BOLETERIA', 'ADMINISTRADOR'];
+const allRoles: Rol[] = ['CLIENTE', 'BOLETERIA', 'ADMINISTRADOR', 'ACCESO'];
 
 export default function AdminUsersPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -51,15 +52,31 @@ export default function AdminUsersPage() {
     setForm((current) => ({ ...current, [name]: value }));
   }
 
+  function toggleRole(rol: Rol) {
+    setForm((current) => {
+      const roles = current.idRol.includes(rol)
+        ? current.idRol.filter(r => r !== rol)
+        : [...current.idRol, rol];
+      return { ...current, idRol: roles.length > 0 ? roles : ['CLIENTE'] };
+    });
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
     setMessage(null);
 
     try {
-      const payload = Object.fromEntries(
-        Object.entries(form).map(([key, value]) => [key, value || null])
-      );
+      const payload = {
+        ...form,
+        nombre2: form.nombre2 || null,
+        apellidoM: form.apellidoM || null,
+        ci: form.ci || null,
+        telefono: form.telefono || null,
+        fechaNacimiento: form.fechaNacimiento || null,
+        nit: form.nit || null,
+        razonSocial: form.razonSocial || null,
+      };
 
       const response = await api.crearUsuario(payload);
       setMessage({ type: 'ok', text: response.mensaje });
@@ -111,6 +128,10 @@ export default function AdminUsersPage() {
     }
   }
 
+  function formatRoles(roles: Rol[]) {
+    return roles.map(r => roleLabels[r]).join(', ');
+  }
+
   return (
     <section className="space-y-8">
       <div className="card-cine p-7">
@@ -128,14 +149,27 @@ export default function AdminUsersPage() {
           <Field label="Correo" name="correo" type="email" value={form.correo} required onChange={update} />
           <Field label="Teléfono" name="telefono" value={form.telefono} onChange={update} />
           <Field label="Fecha nacimiento" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={update} />
-          <label className="block">
-            <span className="label-cine">Rol</span>
-            <select className="input-cine" value={form.idRol} onChange={(event) => update('idRol', event.target.value)}>
-              {roles.map((rol) => (
-                <option key={rol} value={rol}>{roleLabels[rol]}</option>
+
+          <div className="block">
+            <span className="label-cine">Roles</span>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {allRoles.map((rol) => (
+                <button
+                  key={rol}
+                  type="button"
+                  onClick={() => toggleRole(rol)}
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    form.idRol.includes(rol)
+                      ? 'bg-cinema-gold text-cinema-black'
+                      : 'bg-white/[0.05] text-cinema-gray hover:bg-white/[0.1]'
+                  }`}
+                >
+                  {roleLabels[rol]}
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
+
           <Field label="Contraseña" name="contrasena" type="password" value={form.contrasena} required onChange={update} />
           <Field label="NIT" name="nit" value={form.nit} onChange={update} />
           <Field label="Razón social" name="razonSocial" value={form.razonSocial} onChange={update} />
@@ -161,7 +195,7 @@ export default function AdminUsersPage() {
               <tr>
                 <th className="px-5 py-4">Nombre</th>
                 <th className="px-5 py-4">Correo</th>
-                <th className="px-5 py-4">Rol</th>
+                <th className="px-5 py-4">Roles</th>
                 <th className="px-5 py-4">CI</th>
                 <th className="px-5 py-4">Estado</th>
                 <th className="px-5 py-4">Acciones</th>
@@ -172,7 +206,7 @@ export default function AdminUsersPage() {
                 <tr key={usuario.idUsuario} className="border-t border-white/5">
                   <td className="px-5 py-4 text-white">{usuario.nombre1} {usuario.apellidoP}</td>
                   <td className="px-5 py-4">{usuario.correo}</td>
-                  <td className="px-5 py-4">{roleLabels[usuario.idRol]}</td>
+                  <td className="px-5 py-4">{formatRoles(usuario.idRol)}</td>
                   <td className="px-5 py-4">{usuario.ci || '—'}</td>
                   <td className="px-5 py-4">{Boolean(usuario.estado) ? 'Activo' : 'Inactivo'}</td>
                   <td className="px-5 py-4">

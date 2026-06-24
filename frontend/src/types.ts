@@ -4,7 +4,7 @@ export interface AuthUser {
   idUsuario: number;
   nombreCompleto: string;
   correo: string;
-  idRol: Rol;
+  idRol: Rol[];
   ci: string | null;
   telefono: string | null;
 }
@@ -19,7 +19,9 @@ export interface Usuario {
   correo: string;
   telefono: string | null;
   fechaNacimiento: string | null;
-  idRol: Rol;
+  nit: string | null;
+  razonSocial: string | null;
+  idRol: Rol[];
   estado: boolean | number;
   estadoA: boolean | number;
   fechaA: string | null;

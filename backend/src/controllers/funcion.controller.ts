@@ -35,7 +35,8 @@ export async function obtenerAsientosPorFuncion(req: Request<{ id: string }>, re
        CASE
          WHEN EXISTS(
            SELECT 1 FROM Boleto b
-           WHERE b.idFuncion = f.idFuncion
+           JOIN Venta v ON b.idVenta = v.idVenta
+           WHERE v.idFuncion = f.idFuncion
              AND b.idAsiento = a.idAsiento
              AND b.estadoA = 1
          ) THEN 0

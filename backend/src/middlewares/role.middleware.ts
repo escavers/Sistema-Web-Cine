@@ -11,14 +11,16 @@ export function requireRoles(...rolesPermitidos: Rol[]) {
       return fail(res, 'Debe iniciar sesión para continuar.', 401);
     }
 
-    if (!rolesPermitidos.includes(usuario.idRol)) {
+    const tienePermiso = usuario.idRol.some(r => rolesPermitidos.includes(r));
+
+    if (!tienePermiso) {
       await createAudit({
         tablaNombre: 'Usuario',
         registroId: usuario.idUsuario,
         accion: 'ROL_NO_AUTORIZADO',
         usuarioA: usuario.idUsuario,
         req,
-        detalles: `El rol ${usuario.idRol} intentó acceder a una operación permitida para: ${rolesPermitidos.join(', ')}.`
+        detalles: `Los roles [${usuario.idRol.join(', ')}] intentaron acceder a una operación permitida para: ${rolesPermitidos.join(', ')}.`
       });
 
       return fail(res, 'No tiene permisos para realizar esta acción.', 403);

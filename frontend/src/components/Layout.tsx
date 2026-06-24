@@ -16,7 +16,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { to: '/', label: 'Inicio', roles: ['ADMINISTRADOR', 'BOLETERIA', 'CLIENTE'] },
+  { to: '/', label: 'Inicio', roles: ['ADMINISTRADOR', 'BOLETERIA', 'CLIENTE', 'ACCESO'] },
   { to: '/peliculas', label: 'Cartelera', roles: ['ADMINISTRADOR'] },
   { to: '/salas', label: 'Salas', roles: ['ADMINISTRADOR'] },
   { to: '/funciones', label: 'Funciones', roles: ['ADMINISTRADOR'] },
@@ -40,8 +40,10 @@ export default function Layout() {
   }
 
   const visibleItems = navItems.filter(
-    (item) => user && item.roles.includes(user.idRol)
+    (item) => user && item.roles.some(r => user.idRol.includes(r))
   );
+
+  const rolesDisplay = user?.idRol.map(r => roleLabels[r]).join(', ') || '';
 
   return (
     <div className="min-h-screen bg-cinema-black">
@@ -56,7 +58,7 @@ export default function Layout() {
             <div className="flex items-center gap-4">
               <div className="hidden text-right sm:block">
                 <p className="text-sm font-semibold text-white">{user.nombreCompleto}</p>
-                <p className="text-xs text-cinema-gray">{roleLabels[user.idRol]}</p>
+                <p className="text-xs text-cinema-gray">{rolesDisplay}</p>
               </div>
               <button className="btn-secondary text-xs" onClick={handleLogout}>
                 Cerrar sesión

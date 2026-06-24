@@ -40,7 +40,7 @@ const registroPresencialSchema = z.object({
   razonSocial: z.string().optional().nullable()
 });
 
-function buildToken(usuario: { idUsuario: number; idRol: string; correo: string }) {
+function buildToken(usuario: { idUsuario: number; idRol: string[]; correo: string }) {
   const options: SignOptions = {
     expiresIn: env.jwtExpiresIn as SignOptions['expiresIn']
   };
@@ -131,7 +131,7 @@ export async function login(req: Request, res: Response) {
     accion: 'LOGIN_EXITOSO',
     usuarioA: usuario.idUsuario,
     req,
-    detalles: `Inicio de sesión exitoso con rol ${usuario.idRol}.`
+    detalles: `Inicio de sesión exitoso con roles [${usuario.idRol.join(', ')}].`
   });
 
   return ok(res, {
@@ -190,13 +190,14 @@ export async function registroClienteWeb(req: Request, res: Response) {
         telefono,
         fechaNacimiento,
         contrasena,
-        idRol,
+        nit,
+        razonSocial,
         estado,
         estadoA,
         fechaA,
         usuarioA
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'CLIENTE', TRUE, TRUE, CURDATE(), NULL)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE, CURDATE(), NULL)
       `,
       [
         data.nombre1,
@@ -207,18 +208,17 @@ export async function registroClienteWeb(req: Request, res: Response) {
         data.correo,
         data.telefono ?? null,
         data.fechaNacimiento ?? null,
-        hashedPassword
+        hashedPassword,
+        data.nit ?? null,
+        data.razonSocial ?? null
       ]
     );
 
     const idUsuario = resultUsuario.insertId as number;
 
     await connection.query(
-      `
-      INSERT INTO Cliente (idUsuario, nit, razonSocial)
-      VALUES (?, ?, ?)
-      `,
-      [idUsuario, data.nit ?? null, data.razonSocial ?? null]
+      `INSERT INTO Usuario_Rol (idUsuario, idRol) VALUES (?, 'CLIENTE')`,
+      [idUsuario]
     );
 
     await connection.commit();
@@ -303,13 +303,14 @@ export async function registroClientePresencial(req: Request, res: Response) {
         telefono,
         fechaNacimiento,
         contrasena,
-        idRol,
+        nit,
+        razonSocial,
         estado,
         estadoA,
         fechaA,
         usuarioA
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'CLIENTE', TRUE, TRUE, CURDATE(), ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE, CURDATE(), ?)
       `,
       [
         data.nombre1,
@@ -321,6 +322,8 @@ export async function registroClientePresencial(req: Request, res: Response) {
         data.telefono ?? null,
         data.fechaNacimiento ?? null,
         hashedPassword,
+        data.nit ?? null,
+        data.razonSocial ?? null,
         actor.idUsuario
       ]
     );
@@ -328,11 +331,8 @@ export async function registroClientePresencial(req: Request, res: Response) {
     const idUsuario = resultUsuario.insertId as number;
 
     await connection.query(
-      `
-      INSERT INTO Cliente (idUsuario, nit, razonSocial)
-      VALUES (?, ?, ?)
-      `,
-      [idUsuario, data.nit ?? null, data.razonSocial ?? null]
+      `INSERT INTO Usuario_Rol (idUsuario, idRol) VALUES (?, 'CLIENTE')`,
+      [idUsuario]
     );
 
     await connection.commit();
