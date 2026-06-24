@@ -4,7 +4,7 @@ export interface AuthUser {
   idUsuario: number;
   nombreCompleto: string;
   correo: string;
-  idRol: Rol[];
+  idRol: Rol | Rol[] | string;
   ci: string | null;
   telefono: string | null;
 }

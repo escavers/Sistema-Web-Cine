@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { clearSession, getStoredUser, setSession } from '../services/api';
+import { clearSession, getStoredUser, normalizeUser, setSession } from '../services/api';
 import type { AuthUser } from '../types';
 
 interface AuthContextType {
@@ -18,14 +18,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = getStoredUser();
     if (stored) {
-      setUser(stored);
+      setUser(normalizeUser(stored));
     }
     setLoading(false);
   }, []);
 
   function login(token: string, nextUser: AuthUser) {
-    setSession(token, nextUser);
-    setUser(nextUser);
+    const normalized = normalizeUser(nextUser);
+    setSession(token, normalized);
+    setUser(normalized);
   }
 
   function logout() {

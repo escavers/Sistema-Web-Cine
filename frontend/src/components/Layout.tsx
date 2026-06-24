@@ -39,11 +39,13 @@ export default function Layout() {
     navigate('/login');
   }
 
+  const roles = Array.isArray(user?.idRol) ? user.idRol : typeof user?.idRol === 'string' ? [user.idRol] : [];
+
   const visibleItems = navItems.filter(
-    (item) => user && item.roles.some(r => user.idRol.includes(r))
+    (item) => user && item.roles.some(r => roles.includes(r))
   );
 
-  const rolesDisplay = user?.idRol.map(r => roleLabels[r]).join(', ') || '';
+  const rolesDisplay = roles.map(r => roleLabels[r]).join(', ') || '';
 
   return (
     <div className="min-h-screen bg-cinema-black">

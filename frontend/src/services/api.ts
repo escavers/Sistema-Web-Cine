@@ -1,6 +1,22 @@
-import type { AuthUser, LoginResponse, Usuario } from '../types';
+import type { AuthUser, LoginResponse, Usuario, Rol } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
+
+export function normalizeRoles(roles: Rol | Rol[] | string | null | undefined): Rol[] {
+  if (!roles) return [];
+  if (Array.isArray(roles)) return roles;
+  return String(roles)
+    .split(',')
+    .map(r => r.trim())
+    .filter(Boolean) as Rol[];
+}
+
+export function normalizeUser(user: AuthUser): AuthUser {
+  return {
+    ...user,
+    idRol: normalizeRoles(user.idRol)
+  };
+}
 
 export function getToken() {
   return localStorage.getItem('cine_token');
@@ -8,7 +24,7 @@ export function getToken() {
 
 export function setSession(token: string, usuario: AuthUser) {
   localStorage.setItem('cine_token', token);
-  localStorage.setItem('cine_usuario', JSON.stringify(usuario));
+  localStorage.setItem('cine_usuario', JSON.stringify(normalizeUser(usuario)));
 }
 
 export function clearSession() {
@@ -20,7 +36,8 @@ export function getStoredUser(): AuthUser | null {
   const raw = localStorage.getItem('cine_usuario');
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as AuthUser;
+    const stored = JSON.parse(raw) as AuthUser;
+    return normalizeUser(stored);
   } catch {
     clearSession();
     return null;

@@ -110,10 +110,7 @@ export async function enviarComprobanteEmail(req: Request, res: Response) {
   }
 
   try {
-<<<<<<< HEAD
-=======
     const resultado = await sendComprobanteEmailInternal(idVenta, email);
->>>>>>> df6c751514ff27b963d072478a816cd8d7c12568
     const [rows] = await pool.query(
       `SELECT
         c.numero,
