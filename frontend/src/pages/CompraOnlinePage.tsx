@@ -325,25 +325,34 @@ export default function CompraOnlinePage() {
                     <div>
                       <p className="text-xs uppercase tracking-[0.25em] text-cinema-cream/70">Selecciona fecha</p>
                       <div className="grid grid-cols-2 gap-3 mt-4 sm:grid-cols-3 lg:grid-cols-4">
-                        {modalAvailableDates.map((date) => {
-                          const fechaObj = new Date(date);
-                          const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
-                          const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
-                          const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
-                          const active = modalSelectedDate === date;
-                          return (
-                            <button
-                              key={date}
-                              type="button"
-                              className={`group flex flex-col items-center justify-center gap-1 rounded-[2rem] border px-3 py-4 text-center transition ${active ? 'border-cinema-gold bg-cinema-gold text-cinema-black' : 'border-white/10 bg-white/[0.05] text-cinema-gray hover:border-white/20 hover:bg-white/[0.1]'}`}
-                              onClick={() => setModalSelectedDate(date)}
-                            >
-                              <span className="text-[10px] uppercase tracking-[0.25em] text-cinema-cream/80">{weekday}</span>
-                              <span className="text-2xl font-bold leading-none">{day}</span>
-                              <span className="text-xs uppercase tracking-[0.2em] text-cinema-cream/80">{month}</span>
-                            </button>
-                          );
-                        })}
+                        {
+  modalAvailableDates
+    .filter(date => {
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const dateObj = new Date(date);
+        return dateObj >= todayStart;
+      })
+    .map((date) => {
+      const fechaObj = new Date(date);
+      const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
+      const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
+      const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
+      const active = modalSelectedDate === date;
+      return (
+        <button
+          key={date}
+          type="button"
+          className={`group flex flex-col items-center justify-center gap-1 rounded-[2rem] border px-3 py-4 text-center transition ${active ? 'border-cinema-gold bg-cinema-gold text-cinema-black' : 'border-white/10 bg-white/[0.05] text-cinema-gray hover:border-white/20 hover:bg-white/[0.1]'}`}
+          onClick={() => setModalSelectedDate(date)}
+        >
+          <span className="text-[10px] uppercase tracking-[0.25em] text-cinema-cream/80">{weekday}</span>
+          <span className="text-2xl font-bold leading-none">{day}</span>
+          <span className="text-xs uppercase tracking-[0.2em] text-cinema-cream/80">{month}</span>
+        </button>
+      );
+    })
+}
                       </div>
                     </div>
 
@@ -354,7 +363,7 @@ export default function CompraOnlinePage() {
                           <div key={salaTipo} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
                             <h4 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-white">{salaTipo}</h4>
                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {funciones.map(func => {
+                              {funciones.filter(func => { const dt = buildLocalDateTime(func.fecha, func.horaInicio || '00:00'); return dt && dt.getTime() >= Date.now(); }).map(func => {
                                    const time = func.horaInicio?.substring(0, 5) ?? '—';
                                    const fechaHora = buildLocalDateTime(func.fecha, func.horaInicio || '00:00');
                                    const isPast = func.horaInicio ? (fechaHora ? fechaHora.getTime() <= Date.now() : true) : true;
