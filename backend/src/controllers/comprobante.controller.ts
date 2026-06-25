@@ -40,6 +40,14 @@ const comprobanteGroupBy = `
     f.idFuncion, f.fecha, f.horaInicio, f.horaFin, f.idSala, s.tipo, pel.titulo, pel.posterUrl, pel.clasificacionEdad
 `;
 
+async function getBoletos(idVenta: number): Promise<{ idBoleto: number; idAsiento: string }[]> {
+  const [rows] = await pool.query<any[]>(
+    'SELECT b.idBoleto, b.idAsiento FROM Boleto b WHERE b.idVenta = ? ORDER BY b.idAsiento',
+    [idVenta]
+  );
+  return rows;
+}
+
 export async function obtenerComprobantePorNumero(req: Request, res: Response) {
   const { numero } = req.params;
 
@@ -76,14 +84,17 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   }
 
   const comprobante = (rows as any[])[0];
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const PDFDocument = require('pdfkit');
+  const boletos = await getBoletos(comprobante.idVenta);
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const QRCode = require('qrcode');
 
-  const qrData = `CINE-${comprobante.numero}-${comprobante.nitCliente || 'CLIENTE'}-${new Date(comprobante.fechaEmision).getTime()}`;
-  const qrImage = await QRCode.toDataURL(qrData);
+  const qrImages = await Promise.all(
+    boletos.map((b) => QRCode.toDataURL(String(b.idBoleto)))
+  );
 
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
   const chunks: Uint8Array[] = [];
 
@@ -138,7 +149,7 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
 
   doc.moveTo(40, tableTop + 15).lineTo(555, tableTop + 15).stroke();
 
-  const cantidad = (comprobante.asientos?.split(',') || []).length;
+  const cantidad = boletos.length || 1;
   const precioUnitario = Number(comprobante.montoTotal) / cantidad;
 
   doc.text(cantidad.toString(), 60, tableTop + 20);
@@ -153,18 +164,34 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   doc.text(`Bs. ${Number(comprobante.montoTotal).toFixed(2)}`, 420, tableTop + 50);
   doc.moveDown(1.5);
 
-  // QR de verificación
-  doc.fontSize(11).font('Helvetica-Bold').text('CÓDIGO DE VERIFICACIÓN', { align: 'center', underline: true });
+  // Pases de entrada con QR por asiento
+  doc.fontSize(12).font('Helvetica-Bold').text('PASES DE ENTRADA', { align: 'center', underline: true });
   doc.moveDown(0.3);
 
-  const qrX = 240;
-  const qrY = doc.y;
-  const img = Buffer.from(qrImage.replace('data:image/png;base64,', ''), 'base64');
-  doc.image(img, qrX - 40, qrY, { width: 80, height: 80 });
-  doc.moveDown(5);
+  const qrSize = 60;
+  const colWidth = 170;
+  const cols = 3;
+  const startX = 40;
+  let x = startX;
+  let y = doc.y;
 
-  doc.fontSize(9).font('Helvetica').text(`Código: ${comprobante.numero}`, { align: 'center' });
-  doc.moveDown(0.5);
+  for (let i = 0; i < boletos.length; i++) {
+    const b = boletos[i];
+    const img = Buffer.from(qrImages[i].replace('data:image/png;base64,', ''), 'base64');
+
+    if (i > 0 && i % cols === 0) {
+      x = startX;
+      y += qrSize + 30;
+    }
+
+    doc.fontSize(8).font('Helvetica-Bold').text(b.idAsiento, x, y, { width: colWidth, align: 'center' });
+    doc.image(img, x + (colWidth - qrSize) / 2, y + 12, { width: qrSize, height: qrSize });
+    doc.fontSize(7).font('Helvetica').text(`Boleto #${b.idBoleto}`, x, y + 12 + qrSize + 2, { width: colWidth, align: 'center' });
+
+    x += colWidth;
+  }
+
+  doc.y = y + qrSize + 35;
 
   // Footer
   doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke();
@@ -179,7 +206,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   const [rows] = await pool.query(
     `SELECT
       c.numero, c.nitCliente, c.razonSocialCliente, c.fechaEmision,
-      v.montoTotal, v.fechaCompra, v.metodoPago, v.tipo AS canal,
+      v.idVenta, v.montoTotal, v.fechaCompra, v.metodoPago, v.tipo AS canal,
       f.fecha, f.horaInicio, f.idSala, s.tipo AS salaTipo, pel.titulo AS peliculaTitulo,
       GROUP_CONCAT(CONCAT(a.fila, a.columna) ORDER BY a.fila, a.columna SEPARATOR ', ') AS asientos
     FROM Comprobante c
@@ -191,7 +218,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
     LEFT JOIN Asiento a ON b.idAsiento = a.idAsiento
     WHERE c.numero = ?
     GROUP BY c.numero, c.nitCliente, c.razonSocialCliente, c.fechaEmision,
-      v.montoTotal, v.fechaCompra, v.metodoPago, v.tipo, f.fecha, f.horaInicio, f.idSala, s.tipo, pel.titulo`,
+      v.idVenta, v.montoTotal, v.fechaCompra, v.metodoPago, v.tipo, f.fecha, f.horaInicio, f.idSala, s.tipo, pel.titulo`,
     [numero]
   );
 
@@ -200,15 +227,18 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   }
 
   const comprobante = (rows as any[])[0];
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const PDFDocument = require('pdfkit');
+  const boletos = await getBoletos(comprobante.idVenta);
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const QRCode = require('qrcode');
 
-  const qrData = `CINE-${comprobante.numero}-${comprobante.nitCliente || 'CLIENTE'}-${new Date(comprobante.fechaEmision).getTime()}`;
-  const qrImage = await QRCode.toDataURL(qrData);
+  const qrImages = await Promise.all(
+    boletos.map((b) => QRCode.toDataURL(String(b.idBoleto)))
+  );
 
   // 80mm roll width is ~226 points. Height is fixed high to fit all, printers cut at end of content.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ size: [226, 800], margin: 10 });
   const chunks: Uint8Array[] = [];
 
@@ -251,19 +281,38 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.moveDown(0.5);
   doc.text('------------------------------------------', { align: 'center' });
 
-  const cantidad = (comprobante.asientos?.split(',') || []).length;
+  const cantidad = boletos.length || 1;
   doc.font('Helvetica-Bold').text(`TOTAL (${cantidad}x):`, { align: 'center', underline: true });
   doc.fontSize(14).text(`Bs. ${Number(comprobante.montoTotal).toFixed(2)}`, { align: 'center' });
   doc.moveDown(0.5);
 
   doc.fontSize(9).font('Helvetica').text('------------------------------------------', { align: 'center' });
-  doc.moveDown(0.5);
+  doc.moveDown(0.3);
 
-  const qrSize = 100;
+  // QR por asiento (vertical en ticket)
+  doc.fontSize(9).font('Helvetica-Bold').text('PASES DE ENTRADA', { align: 'center', underline: true });
+  doc.moveDown(0.3);
+
+  const qrSize = 50;
   const qrX = (226 - qrSize) / 2;
-  doc.image(qrImage, qrX, doc.y, { width: qrSize, height: qrSize });
-  doc.y += qrSize + 10;
 
+  for (let i = 0; i < boletos.length; i++) {
+    const b = boletos[i];
+    const img = Buffer.from(qrImages[i].replace('data:image/png;base64,', ''), 'base64');
+
+    doc.fontSize(8).font('Helvetica-Bold').text(`Asiento: ${b.idAsiento}`, { align: 'center' });
+    doc.image(img, qrX, doc.y + 2, { width: qrSize, height: qrSize });
+    doc.y += qrSize + 4;
+    doc.fontSize(7).font('Helvetica').text(`Boleto #${b.idBoleto}`, { align: 'center' });
+    doc.moveDown(0.3);
+
+    if (i < boletos.length - 1) {
+      doc.text('· · ·', { align: 'center' });
+      doc.moveDown(0.2);
+    }
+  }
+
+  doc.moveDown(0.3);
   doc.fontSize(8).text('Gracias por su preferencia.', { align: 'center' });
   doc.text('Conserve este ticket.', { align: 'center' });
 

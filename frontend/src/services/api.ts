@@ -152,11 +152,11 @@ export const api = {
     }),
 
   // Reportes
-  reporteOcupacion: (params?: { fechaInicio?: string; fechaFin?: string }) => {
+  reporteOcupacion: (params?: { fechaInicio?: string; fechaFin?: string; idPelicula?: number; idSala?: string }) => {
     const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
     return request<{ ok: boolean; reporte: any[] }>(`/reportes/ocupacion${qs}`);
   },
-  reporteMasVistas: (params?: { fechaInicio?: string; fechaFin?: string }) => {
+  reporteMasVistas: (params?: { fechaInicio?: string; fechaFin?: string; orden?: 'ASC' | 'DESC' }) => {
     const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
     return request<{ ok: boolean; reporte: any[] }>(`/reportes/mas-vistas${qs}`);
   },
@@ -167,11 +167,11 @@ export const api = {
   historialCliente: (idCliente: number) =>
     request<{ ok: boolean; historial: any[] }>(`/reportes/historial/${idCliente}`),
 
-  descargarReporteOcupacionPdf: (params?: { fechaInicio?: string; fechaFin?: string }) => {
+  descargarReporteOcupacionPdf: (params?: { fechaInicio?: string; fechaFin?: string; idPelicula?: number; idSala?: string }) => {
     const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
     return requestBlob(`/reportes/ocupacion/pdf${qs}`);
   },
-  descargarReporteMasVistasPdf: (params?: { fechaInicio?: string; fechaFin?: string }) => {
+  descargarReporteMasVistasPdf: (params?: { fechaInicio?: string; fechaFin?: string; orden?: 'ASC' | 'DESC' }) => {
     const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
     return requestBlob(`/reportes/mas-vistas/pdf${qs}`);
   },

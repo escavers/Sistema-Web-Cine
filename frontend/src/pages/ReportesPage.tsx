@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Field from '../components/Field';
 import Message from '../components/Message';
 import { api } from '../services/api';
@@ -7,20 +7,43 @@ export default function ReportesPage() {
   const [tab, setTab] = useState<'ocupacion' | 'mas-vistas' | 'ventas'>('ocupacion');
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
+  const [idPelicula, setIdPelicula] = useState('');
+  const [idSala, setIdSala] = useState('');
+  const [orden, setOrden] = useState<'DESC' | 'ASC'>('DESC');
+  const [peliculas, setPeliculas] = useState<any[]>([]);
+  const [salas, setSalas] = useState<any[]>([]);
   const [data, setData] = useState<any[]>([]);
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    if (tab === 'ocupacion') {
+      api.listarPeliculas().then(res => setPeliculas(res.peliculas || [])).catch(() => {});
+      api.listarSalas().then(res => setSalas(res.salas || [])).catch(() => {});
+    }
+  }, [tab]);
+
+  function buildParams() {
+    const params: any = {};
+    if (fechaInicio) params.fechaInicio = fechaInicio;
+    if (fechaFin) params.fechaFin = fechaFin;
+    if (tab === 'ocupacion') {
+      if (idPelicula) params.idPelicula = Number(idPelicula);
+      if (idSala) params.idSala = idSala;
+    }
+    if (tab === 'mas-vistas') {
+      params.orden = orden;
+    }
+    return params;
+  }
 
   async function loadReport() {
     setLoading(true);
     setMessage(null);
     setData([]);
     try {
-      const params: any = {};
-      if (fechaInicio) params.fechaInicio = fechaInicio;
-      if (fechaFin) params.fechaFin = fechaFin;
-
+      const params = buildParams();
       let res;
       if (tab === 'ocupacion') res = await api.reporteOcupacion(params);
       else if (tab === 'mas-vistas') res = await api.reporteMasVistas(params);
@@ -39,10 +62,7 @@ export default function ReportesPage() {
     setDownloading(true);
     setMessage(null);
     try {
-      const params: any = {};
-      if (fechaInicio) params.fechaInicio = fechaInicio;
-      if (fechaFin) params.fechaFin = fechaFin;
-
+      const params = buildParams();
       let blob: Blob;
       if (tab === 'ocupacion') blob = await api.descargarReporteOcupacionPdf(params);
       else if (tab === 'mas-vistas') blob = await api.descargarReporteMasVistasPdf(params);
@@ -63,6 +83,16 @@ export default function ReportesPage() {
     }
   }
 
+  function resetFilters() {
+    setFechaInicio('');
+    setFechaFin('');
+    setIdPelicula('');
+    setIdSala('');
+    setOrden('DESC');
+    setData([]);
+    setMessage(null);
+  }
+
   const tabs = [
     { id: 'ocupacion' as const, label: 'Ocupación' },
     { id: 'mas-vistas' as const, label: 'Más vistas' },
@@ -79,13 +109,48 @@ export default function ReportesPage() {
             {tabs.map(t => (
               <button key={t.id} className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
                 tab === t.id ? 'bg-cinema-gold text-cinema-black' : 'text-cinema-gray hover:text-white'
-              }`} onClick={() => { setTab(t.id); setData([]); setMessage(null); }}>
+              }`} onClick={() => { setTab(t.id); resetFilters(); }}>
                 {t.label}
               </button>
             ))}
           </div>
+
           <Field label="Desde" name="fechaInicio" type="date" value={fechaInicio} onChange={(_, v) => setFechaInicio(v)} />
           <Field label="Hasta" name="fechaFin" type="date" value={fechaFin} onChange={(_, v) => setFechaFin(v)} />
+
+          {tab === 'ocupacion' && (
+            <>
+              <label className="block">
+                <span className="label-cine">Película</span>
+                <select className="input-cine" value={idPelicula} onChange={e => setIdPelicula(e.target.value)}>
+                  <option value="">Todas</option>
+                  {peliculas.map((p: any) => (
+                    <option key={p.idPelicula} value={p.idPelicula}>{p.titulo}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="label-cine">Sala</span>
+                <select className="input-cine" value={idSala} onChange={e => setIdSala(e.target.value)}>
+                  <option value="">Todas</option>
+                  {salas.map((s: any) => (
+                    <option key={s.idSala} value={s.idSala}>{s.idSala} - {s.tipo}</option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
+
+          {tab === 'mas-vistas' && (
+            <label className="block">
+              <span className="label-cine">Orden</span>
+              <select className="input-cine" value={orden} onChange={e => setOrden(e.target.value as 'DESC' | 'ASC')}>
+                <option value="DESC">Mayor asistencia</option>
+                <option value="ASC">Menor asistencia</option>
+              </select>
+            </label>
+          )}
+
           <button className="btn-primary" disabled={loading} onClick={loadReport}>
             {loading ? 'Cargando...' : 'Consultar'}
           </button>
