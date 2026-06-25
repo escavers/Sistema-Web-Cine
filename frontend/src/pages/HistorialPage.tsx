@@ -6,19 +6,32 @@ import { api } from '../services/api';
 export default function HistorialPage() {
   const { user } = useAuth();
   const [historial, setHistorial] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [loadingCancel, setLoadingCancel] = useState<number | null>(null);
+
+  const [filterEstado, setFilterEstado] = useState('');
+  const [filterFecha, setFilterFecha] = useState('');
+  const [searchPelicula, setSearchPelicula] = useState('');
 
   const fetchHistorial = () => {
     if (!user) return;
     api.historialCliente(user.idUsuario)
-      .then(res => setHistorial(res.historial))
+      .then(res => {
+        setHistorial(res.historial);
+        setPage(1);
+      })
       .catch(err => setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al cargar historial.' }));
   };
 
   useEffect(() => {
     fetchHistorial();
   }, [user]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [filterEstado, filterFecha, searchPelicula]);
 
   const handleCancel = async (idVenta: number) => {
     const confirmCancel = window.confirm('¿Estás seguro de que deseas cancelar esta compra? La acción requiere al menos 24 horas antes de la función.');
@@ -50,12 +63,83 @@ export default function HistorialPage() {
     return fechaObj;
   };
 
+  const downloadPdf = async (numero: string) => {
+    try {
+      const blob = await api.descargarComprobantePdf(numero);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${numero}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Error al descargar el PDF' });
+    }
+  };
+
+  // Apply filters
+  const filteredHistorial = historial.filter(h => {
+    if (filterEstado && h.estadoVenta !== filterEstado) return false;
+    
+    if (filterFecha) {
+      const hDate = h.fecha ? new Date(h.fecha).toISOString().split('T')[0] : '';
+      if (hDate !== filterFecha) return false;
+    }
+
+    if (searchPelicula) {
+      const title = h.peliculaTitulo?.toLowerCase() || '';
+      if (!title.includes(searchPelicula.toLowerCase())) return false;
+    }
+
+    return true;
+  });
+
+  const itemsPerPage = 8;
+  const totalPages = Math.ceil(filteredHistorial.length / itemsPerPage);
+  const currentItems = filteredHistorial.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+
   return (
     <section className="space-y-8">
       <h2 className="text-2xl font-bold text-white">Mi historial de compras</h2>
       {message && <Message type={message.type} text={message.text} />}
 
-      <div className="card-cine overflow-hidden">
+      <div className="grid gap-4 md:grid-cols-3">
+        <div>
+          <label className="label-cine">Buscar por película</label>
+          <input
+            type="text"
+            className="input-cine"
+            placeholder="Ej: Mufasa..."
+            value={searchPelicula}
+            onChange={e => setSearchPelicula(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="label-cine">Filtrar por fecha</label>
+          <input
+            type="date"
+            className="input-cine"
+            value={filterFecha}
+            onChange={e => setFilterFecha(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="label-cine">Filtrar por estado</label>
+          <select
+            className="input-cine"
+            value={filterEstado}
+            onChange={e => setFilterEstado(e.target.value)}
+          >
+            <option value="">Todos los estados</option>
+            <option value="COMPLETADA">Completada</option>
+            <option value="CANCELADA">Cancelada</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="card-cine overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm text-cinema-gray">
             <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
@@ -72,7 +156,7 @@ export default function HistorialPage() {
               </tr>
             </thead>
             <tbody>
-              {historial.map((h, i) => {
+              {currentItems.map((h, i) => {
                 const canCancel = h.estadoVenta === 'COMPLETADA' && (() => {
                   const fechaFuncion = buildFuncionDateTime(h.fecha, h.horaInicio);
                   if (!fechaFuncion) return false;
@@ -82,8 +166,19 @@ export default function HistorialPage() {
                 })();
 
                 return (
-                  <tr key={i} className="border-t border-white/5">
-                    <td className="px-5 py-4 text-white font-medium">{h.numero}</td>
+                  <tr key={h.numero || i} className="border-t border-white/5">
+                    <td className="px-5 py-4 text-white font-medium">
+                      <div>{h.numero}</div>
+                      {h.estadoVenta === 'COMPLETADA' && (
+                        <button 
+                          onClick={() => downloadPdf(h.numero)} 
+                          className="mt-2 inline-flex items-center gap-1 rounded bg-white/[0.05] px-2 py-1 text-[10px] uppercase tracking-wider text-cinema-gold transition hover:bg-cinema-gold hover:text-black"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                          PDF
+                        </button>
+                      )}
+                    </td>
                     <td className="px-5 py-4">{h.peliculaTitulo}</td>
                     <td className="px-5 py-4">{h.fecha ? new Date(h.fecha).toLocaleDateString('es-BO') : '—'}</td>
                     <td className="px-5 py-4">{h.horaInicio?.substring(0, 5)}</td>
@@ -115,12 +210,40 @@ export default function HistorialPage() {
                   </tr>
                 );
               })}
-              {historial.length === 0 && (
-                <tr><td className="px-5 py-8 text-center" colSpan={9}>No tienes compras registradas.</td></tr>
+              {filteredHistorial.length === 0 && (
+                <tr>
+                  <td className="px-5 py-8 text-center" colSpan={9}>
+                    {historial.length === 0 ? 'No tienes compras registradas.' : 'No hay compras que coincidan con los filtros.'}
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
+        
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-white/5 px-5 py-4 bg-white/[0.01]">
+            <p className="text-sm text-cinema-gray">
+              Página <span className="font-semibold text-white">{page}</span> de <span className="font-semibold text-white">{totalPages}</span>
+            </p>
+            <div className="flex gap-2">
+              <button
+                className="btn-secondary px-3 py-1 text-xs"
+                disabled={page === 1}
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+              >
+                Anterior
+              </button>
+              <button
+                className="btn-secondary px-3 py-1 text-xs"
+                disabled={page === totalPages}
+                onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

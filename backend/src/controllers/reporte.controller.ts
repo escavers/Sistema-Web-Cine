@@ -7,11 +7,26 @@ function parseFecha(v: unknown): string | null {
   return v.trim() || null;
 }
 
+function parseId(v: unknown): number | null {
+  if (!v || v === '' || v === '0') return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
+
+function parseStr(v: unknown): string | null {
+  if (!v || typeof v !== 'string') return null;
+  return v.trim() || null;
+}
+
+// ── JSON endpoints ──────────────────────────────────────────
+
 export async function reporteOcupacion(req: Request, res: Response) {
   try {
     const fi = parseFecha(req.query.fechaInicio);
     const ff = parseFecha(req.query.fechaFin);
-    const [rows] = await pool.query('CALL sp_reporte_ocupacion(?, ?)', [fi, ff]);
+    const idPel = parseId(req.query.idPelicula);
+    const idSala = parseStr(req.query.idSala);
+    const [rows] = await pool.query('CALL sp_reporte_ocupacion(?, ?, ?, ?)', [fi, ff, idPel, idSala]);
     return ok(res, { reporte: (rows as any[])[0] });
   } catch (error) {
     console.error(error);
@@ -23,7 +38,8 @@ export async function reporteMasVistas(req: Request, res: Response) {
   try {
     const fi = parseFecha(req.query.fechaInicio);
     const ff = parseFecha(req.query.fechaFin);
-    const [rows] = await pool.query('CALL sp_reporte_mas_vistas(?, ?)', [fi, ff]);
+    const orden = req.query.orden === 'ASC' ? 'ASC' : 'DESC';
+    const [rows] = await pool.query('CALL sp_reporte_mas_vistas(?, ?, ?)', [fi, ff, orden]);
     return ok(res, { reporte: (rows as any[])[0] });
   } catch (error) {
     console.error(error);
@@ -56,37 +72,15 @@ export async function historialCliente(req: Request, res: Response) {
   }
 
   try {
-    const [rows] = await pool.query(
-      `SELECT
-         v.idVenta,
-         c.numero,
-         p.titulo AS peliculaTitulo,
-         f.fecha,
-         f.horaInicio,
-         s.tipo AS salaTipo,
-         GROUP_CONCAT(CONCAT(a.fila, a.columna) ORDER BY a.fila, a.columna SEPARATOR ', ') AS asientos,
-         v.montoTotal,
-         v.estadoVenta
-       FROM Comprobante c
-       JOIN Venta v ON c.idVenta = v.idVenta
-       JOIN Boleto b ON v.idVenta = b.idVenta
-       JOIN Funcion f ON v.idFuncion = f.idFuncion
-       JOIN Pelicula p ON f.idPelicula = p.idPelicula
-       JOIN Sala s ON f.idSala = s.idSala
-       JOIN Asiento a ON b.idAsiento = a.idAsiento
-       WHERE v.idCliente = ?
-         AND v.estadoA = 1
-         AND v.estadoVenta IN ('COMPLETADA', 'CANCELADA')
-       GROUP BY c.idComprobante, c.numero, p.titulo, f.fecha, f.horaInicio, s.tipo, v.montoTotal, v.estadoVenta, v.idVenta
-       ORDER BY f.fecha DESC, f.horaInicio DESC;`,
-      [idCliente]
-    );
-    return ok(res, { historial: rows as any[] });
+    const [rows] = await pool.query('CALL sp_historial_cliente(?)', [idCliente]);
+    return ok(res, { historial: (rows as any[])[0] });
   } catch (error) {
     console.error(error);
     return fail(res, 'Error al generar historial del cliente.', 500);
   }
 }
+
+// ── PDF helpers ─────────────────────────────────────────────
 
 function buildPdfTitle(doc: any, titulo: string, fechaInicio?: string | null, fechaFin?: string | null) {
   doc.fontSize(20).font('Helvetica-Bold').text(titulo, { align: 'center' });
@@ -141,11 +135,15 @@ function sendPdf(res: Response, doc: any, chunks: Uint8Array[], filename: string
   });
 }
 
+// ── PDF endpoints ───────────────────────────────────────────
+
 export async function reporteOcupacionPdf(req: Request, res: Response) {
   try {
     const fi = parseFecha(req.query.fechaInicio);
     const ff = parseFecha(req.query.fechaFin);
-    const [rows] = await pool.query('CALL sp_reporte_ocupacion(?, ?)', [fi, ff]);
+    const idPel = parseId(req.query.idPelicula);
+    const idSala = parseStr(req.query.idSala);
+    const [rows] = await pool.query('CALL sp_reporte_ocupacion(?, ?, ?, ?)', [fi, ff, idPel, idSala]);
     const data = (rows as any[])[0];
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -156,11 +154,11 @@ export async function reporteOcupacionPdf(req: Request, res: Response) {
 
     buildPdfTitle(doc, 'REPORTE DE OCUPACIÓN', fi, ff);
 
-    const headers = ['Fecha', 'Sala', 'Tipo', 'Película', 'Hora', 'Capacidad', 'Vendidos', 'Ocupación %'];
+    const headers = ['Fecha', 'Sala', 'Tipo', 'Película', 'Hora', 'Capacidad', 'Vendidos', 'Disponibles', 'Ocupación %'];
     const tableRows = data.map((r: any) => [
       new Date(r.fecha).toLocaleDateString('es-BO'),
       r.idSala, r.salaTipo, r.pelicula, r.horaInicio?.substring(0, 5),
-      r.capacidadTotal, r.boletosVendidos, `${r.ocupacionPorcentaje}%`
+      r.capacidadTotal, r.boletosVendidos, r.asientosDisponibles, `${r.ocupacionPorcentaje}%`
     ]);
     const endY = drawPdfTable(doc, headers, tableRows);
 
@@ -178,7 +176,8 @@ export async function reporteMasVistasPdf(req: Request, res: Response) {
   try {
     const fi = parseFecha(req.query.fechaInicio);
     const ff = parseFecha(req.query.fechaFin);
-    const [rows] = await pool.query('CALL sp_reporte_mas_vistas(?, ?)', [fi, ff]);
+    const orden = req.query.orden === 'ASC' ? 'ASC' : 'DESC';
+    const [rows] = await pool.query('CALL sp_reporte_mas_vistas(?, ?, ?)', [fi, ff, orden]);
     const data = (rows as any[])[0];
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -189,9 +188,11 @@ export async function reporteMasVistasPdf(req: Request, res: Response) {
 
     buildPdfTitle(doc, 'PELÍCULAS MÁS VISTAS', fi, ff);
 
-    const headers = ['#', 'Película', 'Director', 'Boletos vendidos', 'Ingreso total (Bs.)'];
+    const headers = ['#', 'Película', 'Director', 'Boletos', 'Ingreso (Bs.)', 'Ocup. %', 'Funciones', 'Semanas'];
     const tableRows = data.map((r: any, i: number) => [
-      i + 1, r.pelicula, r.director, r.totalBoletosVendidos, Number(r.ingresoTotal).toFixed(2)
+      i + 1, r.pelicula, r.director, r.totalBoletosVendidos,
+      Number(r.ingresoTotal).toFixed(2), `${r.promedioOcupacion}%`,
+      r.cantidadFunciones, r.semanasEnCartelera
     ]);
     const endY = drawPdfTable(doc, headers, tableRows);
 
@@ -220,15 +221,20 @@ export async function reporteVentasPdf(req: Request, res: Response) {
 
     buildPdfTitle(doc, 'REPORTE DE VENTAS', fi, ff);
 
-    const headers = ['Fecha', 'Canal', 'Total ventas', 'Ingreso total (Bs.)', 'Venta promedio (Bs.)'];
+    const headers = ['ID', 'Fecha', 'Cliente', 'Película', 'Función', 'Sala', 'Entradas', 'Monto (Bs.)', 'Pago', 'Canal', 'Estado'];
     const tableRows = data.map((r: any) => [
-      new Date(r.fecha).toLocaleDateString('es-BO'), r.canal,
-      r.totalVentas, Number(r.ingresoTotal).toFixed(2), r.ventaPromedio
+      r.idVenta,
+      new Date(r.fechaCompra).toLocaleDateString('es-BO'),
+      r.cliente, r.pelicula,
+      `${new Date(r.fechaFuncion).toLocaleDateString('es-BO')} ${r.horaInicio?.substring(0, 5)}`,
+      r.sala, r.cantidadEntradas,
+      Number(r.montoTotal).toFixed(2),
+      r.metodoPago, r.canal, r.estadoVenta
     ]);
     const endY = drawPdfTable(doc, headers, tableRows);
 
     doc.moveDown(1);
-    doc.fontSize(10).font('Helvetica-Bold').text(`Total registros: ${data.length}`, 40, endY + 10);
+    doc.fontSize(10).font('Helvetica-Bold').text(`Total ventas: ${data.length}`, 40, endY + 10);
 
     await sendPdf(res, doc, chunks, 'reporte-ventas');
   } catch (error) {

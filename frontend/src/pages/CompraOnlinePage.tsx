@@ -31,7 +31,7 @@ export default function CompraOnlinePage() {
     api.listarFunciones().then(res => {
       setFunciones(res.funciones);
       setFilteredFunciones(res.funciones);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Muestra la duración en formato 'Xh Ym' o 'Ym'
@@ -146,11 +146,15 @@ export default function CompraOnlinePage() {
   function openMovieModal(f: any) {
     const funcionesPorPelicula = funciones.filter(fn => fn.peliculaTitulo === f.peliculaTitulo);
     // Sólo fechas desde hoy en adelante, incluyendo hoy even if no functions
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`; // Local date in YYYY-MM-DD
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`; // Local date in YYYY-MM-DD
     const fechasSet = new Set<string>(funcionesPorPelicula.map(fn => fn.fecha));
     fechasSet.add(todayStr);
-    const fechas = Array.from(fechasSet).sort().filter(d => d >= todayStr);
+    const fechas = Array.from(fechasSet).sort().filter(d => {
+      const dateObj = buildLocalDateTime(d);
+      return dateObj ? dateObj >= todayStart : false;
+    });
     const selected = fechas[0] || '';
 
     setModalFunciones(funcionesPorPelicula);
@@ -184,7 +188,7 @@ export default function CompraOnlinePage() {
 
   async function confirmarCompra() {
     if (!selectedFuncion || !selectedAsientos.length || !user) return;
-    
+
     try {
       // Generar QR ficticio basado en la compra
       const qrData = `CINE-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
@@ -253,16 +257,16 @@ export default function CompraOnlinePage() {
               <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] transition hover:border-cinema-gold/30">
                 {f.peliculaPoster && (
                   <div className="relative overflow-hidden">
-                      <img src={f.peliculaPoster} alt={f.peliculaTitulo} className="w-full object-contain max-h-[36rem] mx-auto transition duration-500 group-hover:scale-105" />
-                      <div className="pointer-events-none absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/20" />
-                      <button
-                        type="button"
-                        className="absolute left-1/2 bottom-4 z-10 -translate-x-1/2 rounded-full bg-cinema-gold px-5 py-3 text-sm font-semibold text-cinema-black shadow-lg shadow-black/20 opacity-0 transition duration-300 group-hover:opacity-100"
-                        onClick={() => openMovieModal(f)}
-                      >
-                        Comprar boletos
-                      </button>
-                    </div>
+                    <img src={f.peliculaPoster} alt={f.peliculaTitulo} className="w-full object-contain max-h-[36rem] mx-auto transition duration-500 group-hover:scale-105" />
+                    <div className="pointer-events-none absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/20" />
+                    <button
+                      type="button"
+                      className="absolute left-1/2 bottom-4 z-10 -translate-x-1/2 rounded-full bg-cinema-gold px-5 py-3 text-sm font-semibold text-cinema-black shadow-lg shadow-black/20 opacity-0 transition duration-300 group-hover:opacity-100"
+                      onClick={() => openMovieModal(f)}
+                    >
+                      Comprar boletos
+                    </button>
+                  </div>
                 )}
                 <div className="space-y-3 p-5">
                   <h4 className="text-lg font-bold text-white">{f.peliculaTitulo}</h4>
@@ -285,7 +289,7 @@ export default function CompraOnlinePage() {
 
       {previewFuncion && step === 1 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] shadow-2xl">
+          <div className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#08080d] shadow-2xl">
             <div className="flex flex-col gap-6 p-6 lg:p-8">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -301,7 +305,7 @@ export default function CompraOnlinePage() {
 
               <div className="grid gap-6 lg:grid-cols-[350px_minmax(0,1fr)]">
                 {previewFuncion.peliculaPoster && (
-                  <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} className="max-h-[80vh] w-full rounded-3xl bg-black object-contain" />
+                  <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} className="max-h-[40vh] lg:max-h-[80vh] w-full rounded-3xl bg-black object-contain" />
                 )}
                 <div className="space-y-4">
                   <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
@@ -326,33 +330,33 @@ export default function CompraOnlinePage() {
                       <p className="text-xs uppercase tracking-[0.25em] text-cinema-cream/70">Selecciona fecha</p>
                       <div className="grid grid-cols-2 gap-3 mt-4 sm:grid-cols-3 lg:grid-cols-4">
                         {
-  modalAvailableDates
-    .filter(date => {
-        const today = new Date();
-        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const dateObj = new Date(date);
-        return dateObj >= todayStart;
-      })
-    .map((date) => {
-      const fechaObj = new Date(date);
-      const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
-      const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
-      const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
-      const active = modalSelectedDate === date;
-      return (
-        <button
-          key={date}
-          type="button"
-          className={`group flex flex-col items-center justify-center gap-1 rounded-[2rem] border px-3 py-4 text-center transition ${active ? 'border-cinema-gold bg-cinema-gold text-cinema-black' : 'border-white/10 bg-white/[0.05] text-cinema-gray hover:border-white/20 hover:bg-white/[0.1]'}`}
-          onClick={() => setModalSelectedDate(date)}
-        >
-          <span className="text-[10px] uppercase tracking-[0.25em] text-cinema-cream/80">{weekday}</span>
-          <span className="text-2xl font-bold leading-none">{day}</span>
-          <span className="text-xs uppercase tracking-[0.2em] text-cinema-cream/80">{month}</span>
-        </button>
-      );
-    })
-}
+                          modalAvailableDates
+                            .filter(date => {
+                              const today = new Date();
+                              const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                              const dateObj = buildLocalDateTime(date);
+                              return dateObj ? dateObj >= todayStart : false;
+                            })
+                            .map((date) => {
+                              const fechaObj = buildLocalDateTime(date) || new Date(date);
+                              const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
+                              const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
+                              const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
+                              const active = modalSelectedDate === date;
+                              return (
+                                <button
+                                  key={date}
+                                  type="button"
+                                  className={`group flex flex-col items-center justify-center gap-1 rounded-[2rem] border px-3 py-4 text-center transition ${active ? 'border-cinema-gold bg-cinema-gold text-cinema-black' : 'border-white/10 bg-white/[0.05] text-cinema-gray hover:border-white/20 hover:bg-white/[0.1]'}`}
+                                  onClick={() => setModalSelectedDate(date)}
+                                >
+                                  <span className="text-[10px] uppercase tracking-[0.25em] text-cinema-cream/80">{weekday}</span>
+                                  <span className="text-2xl font-bold leading-none">{day}</span>
+                                  <span className="text-xs uppercase tracking-[0.2em] text-cinema-cream/80">{month}</span>
+                                </button>
+                              );
+                            })
+                        }
                       </div>
                     </div>
 
@@ -364,29 +368,29 @@ export default function CompraOnlinePage() {
                             <h4 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-white">{salaTipo}</h4>
                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                               {funciones.filter(func => { const dt = buildLocalDateTime(func.fecha, func.horaInicio || '00:00'); return dt && dt.getTime() >= Date.now(); }).map(func => {
-                                   const time = func.horaInicio?.substring(0, 5) ?? '—';
-                                   const fechaHora = buildLocalDateTime(func.fecha, func.horaInicio || '00:00');
-                                   const isPast = func.horaInicio ? (fechaHora ? fechaHora.getTime() <= Date.now() : true) : true;
-                                   const active = selectedModalFuncion?.idFuncion === func.idFuncion;
-                                   return (
-                                     <button
-                                       key={func.idFuncion}
-                                       type="button"
-                                       disabled={isPast}
-                                       className={`group rounded-3xl border px-4 py-3 text-left transition ${active ? 'border-cinema-gold bg-cinema-gold/10 text-white' : isPast ? 'border-white/10 bg-white/[0.02] text-cinema-gray opacity-60 cursor-not-allowed' : 'border-white/10 bg-white/[0.03] text-cinema-gray hover:border-white/20'}`}
-                                       onClick={() => { if (!isPast) setSelectedModalFuncion(func); }}
-                                     >
-                                      <div className="flex items-center gap-3">
-                                        <span className="block rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.2em] bg-black/70 text-white">
-                                          Español
-                                        </span>
-                                        <span className="mt-3 block text-lg font-semibold text-white">
-                                          {time}{isPast && <span className="text-sm text-red-400 ml-1">(Cerrada)</span>}
-                                        </span>
-                                      </div>
-                                    </button>
-                                  );
-                                })}
+                                const time = func.horaInicio?.substring(0, 5) ?? '—';
+                                const fechaHora = buildLocalDateTime(func.fecha, func.horaInicio || '00:00');
+                                const isPast = func.horaInicio ? (fechaHora ? fechaHora.getTime() <= Date.now() : true) : true;
+                                const active = selectedModalFuncion?.idFuncion === func.idFuncion;
+                                return (
+                                  <button
+                                    key={func.idFuncion}
+                                    type="button"
+                                    disabled={isPast}
+                                    className={`group rounded-3xl border px-4 py-3 text-left transition ${active ? 'border-cinema-gold bg-cinema-gold/10 text-white' : isPast ? 'border-white/10 bg-white/[0.02] text-cinema-gray opacity-60 cursor-not-allowed' : 'border-white/10 bg-white/[0.03] text-cinema-gray hover:border-white/20'}`}
+                                    onClick={() => { if (!isPast) setSelectedModalFuncion(func); }}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <span className="block rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.2em] bg-black/70 text-white">
+                                        Español
+                                      </span>
+                                      <span className="mt-3 block text-lg font-semibold text-white">
+                                        {time}{isPast && <span className="text-sm text-red-400 ml-1">(Cerrada)</span>}
+                                      </span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
                         ))}
@@ -443,9 +447,9 @@ export default function CompraOnlinePage() {
               <span className="font-semibold text-cinema-cream">Total:</span>
               <span className="font-bold text-cinema-gold">Bs. {precioTotal.toFixed(2)}</span>
             </div>
-            <div className="flex gap-3">
-              <button className="btn-secondary" onClick={() => setStep(1)}>Volver</button>
-              <button className="btn-primary" disabled={loading || !selectedAsientos.length} onClick={confirmarCompra}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button className="btn-secondary sm:w-auto w-full" onClick={() => setStep(1)}>Volver</button>
+              <button className="btn-primary sm:w-auto w-full" disabled={loading || !selectedAsientos.length} onClick={confirmarCompra}>
                 {loading ? 'Procesando...' : 'Pagar con QR'}
               </button>
             </div>
@@ -457,7 +461,7 @@ export default function CompraOnlinePage() {
         <div className="card-cine mx-auto max-w-xl p-6 text-center space-y-4">
           <h3 className="text-xl font-bold text-cinema-gold">Escanea el código QR</h3>
           <p className="text-sm text-cinema-gray">Apunta tu cámara al siguiente código QR para completar el pago.</p>
-          
+
           <div className="flex justify-center">
             <div className="bg-white p-3 rounded-2xl">
               {qrCode && <img src={qrCode} alt="QR Code" className="w-52 h-52" />}
@@ -488,14 +492,14 @@ export default function CompraOnlinePage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button className="btn-secondary" onClick={() => {
+            <button className="btn-secondary w-full sm:w-auto" onClick={() => {
               setQrCode('');
               setQrTimer(600);
               setQrConfirmed(false);
               setStep(2);
             }}>Cancelar</button>
-            <button 
-              className="btn-primary" 
+            <button
+              className="btn-primary w-full sm:w-auto"
               disabled={loading || qrConfirmed}
               onClick={confirmarPagoQR}
             >
@@ -514,7 +518,7 @@ export default function CompraOnlinePage() {
           <p className="text-sm text-cinema-gray">{emailStatus || 'El comprobante será enviado a tu correo electrónico.'}</p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <a
-              className="btn-secondary"
+              className="btn-secondary w-full sm:w-auto text-center"
               href="#"
               onClick={async (event) => {
                 event.preventDefault();
@@ -534,7 +538,7 @@ export default function CompraOnlinePage() {
             >
               Descargar comprobante PDF
             </a>
-            <button className="btn-primary" onClick={nuevaCompra}>Nueva compra</button>
+            <button className="btn-primary w-full sm:w-auto" onClick={nuevaCompra}>Nueva compra</button>
           </div>
         </div>
       )}

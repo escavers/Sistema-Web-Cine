@@ -1,5 +1,5 @@
 -- ============================================================
--- CINE LA PAZ - Versión Simplificada (Sin Tablas de Herencia)
+-- CINE LA PAZ - Versión Simplificada 
 -- ============================================================
 
 DROP DATABASE IF EXISTS cine_db;
@@ -601,6 +601,195 @@ INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase)
 ('SALA-4', 12, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '14:00:00', '17:35:00', 20.00),
 ('SALA-4', 2, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '19:00:00', '21:08:00', 20.00);
 
+-- 3.8 VENTAS (compras de clientes en diferentes días y funciones)
+INSERT INTO Venta (idCliente, idEncargado, idFuncion, fechaCompra, tipo, montoTotal, estadoVenta, metodoPago, estadoPago, codigoTransaccion, fechaPago) VALUES
+-- VentasOnline (clientes compraron por web)
+(3, NULL, 1, DATE_SUB(NOW(), INTERVAL 6 DAY), 'ONLINE', 40.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-001', DATE_SUB(NOW(), INTERVAL 6 DAY)),
+(4, NULL, 1, DATE_SUB(NOW(), INTERVAL 6 DAY), 'ONLINE', 20.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-002', DATE_SUB(NOW(), INTERVAL 6 DAY)),
+(5, NULL, 2, DATE_SUB(NOW(), INTERVAL 6 DAY), 'ONLINE', 60.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-003', DATE_SUB(NOW(), INTERVAL 6 DAY)),
+(6, NULL, 3, DATE_SUB(NOW(), INTERVAL 6 DAY), 'ONLINE', 30.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-004', DATE_SUB(NOW(), INTERVAL 6 DAY)),
+(7, NULL, 5, DATE_SUB(NOW(), INTERVAL 6 DAY), 'ONLINE', 80.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-005', DATE_SUB(NOW(), INTERVAL 6 DAY)),
+-- Ventas presenciales (boletería)
+(3, 2, 7, DATE_SUB(NOW(), INTERVAL 6 DAY), 'PRESENCIAL', 40.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-001', DATE_SUB(NOW(), INTERVAL 6 DAY)),
+(4, 2, 9, DATE_SUB(NOW(), INTERVAL 6 DAY), 'PRESENCIAL', 20.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-002', DATE_SUB(NOW(), INTERVAL 6 DAY)),
+-- Día -5
+(3, NULL, 10, DATE_SUB(NOW(), INTERVAL 5 DAY), 'ONLINE', 60.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-006', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(5, NULL, 10, DATE_SUB(NOW(), INTERVAL 5 DAY), 'ONLINE', 40.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-007', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(6, NULL, 11, DATE_SUB(NOW(), INTERVAL 5 DAY), 'ONLINE', 90.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-008', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(7, NULL, 12, DATE_SUB(NOW(), INTERVAL 5 DAY), 'ONLINE', 60.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-009', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(4, 2, 13, DATE_SUB(NOW(), INTERVAL 5 DAY), 'PRESENCIAL', 80.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-003', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(3, 2, 16, DATE_SUB(NOW(), INTERVAL 5 DAY), 'PRESENCIAL', 40.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-004', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+-- Día -4
+(5, NULL, 19, DATE_SUB(NOW(), INTERVAL 4 DAY), 'ONLINE', 60.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-010', DATE_SUB(NOW(), INTERVAL 4 DAY)),
+(6, NULL, 19, DATE_SUB(NOW(), INTERVAL 4 DAY), 'ONLINE', 30.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-011', DATE_SUB(NOW(), INTERVAL 4 DAY)),
+(7, NULL, 20, DATE_SUB(NOW(), INTERVAL 4 DAY), 'ONLINE', 40.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-012', DATE_SUB(NOW(), INTERVAL 4 DAY)),
+(3, NULL, 21, DATE_SUB(NOW(), INTERVAL 4 DAY), 'ONLINE', 120.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-013', DATE_SUB(NOW(), INTERVAL 4 DAY)),
+(4, NULL, 22, DATE_SUB(NOW(), INTERVAL 4 DAY), 'ONLINE', 60.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-014', DATE_SUB(NOW(), INTERVAL 4 DAY)),
+(5, 2, 25, DATE_SUB(NOW(), INTERVAL 4 DAY), 'PRESENCIAL', 80.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-005', DATE_SUB(NOW(), INTERVAL 4 DAY)),
+-- Día -3
+(6, NULL, 28, DATE_SUB(NOW(), INTERVAL 3 DAY), 'ONLINE', 40.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-015', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(7, NULL, 29, DATE_SUB(NOW(), INTERVAL 3 DAY), 'ONLINE', 60.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-016', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(3, NULL, 30, DATE_SUB(NOW(), INTERVAL 3 DAY), 'ONLINE', 30.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-017', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(4, NULL, 31, DATE_SUB(NOW(), INTERVAL 3 DAY), 'ONLINE', 40.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-018', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(5, NULL, 32, DATE_SUB(NOW(), INTERVAL 3 DAY), 'ONLINE', 120.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-019', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(6, 2, 34, DATE_SUB(NOW(), INTERVAL 3 DAY), 'PRESENCIAL', 40.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-006', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(7, 2, 36, DATE_SUB(NOW(), INTERVAL 3 DAY), 'PRESENCIAL', 80.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-007', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+-- Día -2
+(3, NULL, 37, DATE_SUB(NOW(), INTERVAL 2 DAY), 'ONLINE', 60.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-020', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(4, NULL, 38, DATE_SUB(NOW(), INTERVAL 2 DAY), 'ONLINE', 40.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-021', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(5, NULL, 39, DATE_SUB(NOW(), INTERVAL 2 DAY), 'ONLINE', 90.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-022', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(6, NULL, 40, DATE_SUB(NOW(), INTERVAL 2 DAY), 'ONLINE', 30.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-023', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(7, NULL, 41, DATE_SUB(NOW(), INTERVAL 2 DAY), 'ONLINE', 40.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-024', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(3, 2, 43, DATE_SUB(NOW(), INTERVAL 2 DAY), 'PRESENCIAL', 80.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-008', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(4, 2, 44, DATE_SUB(NOW(), INTERVAL 2 DAY), 'PRESENCIAL', 60.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-009', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+-- Día -1
+(5, NULL, 46, DATE_SUB(NOW(), INTERVAL 1 DAY), 'ONLINE', 40.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-025', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(6, NULL, 47, DATE_SUB(NOW(), INTERVAL 1 DAY), 'ONLINE', 60.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-026', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(7, NULL, 48, DATE_SUB(NOW(), INTERVAL 1 DAY), 'ONLINE', 30.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-027', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(3, NULL, 49, DATE_SUB(NOW(), INTERVAL 1 DAY), 'ONLINE', 120.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-028', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(4, NULL, 50, DATE_SUB(NOW(), INTERVAL 1 DAY), 'ONLINE', 60.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-029', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(5, 2, 52, DATE_SUB(NOW(), INTERVAL 1 DAY), 'PRESENCIAL', 80.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-010', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(6, 2, 55, DATE_SUB(NOW(), INTERVAL 1 DAY), 'PRESENCIAL', 40.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-011', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+-- HOY (algunas ventas)
+(7, NULL, 50, NOW(), 'ONLINE', 40.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-030', NOW()),
+(3, NULL, 51, NOW(), 'ONLINE', 60.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-031', NOW()),
+(4, 2, 52, NOW(), 'PRESENCIAL', 90.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-012', NOW()),
+(5, 2, 55, NOW(), 'PRESENCIAL', 40.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-013', NOW()),
+(6, NULL, 53, NOW(), 'ONLINE', 30.00, 'COMPLETADA', 'QR', 'APROBADO', 'QR-ON-032', NOW()),
+(7, 2, 54, NOW(), 'PRESENCIAL', 60.00, 'COMPLETADA', 'EFECTIVO', 'APROBADO', 'EF-014', NOW());
+
+-- 3.9 BOLETOS (un boleto por cada asiento vendido)
+-- Función 1 (HOY, Inside Out 2, SALA-1, precio=20) — 2 ventas = 5 boletos
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-1-A1', 1, 20.00), ('SALA-1-A2', 1, 20.00),
+('SALA-1-B1', 2, 20.00),
+('SALA-1-C1', 3, 20.00), ('SALA-1-C2', 3, 20.00), ('SALA-1-C3', 3, 20.00);
+
+-- Función 2 (HOY, Deadpool, SALA-1, precio=20) — 1 venta = 3 boletos
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-1-D1', 4, 20.00), ('SALA-1-D2', 4, 20.00), ('SALA-1-D3', 4, 20.00);
+
+-- Función 3 (HOY, Gladiator II, SALA-2, precio=30) — 1 venta = 1 boleto
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-2-A1', 5, 30.00);
+
+-- Función 5 (HOY, Wicked, SALA-3, precio=40) — 1 venta = 2 boletos
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-3-A1', 6, 40.00), ('SALA-3-A2', 6, 40.00);
+
+-- Función 7 (HOY, Mufasa, SALA-4, precio=20) — 1 venta = 2 boletos
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-4-A1', 7, 20.00), ('SALA-4-A2', 7, 20.00);
+
+-- Función 9 (HOY, Sonic 3, SALA-4, precio=20) — 1 venta = 1 boleto
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-4-B1', 8, 20.00);
+
+-- Día -5 (funciones 10-18)
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-1-E1', 9, 20.00), ('SALA-1-E2', 9, 20.00), ('SALA-1-E3', 9, 20.00),
+('SALA-1-F1', 10, 20.00), ('SALA-1-F2', 10, 20.00),
+('SALA-2-B1', 11, 30.00), ('SALA-2-B2', 11, 30.00), ('SALA-2-B3', 11, 30.00),
+('SALA-2-C1', 12, 30.00), ('SALA-2-C2', 12, 30.00),
+('SALA-3-B1', 13, 40.00), ('SALA-3-B2', 13, 40.00), ('SALA-3-B3', 13, 40.00), ('SALA-3-B4', 13, 40.00),
+('SALA-4-C1', 14, 20.00), ('SALA-4-C2', 14, 20.00);
+
+-- Día -4 (funciones 19-26)
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-2-D1', 15, 30.00), ('SALA-2-D2', 15, 30.00), ('SALA-2-D3', 15, 30.00),
+('SALA-2-E1', 16, 30.00),
+('SALA-1-G1', 17, 20.00), ('SALA-1-G2', 17, 20.00),
+('SALA-3-C1', 18, 40.00), ('SALA-3-C2', 18, 40.00), ('SALA-3-C3', 18, 40.00), ('SALA-3-C4', 18, 40.00),
+('SALA-4-D1', 19, 20.00), ('SALA-4-D2', 19, 20.00), ('SALA-4-D3', 19, 20.00),
+('SALA-4-E1', 20, 40.00), ('SALA-4-E2', 20, 40.00);
+
+-- Día -3 (funciones 28-36)
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-1-H1', 21, 20.00), ('SALA-1-H2', 21, 20.00),
+('SALA-2-F1', 22, 30.00), ('SALA-2-F2', 22, 30.00), ('SALA-2-F3', 22, 30.00),
+('SALA-3-D1', 23, 40.00),
+('SALA-4-F1', 24, 20.00), ('SALA-4-F2', 24, 20.00),
+('SALA-4-G1', 25, 60.00), ('SALA-4-G2', 25, 60.00),
+('SALA-4-H1', 26, 20.00), ('SALA-4-H2', 26, 20.00),
+('SALA-3-E1', 27, 40.00), ('SALA-3-E2', 27, 40.00), ('SALA-3-E3', 27, 40.00), ('SALA-3-E4', 27, 40.00);
+
+-- Día -2 (funciones 37-44)
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-1-A3', 28, 20.00), ('SALA-1-A4', 28, 20.00), ('SALA-1-A5', 28, 20.00),
+('SALA-1-B3', 29, 20.00), ('SALA-1-B4', 29, 20.00),
+('SALA-2-G1', 30, 30.00), ('SALA-2-G2', 30, 30.00), ('SALA-2-G3', 30, 30.00),
+('SALA-3-F1', 31, 40.00),
+('SALA-4-I1', 32, 20.00), ('SALA-4-I2', 32, 20.00),
+('SALA-4-J1', 33, 40.00), ('SALA-4-J2', 33, 40.00),
+('SALA-1-C4', 34, 20.00), ('SALA-1-C5', 34, 20.00), ('SALA-1-C6', 34, 20.00), ('SALA-1-C7', 34, 20.00),
+('SALA-2-H1', 35, 30.00), ('SALA-2-H2', 35, 30.00), ('SALA-2-H3', 35, 30.00);
+
+-- Día -1 (funciones 43-49)
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-1-D4', 36, 20.00), ('SALA-1-D5', 36, 20.00),
+('SALA-1-E4', 37, 20.00), ('SALA-1-E5', 37, 20.00), ('SALA-1-E6', 37, 20.00),
+('SALA-2-F4', 38, 30.00),
+('SALA-3-A3', 39, 40.00), ('SALA-3-A4', 39, 40.00), ('SALA-3-A5', 39, 40.00), ('SALA-3-A6', 39, 40.00),
+('SALA-4-D3', 40, 20.00), ('SALA-4-D4', 40, 20.00), ('SALA-4-D5', 40, 20.00),
+('SALA-4-E3', 41, 20.00), ('SALA-4-E4', 41, 20.00),
+('SALA-3-B5', 42, 40.00), ('SALA-3-B6', 42, 40.00);
+
+-- HOY (funciones 50-57)
+INSERT INTO Boleto (idAsiento, idVenta, precioPagado) VALUES
+('SALA-1-F3', 43, 20.00), ('SALA-1-F4', 43, 20.00),
+('SALA-1-G3', 44, 20.00), ('SALA-1-G4', 44, 20.00), ('SALA-1-G5', 44, 20.00),
+('SALA-2-H4', 45, 30.00), ('SALA-2-H5', 45, 30.00), ('SALA-2-H6', 45, 30.00), ('SALA-2-H7', 45, 30.00),
+('SALA-3-F1', 46, 40.00), ('SALA-3-F2', 46, 40.00);
+
+-- 3.10 COMPROBANTES (uno por cada venta)
+INSERT INTO Comprobante (idVenta, numero, fechaEmision, nitCliente, razonSocialCliente) VALUES
+(1, 'CBE-2026-001', DATE_SUB(NOW(), INTERVAL 6 DAY), '4567890', 'Carlos Mamani Condori'),
+(2, 'CBE-2026-002', DATE_SUB(NOW(), INTERVAL 6 DAY), NULL, NULL),
+(3, 'CBE-2026-003', DATE_SUB(NOW(), INTERVAL 6 DAY), '5678901', 'Ana Lucía Flores Ríos'),
+(4, 'CBE-2026-004', DATE_SUB(NOW(), INTERVAL 6 DAY), NULL, NULL),
+(5, 'CBE-2026-005', DATE_SUB(NOW(), INTERVAL 6 DAY), NULL, NULL),
+(6, 'CBE-2026-006', DATE_SUB(NOW(), INTERVAL 6 DAY), '4567890', 'Carlos Mamani Condori'),
+(7, 'CBE-2026-007', DATE_SUB(NOW(), INTERVAL 6 DAY), NULL, NULL),
+(8, 'CBE-2026-008', DATE_SUB(NOW(), INTERVAL 5 DAY), NULL, NULL),
+(9, 'CBE-2026-009', DATE_SUB(NOW(), INTERVAL 5 DAY), '4567890', 'Carlos Mamani Condori'),
+(10, 'CBE-2026-010', DATE_SUB(NOW(), INTERVAL 5 DAY), NULL, NULL),
+(11, 'CBE-2026-011', DATE_SUB(NOW(), INTERVAL 5 DAY), NULL, NULL),
+(12, 'CBE-2026-012', DATE_SUB(NOW(), INTERVAL 5 DAY), NULL, NULL),
+(13, 'CBE-2026-013', DATE_SUB(NOW(), INTERVAL 5 DAY), NULL, NULL),
+(14, 'CBE-2026-014', DATE_SUB(NOW(), INTERVAL 5 DAY), '4567890', 'Carlos Mamani Condori'),
+(15, 'CBE-2026-015', DATE_SUB(NOW(), INTERVAL 4 DAY), NULL, NULL),
+(16, 'CBE-2026-016', DATE_SUB(NOW(), INTERVAL 4 DAY), NULL, NULL),
+(17, 'CBE-2026-017', DATE_SUB(NOW(), INTERVAL 4 DAY), NULL, NULL),
+(18, 'CBE-2026-018', DATE_SUB(NOW(), INTERVAL 4 DAY), '4567890', 'Carlos Mamani Condori'),
+(19, 'CBE-2026-019', DATE_SUB(NOW(), INTERVAL 4 DAY), NULL, NULL),
+(20, 'CBE-2026-020', DATE_SUB(NOW(), INTERVAL 4 DAY), '6789012', 'Luis Quispe Torres'),
+(21, 'CBE-2026-021', DATE_SUB(NOW(), INTERVAL 3 DAY), NULL, NULL),
+(22, 'CBE-2026-022', DATE_SUB(NOW(), INTERVAL 3 DAY), NULL, NULL),
+(23, 'CBE-2026-023', DATE_SUB(NOW(), INTERVAL 3 DAY), '4567890', 'Carlos Mamani Condori'),
+(24, 'CBE-2026-024', DATE_SUB(NOW(), INTERVAL 3 DAY), NULL, NULL),
+(25, 'CBE-2026-025', DATE_SUB(NOW(), INTERVAL 3 DAY), NULL, NULL),
+(26, 'CBE-2026-026', DATE_SUB(NOW(), INTERVAL 3 DAY), '7890124', 'María Fernanda Vargas López'),
+(27, 'CBE-2026-027', DATE_SUB(NOW(), INTERVAL 3 DAY), '8901234', 'Pedro Huanca Ramos'),
+(28, 'CBE-2026-028', DATE_SUB(NOW(), INTERVAL 2 DAY), '4567890', 'Carlos Mamani Condori'),
+(29, 'CBE-2026-029', DATE_SUB(NOW(), INTERVAL 2 DAY), NULL, NULL),
+(30, 'CBE-2026-030', DATE_SUB(NOW(), INTERVAL 2 DAY), NULL, NULL),
+(31, 'CBE-2026-031', DATE_SUB(NOW(), INTERVAL 2 DAY), '4567890', 'Carlos Mamani Condori'),
+(32, 'CBE-2026-032', DATE_SUB(NOW(), INTERVAL 2 DAY), NULL, NULL),
+(33, 'CBE-2026-033', DATE_SUB(NOW(), INTERVAL 2 DAY), NULL, NULL),
+(34, 'CBE-2026-034', DATE_SUB(NOW(), INTERVAL 2 DAY), '6789012', 'Luis Quispe Torres'),
+(35, 'CBE-2026-035', DATE_SUB(NOW(), INTERVAL 2 DAY), NULL, NULL),
+(36, 'CBE-2026-036', DATE_SUB(NOW(), INTERVAL 1 DAY), NULL, NULL),
+(37, 'CBE-2026-037', DATE_SUB(NOW(), INTERVAL 1 DAY), NULL, NULL),
+(38, 'CBE-2026-038', DATE_SUB(NOW(), INTERVAL 1 DAY), '4567890', 'Carlos Mamani Condori'),
+(39, 'CBE-2026-039', DATE_SUB(NOW(), INTERVAL 1 DAY), NULL, NULL),
+(40, 'CBE-2026-040', DATE_SUB(NOW(), INTERVAL 1 DAY), NULL, NULL),
+(41, 'CBE-2026-041', DATE_SUB(NOW(), INTERVAL 1 DAY), '7890124', 'María Fernanda Vargas López'),
+(42, 'CBE-2026-042', DATE_SUB(NOW(), INTERVAL 1 DAY), NULL, NULL),
+(43, 'CBE-2026-043', NOW(), NULL, NULL),
+(44, 'CBE-2026-044', NOW(), '4567890', 'Carlos Mamani Condori'),
+(45, 'CBE-2026-045', NOW(), NULL, NULL),
+(46, 'CBE-2026-046', NOW(), NULL, NULL);
+
 -- ============================================================
 -- FASE 4: STORED PROCEDURES PARA REPORTES
 -- ============================================================
@@ -610,7 +799,9 @@ DELIMITER $$
 DROP PROCEDURE IF EXISTS sp_reporte_ocupacion$$
 CREATE PROCEDURE sp_reporte_ocupacion(
     IN p_fechaInicio DATE,
-    IN p_fechaFin DATE
+    IN p_fechaFin DATE,
+    IN p_idPelicula INT,
+    IN p_idSala VARCHAR(50)
 )
 BEGIN
     SELECT
@@ -621,6 +812,7 @@ BEGIN
         f.horaInicio,
         s.capacidadTotal,
         COUNT(b.idBoleto) AS boletosVendidos,
+        (s.capacidadTotal - COUNT(b.idBoleto)) AS asientosDisponibles,
         ROUND(COUNT(b.idBoleto) / s.capacidadTotal * 100, 1) AS ocupacionPorcentaje
     FROM Funcion f
     JOIN Sala s ON f.idSala = s.idSala
@@ -630,31 +822,50 @@ BEGIN
     WHERE f.estadoA = 1
       AND (p_fechaInicio IS NULL OR f.fecha >= p_fechaInicio)
       AND (p_fechaFin IS NULL OR f.fecha <= p_fechaFin)
+      AND (p_idPelicula IS NULL OR p.idPelicula = p_idPelicula)
+      AND (p_idSala IS NULL OR f.idSala = p_idSala)
     GROUP BY f.idFuncion, f.fecha, f.idSala, s.tipo, p.titulo, f.horaInicio, s.capacidadTotal
-    ORDER BY f.fecha DESC, f.horaInicio;
+    ORDER BY ocupacionPorcentaje DESC, f.fecha DESC, f.horaInicio;
 END$$
 
 DROP PROCEDURE IF EXISTS sp_reporte_mas_vistas$$
 CREATE PROCEDURE sp_reporte_mas_vistas(
     IN p_fechaInicio DATE,
-    IN p_fechaFin DATE
+    IN p_fechaFin DATE,
+    IN p_orden VARCHAR(4)
 )
 BEGIN
     SELECT
-        p.titulo AS pelicula,
-        p.director,
-        COUNT(b.idBoleto) AS totalBoletosVendidos,
-        ROUND(SUM(b.precioPagado), 2) AS ingresoTotal
-    FROM Boleto b
-    JOIN Venta v ON b.idVenta = v.idVenta
-    JOIN Funcion f ON v.idFuncion = f.idFuncion
-    JOIN Pelicula p ON f.idPelicula = p.idPelicula
-    WHERE f.estadoA = 1
-      AND b.estadoA = 1
-      AND (p_fechaInicio IS NULL OR f.fecha >= p_fechaInicio)
-      AND (p_fechaFin IS NULL OR f.fecha <= p_fechaFin)
-    GROUP BY p.idPelicula, p.titulo, p.director
-    ORDER BY totalBoletosVendidos DESC
+        pelicula,
+        director,
+        SUM(boletosVendidos) AS totalBoletosVendidos,
+        ROUND(SUM(ingresoFuncion), 2) AS ingresoTotal,
+        ROUND(AVG(ocupacionPorcentaje), 1) AS promedioOcupacion,
+        COUNT(*) AS cantidadFunciones,
+        DATEDIFF(CURDATE(), MIN(fechaFuncion)) AS semanasEnCartelera
+    FROM (
+        SELECT
+            p.idPelicula,
+            p.titulo AS pelicula,
+            p.director,
+            f.idFuncion,
+            f.fecha AS fechaFuncion,
+            COUNT(b.idBoleto) AS boletosVendidos,
+            IFNULL(SUM(b.precioPagado), 0) AS ingresoFuncion,
+            ROUND(COUNT(b.idBoleto) / s.capacidadTotal * 100, 1) AS ocupacionPorcentaje
+        FROM Funcion f
+        JOIN Pelicula p ON f.idPelicula = p.idPelicula
+        JOIN Sala s ON f.idSala = s.idSala
+        LEFT JOIN Venta v ON v.idFuncion = f.idFuncion AND v.estadoA = 1
+        LEFT JOIN Boleto b ON b.idVenta = v.idVenta AND b.estadoA = 1
+        WHERE f.estadoA = 1
+          AND (p_fechaInicio IS NULL OR f.fecha >= p_fechaInicio)
+          AND (p_fechaFin IS NULL OR f.fecha <= p_fechaFin)
+        GROUP BY f.idFuncion, p.idPelicula, p.titulo, p.director, f.fecha, s.capacidadTotal
+    ) AS sub
+    GROUP BY idPelicula, pelicula, director
+    ORDER BY IF(p_orden = 'ASC', totalBoletosVendidos, NULL) ASC,
+             IF(p_orden = 'ASC', NULL, totalBoletosVendidos) DESC
     LIMIT 10;
 END$$
 
@@ -665,18 +876,31 @@ CREATE PROCEDURE sp_reporte_ventas(
 )
 BEGIN
     SELECT
-        DATE(v.fechaCompra) AS fecha,
+        v.idVenta,
+        v.fechaCompra,
+        CONCAT(u.nombre1, ' ', IFNULL(u.apellidoP, '')) AS cliente,
+        pel.titulo AS pelicula,
+        f.fecha AS fechaFuncion,
+        f.horaInicio,
+        s.tipo AS sala,
+        COUNT(b.idBoleto) AS cantidadEntradas,
+        v.montoTotal,
+        v.metodoPago,
         v.tipo AS canal,
-        COUNT(v.idVenta) AS totalVentas,
-        SUM(v.montoTotal) AS ingresoTotal,
-        ROUND(AVG(v.montoTotal), 2) AS ventaPromedio
+        v.estadoVenta
     FROM Venta v
+    JOIN Funcion f ON v.idFuncion = f.idFuncion
+    JOIN Pelicula pel ON f.idPelicula = pel.idPelicula
+    JOIN Sala s ON f.idSala = s.idSala
+    LEFT JOIN Boleto b ON v.idVenta = b.idVenta
+    LEFT JOIN Usuario u ON v.idCliente = u.idUsuario
     WHERE v.estadoA = 1
-      AND v.estadoVenta = 'COMPLETADA'
       AND (p_fechaInicio IS NULL OR DATE(v.fechaCompra) >= p_fechaInicio)
       AND (p_fechaFin IS NULL OR DATE(v.fechaCompra) <= p_fechaFin)
-    GROUP BY DATE(v.fechaCompra), v.tipo
-    ORDER BY fecha DESC;
+    GROUP BY v.idVenta, v.fechaCompra, u.nombre1, u.apellidoP,
+      pel.titulo, f.fecha, f.horaInicio, s.tipo,
+      v.montoTotal, v.metodoPago, v.tipo, v.estadoVenta
+    ORDER BY v.fechaCompra DESC;
 END$$
 
 DROP PROCEDURE IF EXISTS sp_historial_cliente$$
@@ -688,6 +912,7 @@ BEGIN
         v.idVenta,
         c.numero,
         p.titulo AS peliculaTitulo,
+        v.fechaCompra,
         f.fecha,
         f.horaInicio,
         s.tipo AS salaTipo,
@@ -704,8 +929,8 @@ BEGIN
     WHERE v.idCliente = p_idCliente
       AND v.estadoA = 1
       AND v.estadoVenta IN ('COMPLETADA', 'CANCELADA')
-    GROUP BY c.idComprobante, c.numero, p.titulo, f.fecha, f.horaInicio, s.tipo, v.montoTotal, v.estadoVenta, v.idVenta
-    ORDER BY f.fecha DESC, f.horaInicio DESC;
+    GROUP BY c.idComprobante, c.numero, p.titulo, v.fechaCompra, f.fecha, f.horaInicio, s.tipo, v.montoTotal, v.estadoVenta, v.idVenta
+    ORDER BY v.fechaCompra DESC, f.horaInicio DESC;
 END$$
 
 DELIMITER ;

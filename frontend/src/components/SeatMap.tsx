@@ -37,15 +37,16 @@ export default function SeatMap({ asientos = [], selectedAsientos = [], onToggle
   return (
     <div className="card-cine p-6">
       <div className="mb-4 text-center">
-        <div className="mx-auto mb-6 h-2 w-3/4 rounded-full bg-gradient-to-r from-cinema-gold/0 via-cinema-gold/60 to-cinema-gold/0" />
+        <div className="mx-auto mb-6 h-2 w-3/4 max-w-[300px] rounded-full bg-gradient-to-r from-cinema-gold/0 via-cinema-gold/60 to-cinema-gold/0" />
         <p className="text-xs uppercase tracking-[0.2em] text-cinema-gray">Pantalla</p>
       </div>
 
-      <div className="flex flex-col items-center gap-1.5">
-        {filas.map(fila => (
-          <div key={fila} className="flex items-center gap-1.5">
-            <span className="w-6 text-center text-xs font-bold text-cinema-gold">{fila}</span>
-            {asientos
+      <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+        <div className="flex flex-col items-center gap-1.5 min-w-max mx-auto">
+          {filas.map(fila => (
+            <div key={fila} className="flex items-center gap-1.5">
+              <span className="w-6 text-center text-xs font-bold text-cinema-gold">{fila}</span>
+              {asientos
               .filter(a => a.fila === fila)
               .sort((a, b) => a.columna - b.columna)
               .map(asiento => {
@@ -65,17 +66,18 @@ export default function SeatMap({ asientos = [], selectedAsientos = [], onToggle
             <span className="w-6 text-center text-xs font-bold text-cinema-gold">{fila}</span>
           </div>
         ))}
-      </div>
 
-      <div className="mt-4 flex items-center justify-center gap-1.5 text-[10px] text-cinema-gray">
-        <span className="w-6" />
-        {Array.from({ length: maxCol }, (_, index) => (
-          <span key={index} className="flex h-5 w-8 items-center justify-center rounded-md bg-white/[0.03]">{index + 1}</span>
-        ))}
-        <span className="w-6" />
+        <div className="mt-4 flex items-center justify-center gap-1.5 text-[10px] text-cinema-gray">
+          <span className="w-6" />
+          {Array.from({ length: maxCol }, (_, index) => (
+            <span key={index} className="flex h-5 w-8 items-center justify-center rounded-md bg-white/[0.03]">{index + 1}</span>
+          ))}
+          <span className="w-6" />
+        </div>
       </div>
+    </div>
 
-      <div className="mt-6 flex justify-center gap-6 text-xs">
+      <div className="mt-6 flex flex-wrap justify-center gap-4 sm:gap-6 text-xs">
         <div className="flex items-center gap-2">
           <div className="h-4 w-4 rounded border border-white/20 bg-white/[0.05]" />
           <span className="text-cinema-gray">Disponible</span>

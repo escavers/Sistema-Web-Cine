@@ -100,7 +100,7 @@ export default function Layout() {
         </nav>
       )}
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
+      <main className="relative z-10 mx-auto max-w-7xl px-6 py-8">
         <Outlet />
       </main>
     </div>
