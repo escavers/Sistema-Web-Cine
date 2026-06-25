@@ -4,7 +4,7 @@ import { requireRoles } from '../middlewares/role.middleware.js';
 import { crearVenta } from '../controllers/venta.controller.js';
 import { cancelarVenta } from '../controllers/cancelacion.controller.js';
 import { listarFunciones, obtenerAsientosPorFuncion } from '../controllers/funcion.controller.js';
-import { obtenerComprobantePorNumero, descargarComprobantePdf } from '../controllers/comprobante.controller.js';
+import { obtenerComprobantePorNumero, descargarComprobantePdf, descargarComprobanteTicketPdf } from '../controllers/comprobante.controller.js';
 import { enviarComprobanteEmail } from '../controllers/email.controller.js';
 import { obtenerEmail } from '../controllers/usuarioExtra.controller.js';
 
@@ -13,7 +13,8 @@ const router = Router();
 router.get('/funciones', listarFunciones);
 router.get('/funciones/:id/asientos', obtenerAsientosPorFuncion);
 router.get('/comprobantes/:numero', obtenerComprobantePorNumero);
-router.get('/comprobantes/:numero/pdf', authMiddleware, requireRoles('CLIENTE', 'BOLETERIA', 'ADMINISTRADOR'), descargarComprobantePdf);
+router.get('/comprobantes/:numero/pdf', descargarComprobantePdf);
+router.get('/comprobantes/:numero/ticket', authMiddleware, requireRoles('BOLETERIA', 'ADMINISTRADOR'), descargarComprobanteTicketPdf);
 
 router.post('/ventas', authMiddleware, requireRoles('CLIENTE', 'BOLETERIA', 'ADMINISTRADOR'), crearVenta);
 router.post('/cancelaciones', authMiddleware, requireRoles('CLIENTE', 'BOLETERIA', 'ADMINISTRADOR'), cancelarVenta);

@@ -82,6 +82,13 @@ export async function sendComprobanteEmailInternal(idVenta: number, email: strin
           <div style="font-size:24px;font-weight:bold;color:#d97706">Bs. ${Number(comprobante.montoTotal).toFixed(2)}</div></div>
           <div class="qr"><div class="l">Escanea para verificar</div>
           <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" alt="QR" style="max-width:200px"/></div>
+          
+          <div style="text-align:center; margin-top:30px; margin-bottom:20px;">
+            <a href="${process.env.API_URL || ('http://localhost:' + env.port + '/api')}/comprobantes/${encodeURIComponent(comprobante.numero)}/pdf" 
+               style="background-color: #d97706; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 14px;">
+              Descargar Comprobante PDF
+            </a>
+          </div>
         </div>
         <div class="f"><p>Comprobante generado el ${new Date().toLocaleString('es-BO')}</p><p>Cine La Paz</p></div>
       </div></body></html>`;

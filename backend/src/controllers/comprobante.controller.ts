@@ -140,14 +140,14 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
 
   const cantidad = (comprobante.asientos?.split(',') || []).length;
   const precioUnitario = Number(comprobante.montoTotal) / cantidad;
-  
+
   doc.text(cantidad.toString(), 60, tableTop + 20);
   doc.text('Boletos', 120, tableTop + 20);
   doc.text(`Bs. ${precioUnitario.toFixed(2)}`, 280, tableTop + 20);
   doc.text(`Bs. ${Number(comprobante.montoTotal).toFixed(2)}`, 420, tableTop + 20);
 
   doc.moveTo(40, tableTop + 40).lineTo(555, tableTop + 40).stroke();
-  
+
   doc.fontSize(13).font('Helvetica-Bold');
   doc.text('TOTAL:', 280, tableTop + 50);
   doc.text(`Bs. ${Number(comprobante.montoTotal).toFixed(2)}`, 420, tableTop + 50);
@@ -156,7 +156,7 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   // QR de verificación
   doc.fontSize(11).font('Helvetica-Bold').text('CÓDIGO DE VERIFICACIÓN', { align: 'center', underline: true });
   doc.moveDown(0.3);
-  
+
   const qrX = 240;
   const qrY = doc.y;
   const img = Buffer.from(qrImage.replace('data:image/png;base64,', ''), 'base64');
@@ -171,5 +171,101 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   doc.moveDown(0.3);
   doc.fontSize(9).text('Gracias por comprar en Cine La Paz', { align: 'center' });
   doc.text('Este comprobante valida tu entrada al cine', { align: 'center' });
+  doc.end();
+}
+
+export async function descargarComprobanteTicketPdf(req: Request, res: Response) {
+  const { numero } = req.params;
+  const [rows] = await pool.query(
+    `SELECT
+      c.numero, c.nitCliente, c.razonSocialCliente, c.fechaEmision,
+      v.montoTotal, v.fechaCompra, v.metodoPago, v.tipo AS canal,
+      f.fecha, f.horaInicio, f.idSala, s.tipo AS salaTipo, pel.titulo AS peliculaTitulo,
+      GROUP_CONCAT(CONCAT(a.fila, a.columna) ORDER BY a.fila, a.columna SEPARATOR ', ') AS asientos
+    FROM Comprobante c
+    JOIN Venta v ON c.idVenta = v.idVenta
+    JOIN Funcion f ON v.idFuncion = f.idFuncion
+    LEFT JOIN Sala s ON f.idSala = s.idSala
+    LEFT JOIN Pelicula pel ON f.idPelicula = pel.idPelicula
+    LEFT JOIN Boleto b ON v.idVenta = b.idVenta
+    LEFT JOIN Asiento a ON b.idAsiento = a.idAsiento
+    WHERE c.numero = ?
+    GROUP BY c.numero, c.nitCliente, c.razonSocialCliente, c.fechaEmision,
+      v.montoTotal, v.fechaCompra, v.metodoPago, v.tipo, f.fecha, f.horaInicio, f.idSala, s.tipo, pel.titulo`,
+    [numero]
+  );
+
+  if (!rows || (rows as any[]).length === 0) {
+    return fail(res, `Comprobante no encontrado: ${numero}`, 404);
+  }
+
+  const comprobante = (rows as any[])[0];
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const PDFDocument = require('pdfkit');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const QRCode = require('qrcode');
+
+  const qrData = `CINE-${comprobante.numero}-${comprobante.nitCliente || 'CLIENTE'}-${new Date(comprobante.fechaEmision).getTime()}`;
+  const qrImage = await QRCode.toDataURL(qrData);
+
+  // 80mm roll width is ~226 points. Height is fixed high to fit all, printers cut at end of content.
+  const doc = new PDFDocument({ size: [226, 800], margin: 10 });
+  const chunks: Uint8Array[] = [];
+
+  doc.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+  doc.on('end', () => {
+    const buffer = Buffer.concat(chunks);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="ticket-${comprobante.numero}.pdf"`);
+    res.send(buffer);
+  });
+
+  doc.fontSize(14).font('Helvetica-Bold').text('CINE LA PAZ', { align: 'center' });
+  doc.fontSize(10).font('Helvetica').text('Ticket de Venta', { align: 'center' });
+  doc.moveDown(0.5);
+  doc.fontSize(9).text('------------------------------------------', { align: 'center' });
+
+  doc.text(`Nro: ${comprobante.numero}`);
+  doc.text(`Fecha: ${new Date(comprobante.fechaEmision).toLocaleString('es-BO')}`);
+  doc.text(`Cajero: Boleteria`);
+  doc.text('------------------------------------------', { align: 'center' });
+  doc.moveDown(0.5);
+
+  doc.font('Helvetica-Bold').text('PELICULA:', { underline: true });
+  doc.font('Helvetica').text(comprobante.peliculaTitulo, { align: 'center' });
+  doc.moveDown(0.3);
+  doc.font('Helvetica-Bold').text(`FECHA/HORA:`, { underline: true });
+  doc.font('Helvetica').text(`${comprobante.fecha} / ${comprobante.horaInicio}`, { align: 'center' });
+  doc.moveDown(0.3);
+  doc.font('Helvetica-Bold').text(`SALA:`, { underline: true });
+  doc.font('Helvetica').text(`${comprobante.idSala} (${comprobante.salaTipo || 'Estandar'})`, { align: 'center' });
+  doc.moveDown(0.3);
+  doc.font('Helvetica-Bold').text(`ASIENTOS:`, { underline: true });
+  doc.font('Helvetica').text(comprobante.asientos, { align: 'center' });
+  doc.moveDown(0.5);
+  doc.text('------------------------------------------', { align: 'center' });
+
+  doc.font('Helvetica-Bold').text('CLIENTE:', { underline: true });
+  doc.font('Helvetica').text(`${comprobante.razonSocialCliente || 'Consumidor Final'}`, { align: 'center' });
+  doc.text(`NIT/CI: ${comprobante.nitCliente || 'N/A'}`, { align: 'center' });
+  doc.moveDown(0.5);
+  doc.text('------------------------------------------', { align: 'center' });
+
+  const cantidad = (comprobante.asientos?.split(',') || []).length;
+  doc.font('Helvetica-Bold').text(`TOTAL (${cantidad}x):`, { align: 'center', underline: true });
+  doc.fontSize(14).text(`Bs. ${Number(comprobante.montoTotal).toFixed(2)}`, { align: 'center' });
+  doc.moveDown(0.5);
+
+  doc.fontSize(9).font('Helvetica').text('------------------------------------------', { align: 'center' });
+  doc.moveDown(0.5);
+
+  const qrSize = 100;
+  const qrX = (226 - qrSize) / 2;
+  doc.image(qrImage, qrX, doc.y, { width: qrSize, height: qrSize });
+  doc.y += qrSize + 10;
+
+  doc.fontSize(8).text('Gracias por su preferencia.', { align: 'center' });
+  doc.text('Conserve este ticket.', { align: 'center' });
+
   doc.end();
 }

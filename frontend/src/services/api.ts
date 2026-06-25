@@ -142,6 +142,8 @@ export const api = {
     request<{ ok: boolean; comprobante: any }>(`/comprobantes/${encodeURIComponent(numero)}`),
   descargarComprobantePdf: (numero: string) =>
     requestBlob(`/comprobantes/${encodeURIComponent(numero)}/pdf`),
+  descargarComprobanteTicketPdf: (numero: string) =>
+    requestBlob(`/comprobantes/${encodeURIComponent(numero)}/ticket`),
 
   // Email
   enviarComprobanteEmail: (idVenta: number, email: string) =>
