@@ -703,7 +703,7 @@ BEGIN
     JOIN Asiento a ON b.idAsiento = a.idAsiento
     WHERE v.idCliente = p_idCliente
       AND v.estadoA = 1
-      AND v.estadoVenta = 'COMPLETADA'
+      AND v.estadoVenta IN ('COMPLETADA', 'CANCELADA')
     GROUP BY c.idComprobante, c.numero, p.titulo, f.fecha, f.horaInicio, s.tipo, v.montoTotal, v.estadoVenta, v.idVenta
     ORDER BY f.fecha DESC, f.horaInicio DESC;
 END$$

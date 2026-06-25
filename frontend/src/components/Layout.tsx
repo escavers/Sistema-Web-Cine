@@ -49,16 +49,22 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-cinema-black">
-      <header className="border-b border-white/10 bg-cinema-black/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <header className="border-b border-white/10 bg-gradient-to-r from-[#09090f] via-[#110f1a] to-[#1f160d] shadow-[0_35px_120px_-65px_rgba(255,158,0,0.45)] backdrop-blur">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 md:flex-row md:items-center md:justify-between">
           <Link to="/" className="no-underline">
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-cinema-gold">Cine La Paz</p>
-            <h1 className="mt-0.5 text-xl font-bold text-white">Portal de Usuarios</h1>
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center text-cinema-gold">
+                <span className="text-2xl">🎬</span>
+              </div>
+              <div>
+                <p className="text-4xl font-semibold uppercase tracking-[0.35em] text-cinema-gold">CINE LA PAZ</p>
+              </div>
+            </div>
           </Link>
 
           {user ? (
-            <div className="flex items-center gap-4">
-              <div className="hidden text-right sm:block">
+            <div className="flex flex-col items-start gap-3 sm:items-end md:flex-row md:items-center md:gap-6 md:items-center">
+              <div className="hidden md:block text-right">
                 <p className="text-sm font-semibold text-white">{user.nombreCompleto}</p>
                 <p className="text-xs text-cinema-gray">{rolesDisplay}</p>
               </div>

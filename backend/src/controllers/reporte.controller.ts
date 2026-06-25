@@ -56,8 +56,32 @@ export async function historialCliente(req: Request, res: Response) {
   }
 
   try {
-    const [rows] = await pool.query('CALL sp_historial_cliente(?)', [idCliente]);
-    return ok(res, { historial: (rows as any[])[0] });
+    const [rows] = await pool.query(
+      `SELECT
+         v.idVenta,
+         c.numero,
+         p.titulo AS peliculaTitulo,
+         f.fecha,
+         f.horaInicio,
+         s.tipo AS salaTipo,
+         GROUP_CONCAT(CONCAT(a.fila, a.columna) ORDER BY a.fila, a.columna SEPARATOR ', ') AS asientos,
+         v.montoTotal,
+         v.estadoVenta
+       FROM Comprobante c
+       JOIN Venta v ON c.idVenta = v.idVenta
+       JOIN Boleto b ON v.idVenta = b.idVenta
+       JOIN Funcion f ON v.idFuncion = f.idFuncion
+       JOIN Pelicula p ON f.idPelicula = p.idPelicula
+       JOIN Sala s ON f.idSala = s.idSala
+       JOIN Asiento a ON b.idAsiento = a.idAsiento
+       WHERE v.idCliente = ?
+         AND v.estadoA = 1
+         AND v.estadoVenta IN ('COMPLETADA', 'CANCELADA')
+       GROUP BY c.idComprobante, c.numero, p.titulo, f.fecha, f.horaInicio, s.tipo, v.montoTotal, v.estadoVenta, v.idVenta
+       ORDER BY f.fecha DESC, f.horaInicio DESC;`,
+      [idCliente]
+    );
+    return ok(res, { historial: rows as any[] });
   } catch (error) {
     console.error(error);
     return fail(res, 'Error al generar historial del cliente.', 500);

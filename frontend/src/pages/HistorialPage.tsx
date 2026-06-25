@@ -37,6 +37,19 @@ export default function HistorialPage() {
     }
   };
 
+  const buildFuncionDateTime = (fecha: string | Date | null, hora: string | undefined) => {
+    if (!fecha) return null;
+    const fechaObj = new Date(fecha);
+    if (Number.isNaN(fechaObj.getTime())) return null;
+    if (hora) {
+      const [h, m] = hora.split(':').map(Number);
+      if (!Number.isNaN(h) && !Number.isNaN(m)) {
+        fechaObj.setHours(h, m, 0, 0);
+      }
+    }
+    return fechaObj;
+  };
+
   return (
     <section className="space-y-8">
       <h2 className="text-2xl font-bold text-white">Mi historial de compras</h2>
@@ -60,8 +73,8 @@ export default function HistorialPage() {
             </thead>
             <tbody>
               {historial.map((h, i) => {
-                const canCancel = h.estado === 'COMPLETADA' && (() => {
-                  const fechaFuncion = h.fecha ? new Date(`${h.fecha}T${h.horaInicio}`) : null;
+                const canCancel = h.estadoVenta === 'COMPLETADA' && (() => {
+                  const fechaFuncion = buildFuncionDateTime(h.fecha, h.horaInicio);
                   if (!fechaFuncion) return false;
                   const now = new Date();
                   const diffHours = (fechaFuncion.getTime() - now.getTime()) / (1000 * 60 * 60);
@@ -79,11 +92,11 @@ export default function HistorialPage() {
                     <td className="px-5 py-4 text-cinema-gold font-semibold">Bs. {Number(h.montoTotal).toFixed(2)}</td>
                     <td className="px-5 py-4">
                       <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                        h.estado === 'COMPLETADA' ? 'bg-emerald-500/20 text-emerald-300' :
-                        h.estado === 'CANCELADA' ? 'bg-red-500/20 text-red-300' :
+                        h.estadoVenta === 'COMPLETADA' ? 'bg-emerald-500/20 text-emerald-300' :
+                        h.estadoVenta === 'CANCELADA' ? 'bg-red-500/20 text-red-300' :
                         'bg-cinema-gold/20 text-cinema-gold'
                       }`}>
-                        {h.estado || '—'}
+                        {h.estadoVenta || '—'}
                       </span>
                     </td>
                     <td className="px-5 py-4">

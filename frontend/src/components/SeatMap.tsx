@@ -59,14 +59,20 @@ export default function SeatMap({ asientos = [], selectedAsientos = [], onToggle
                     }`}
                     onClick={() => onToggle(asiento.idAsiento)}
                     title={`${asiento.fila}${asiento.columna}`}
-                  >
-                    {asiento.columna}
-                  </button>
+                  />
                 );
               })}
             <span className="w-6 text-center text-xs font-bold text-cinema-gold">{fila}</span>
           </div>
         ))}
+      </div>
+
+      <div className="mt-4 flex items-center justify-center gap-1.5 text-[10px] text-cinema-gray">
+        <span className="w-6" />
+        {Array.from({ length: maxCol }, (_, index) => (
+          <span key={index} className="flex h-5 w-8 items-center justify-center rounded-md bg-white/[0.03]">{index + 1}</span>
+        ))}
+        <span className="w-6" />
       </div>
 
       <div className="mt-6 flex justify-center gap-6 text-xs">
