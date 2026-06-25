@@ -81,6 +81,19 @@ export async function eliminarPelicula(req: Request, res: Response) {
   const id = Number(req.params.id);
   const actor = req.user!;
 
+  if (isNaN(id)) {
+    return fail(res, 'ID de película inválido.', 400);
+  }
+
+  const [funciones] = await pool.query<any[]>(
+    'SELECT COUNT(*) as total FROM Funcion WHERE idPelicula = ? AND estadoA = 1',
+    [id]
+  );
+
+  if (funciones[0]?.total > 0) {
+    return fail(res, 'No se puede eliminar la película porque está asociada a funciones activas.', 400);
+  }
+
   await pool.query('UPDATE Pelicula SET estadoA = 0, fechaA = CURDATE(), usuarioA = ? WHERE idPelicula = ?', [actor.idUsuario, id]);
 
   await createAudit({ tablaNombre: 'Pelicula', registroId: id, accion: 'PELICULA_ELIMINADA', usuarioA: actor.idUsuario, req });

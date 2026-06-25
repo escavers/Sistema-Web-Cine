@@ -65,7 +65,13 @@ export async function eliminarFuncion(req: Request, res: Response) {
   const actor = req.user!;
 
   // Verificar que no tenga boletos vendidos
-  const [boletos] = await pool.query<any[]>('SELECT COUNT(*) as total FROM Boleto WHERE idFuncion = ? AND estadoA = 1', [id]);
+  const [boletos] = await pool.query<any[]>(
+    `SELECT COUNT(*) as total
+     FROM Boleto b
+     JOIN Venta v ON b.idVenta = v.idVenta
+     WHERE v.idFuncion = ? AND b.estadoA = 1`,
+    [id]
+  );
   if (boletos[0].total > 0) {
     return fail(res, 'No se puede eliminar una función que ya tiene boletos vendidos.', 400);
   }

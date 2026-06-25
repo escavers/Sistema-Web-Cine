@@ -1,10 +1,16 @@
-import { memo, useEffect, useState, useRef } from 'react';
+import { memo, useEffect, useMemo, useState, useRef } from 'react';
 import Field from '../components/Field';
 import Message from '../components/Message';
 import { api } from '../services/api';
 
 const initial = { idSala: '', tipo: 'Estándar', capacidadTotal: '', filas: '', columnas: '' };
 const tipos = ['Estándar', '3D', 'VIP'];
+
+interface AsientoPreview {
+  fila: string;
+  numero: number;
+  activo: boolean;
+}
 
 interface ValidationItem { valid: boolean; error: string }
 
@@ -76,6 +82,7 @@ export default function SalasPage() {
     filas: { valid: false, error: '' },
     columnas: { valid: false, error: '' },
   });
+  const [seatLayout, setSeatLayout] = useState<AsientoPreview[]>([]);
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Funciones de validación
@@ -126,6 +133,30 @@ export default function SalasPage() {
     setForm((prevForm) => ({ ...prevForm, [name]: value }));
   }
   
+  const buildSeatLayout = (filas: string, columnas: string, existing: AsientoPreview[] = []) => {
+    const rows = Number(filas) || 0;
+    const cols = Number(columnas) || 0;
+    if (rows <= 0 || cols <= 0) return [];
+
+    return Array.from({ length: rows }, (_, rowIndex) => String.fromCharCode(65 + rowIndex)).flatMap((fila) =>
+      Array.from({ length: cols }, (_, colIndex) => {
+        const numero = colIndex + 1;
+        const existingSeat = existing.find((s) => s.fila === fila && s.numero === numero);
+        return { fila, numero, activo: existingSeat ? existingSeat.activo : true };
+      })
+    );
+  };
+
+  const activeSeatCount = useMemo(() => seatLayout.filter((seat) => seat.activo).length, [seatLayout]);
+
+  const toggleSeat = (fila: string, numero: number) => {
+    setSeatLayout((prev) =>
+      prev.map((seat) =>
+        seat.fila === fila && seat.numero === numero ? { ...seat, activo: !seat.activo } : seat
+      )
+    );
+  };
+
   useEffect(() => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -142,10 +173,34 @@ export default function SalasPage() {
     };
   }, [form, salas]);
 
+  useEffect(() => {
+    setSeatLayout((prevLayout) => buildSeatLayout(form.filas, form.columnas, prevLayout));
+  }, [form.filas, form.columnas]);
+
+  async function loadSeatLayout(idSala: string) {
+    try {
+      const res = await api.obtenerAsientosSala(idSala);
+      const rows = res.asientos.map((a: any) => ({ fila: a.fila, numero: Number(a.columna), activo: Boolean(a.estado) }));
+      const maxFila = rows.reduce((max, asiento) => Math.max(max, asiento.fila.charCodeAt(0) - 64), 0);
+      const maxColumna = rows.reduce((max, asiento) => Math.max(max, asiento.numero), 0);
+      const filas = String(maxFila || Number(form.filas) || 0);
+      const columnas = String(maxColumna || Number(form.columnas) || 0);
+
+      setForm((prevForm) => ({
+        ...prevForm,
+        filas,
+        columnas,
+      }));
+      setSeatLayout(buildSeatLayout(filas, columnas, rows));
+    } catch {
+      setMessage({ type: 'error', text: 'No se pudieron cargar los asientos de la sala.' });
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const validationErrors = validateAll(form, salas);
-    const allValid = Object.values(validationErrors).every(v => v.valid) && form.tipo;
+    const allValid = Object.values(validationErrors).every((v) => v.valid) && form.tipo;
     
     if (!allValid) {
       setMessage({ type: 'error', text: 'Por favor, completa todos los campos correctamente.' });
@@ -157,9 +212,10 @@ export default function SalasPage() {
     try {
       const payload = {
         ...form,
-        capacidadTotal: Number(form.filas) * Number(form.columnas),
+        capacidadTotal: activeSeatCount,
         filas: Number(form.filas),
         columnas: Number(form.columnas),
+        asientos: seatLayout.map((seat) => ({ fila: seat.fila, numero: seat.numero, activo: seat.activo })),
       };
       if (editId) {
         await api.actualizarSala(editId, payload);
@@ -170,6 +226,7 @@ export default function SalasPage() {
       }
       setForm(initial);
       setEditId(null);
+      setSeatLayout([]);
       setValidations({
         idSala: { valid: false, error: '' },
         filas: { valid: false, error: '' },
@@ -226,15 +283,20 @@ export default function SalasPage() {
             <div key={fila} className="flex gap-1 justify-center items-center">
               <span className="text-xs font-bold text-cinema-gold w-4">{fila}</span>
               <div className="flex gap-1">
-                {Array.from({ length: columnas }, (_, col) => (
-                  <div
-                    key={`${fila}${col + 1}`}
-                    className="h-6 w-6 bg-green-500/40 border border-green-500/60 rounded text-xs flex items-center justify-center text-white/40 hover:bg-green-500/60 hover:text-white/60 transition"
-                    title={`${fila}${col + 1}`}
-                  >
-                    {col + 1}
-                  </div>
-                ))}
+                {seatLayout
+                  .filter((seat) => seat.fila === fila)
+                  .sort((a, b) => a.numero - b.numero)
+                  .map((seat) => (
+                    <button
+                      type="button"
+                      key={`${seat.fila}${seat.numero}`}
+                      className={`h-8 w-8 rounded-lg border text-xs font-semibold transition ${seat.activo ? 'border-green-500/60 bg-green-500/40 hover:bg-green-500/60 text-white' : 'border-white/10 bg-slate-900 text-cinema-gray/60 hover:bg-slate-800'} ${seat.activo ? '' : 'line-through'}`}
+                      onClick={() => toggleSeat(seat.fila, seat.numero)}
+                      title={`${seat.fila}${seat.numero}`}
+                    >
+                      {seat.activo ? seat.numero : '×'}
+                    </button>
+                  ))}
               </div>
             </div>
           ))}
@@ -244,7 +306,7 @@ export default function SalasPage() {
             <span className="w-4"></span>
             <div className="flex gap-1 text-xs text-cinema-gray/50">
               {Array.from({ length: columnas > 20 ? 10 : columnas }, (_, col) => (
-                <span key={col} className="w-6 text-center">
+                <span key={col} className="w-8 text-center">
                   {col === 0 ? 1 : col === 9 ? 10 : ''}
                 </span>
               ))}
@@ -258,7 +320,7 @@ export default function SalasPage() {
 
   // Componente Resumen
   const SummaryCard = () => {
-    const capacidad = Number(form.filas) * Number(form.columnas) || 0;
+    const capacidad = activeSeatCount || 0;
     const isLarge = capacidad > 300;
 
     return (
@@ -392,7 +454,7 @@ export default function SalasPage() {
                   <input
                     className="w-full rounded-xl border border-green-500/50 bg-green-500/5 px-4 py-2.5 text-sm text-green-400 placeholder-cinema-gray/50 outline-none transition cursor-not-allowed"
                     type="number"
-                    value={Number(form.filas) * Number(form.columnas) || 0}
+                    value={activeSeatCount}
                     disabled
                   />
                   <span className="absolute right-3 top-2.5 text-green-500">✓</span>
@@ -421,6 +483,7 @@ export default function SalasPage() {
                       onClick={() => {
                         setEditId(null);
                         setForm(initial);
+                        setSeatLayout([]);
                         setValidations({
                           idSala: { valid: false, error: '' },
                           filas: { valid: false, error: '' },
@@ -491,6 +554,7 @@ export default function SalasPage() {
                             columnas: { valid: true, error: '' },
                           });
                           setEditId(s.idSala);
+                          loadSeatLayout(s.idSala);
                         }}
                       >
                         Editar

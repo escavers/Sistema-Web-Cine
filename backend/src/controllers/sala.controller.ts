@@ -4,17 +4,44 @@ import { z } from 'zod';
 import { fail, ok } from '../utils/response.js';
 import { createAudit } from '../services/audit.service.js';
 
+const asientoSchema = z.object({
+  fila: z.string().min(1),
+  numero: z.number().min(1),
+  activo: z.boolean(),
+});
+
 const crearSalaSchema = z.object({
   idSala: z.string().min(1),
   tipo: z.string().min(1),
   capacidadTotal: z.number().min(1),
   filas: z.number().min(1),
   columnas: z.number().min(1),
+  asientos: z.array(asientoSchema).optional(),
+});
+
+const actualizarSalaSchema = z.object({
+  tipo: z.string().min(1).optional(),
+  filas: z.number().min(1).optional(),
+  columnas: z.number().min(1).optional(),
+  capacidadTotal: z.number().min(0).optional(),
+  asientos: z.array(asientoSchema).optional(),
 });
 
 export async function listarSalas(_req: Request, res: Response) {
   const [rows] = await pool.query('SELECT * FROM Sala WHERE estadoA = 1 ORDER BY idSala');
   return ok(res, { salas: rows });
+}
+
+export async function listarAsientosSala(req: Request<{ id: string }>, res: Response) {
+  const idSala = req.params.id;
+  const [rows] = await pool.query(
+    `SELECT idAsiento, fila, columna, estado
+     FROM Asiento
+     WHERE idSala = ? AND estadoA = 1
+     ORDER BY fila, columna`,
+    [idSala]
+  );
+  return ok(res, { asientos: rows });
 }
 
 export async function crearSala(req: Request, res: Response) {
@@ -37,11 +64,11 @@ export async function crearSala(req: Request, res: Response) {
       [d.idSala, d.tipo, d.capacidadTotal, d.filas, d.columnas, actor.idUsuario]
     );
 
-    // Generar asientos automáticamente
     const values: any[][] = [];
     for (let f = 0; f < d.filas; f++) {
       for (let c = 1; c <= d.columnas; c++) {
-        values.push([`${d.idSala}-${letras[f]}${c}`, d.idSala, letras[f], c, 1, 1, null, null]);
+        const activo = d.asientos ? !!d.asientos.find(a => a.fila === letras[f] && a.numero === c && a.activo) : true;
+        values.push([`${d.idSala}-${letras[f]}${c}`, d.idSala, letras[f], c, activo ? 1 : 0, 1, null, null]);
       }
     }
 
@@ -56,7 +83,7 @@ export async function crearSala(req: Request, res: Response) {
 
     await connection.commit();
 
-    await createAudit({ tablaNombre: 'Sala', registroId: d.idSala, accion: 'SALA_CREADA', usuarioA: actor.idUsuario, req, detalles: `Sala "${d.idSala}" creada con ${d.filas * d.columnas} asientos.` });
+    await createAudit({ tablaNombre: 'Sala', registroId: d.idSala, accion: 'SALA_CREADA', usuarioA: actor.idUsuario, req, detalles: `Sala "${d.idSala}" creada con ${values.filter(v => v[4] === 1).length} asientos activos.` });
 
     return ok(res, { mensaje: 'Sala creada correctamente.', idSala: d.idSala }, 201);
   } catch (error: any) {
@@ -70,10 +97,51 @@ export async function crearSala(req: Request, res: Response) {
 
 export async function actualizarSala(req: Request, res: Response) {
   const id = req.params.id;
-  const { tipo } = req.body;
+  const parsed = actualizarSalaSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return fail(res, 'Datos inválidos.', 400, { errores: parsed.error.flatten() });
+  }
+
+  const d = parsed.data;
   const actor = req.user!;
 
-  await pool.query('UPDATE Sala SET tipo = ?, fechaA = CURDATE(), usuarioA = ? WHERE idSala = ?', [tipo, actor.idUsuario, id]);
+  if (d.tipo || d.filas || d.columnas || typeof d.capacidadTotal !== 'undefined') {
+    const updates: string[] = [];
+    const params: any[] = [];
+    if (d.tipo) {
+      updates.push('tipo = ?');
+      params.push(d.tipo);
+    }
+    if (typeof d.capacidadTotal !== 'undefined') {
+      updates.push('capacidadTotal = ?');
+      params.push(d.capacidadTotal);
+    }
+    if (d.filas) {
+      updates.push('filas = ?');
+      params.push(d.filas);
+    }
+    if (d.columnas) {
+      updates.push('columnas = ?');
+      params.push(d.columnas);
+    }
+    updates.push('fechaA = CURDATE()', 'usuarioA = ?');
+    params.push(actor.idUsuario, id);
+    await pool.query(`UPDATE Sala SET ${updates.join(', ')} WHERE idSala = ?`, params);
+  }
+
+  if (d.asientos) {
+    const values: any[][] = d.asientos.map(a => [`${id}-${a.fila}${a.numero}`, id, a.fila, a.numero, a.activo ? 1 : 0, 1, null, actor.idUsuario]);
+    for (let i = 0; i < values.length; i += 100) {
+      const lote = values.slice(i, i + 100);
+      const placeholders = lote.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+      await pool.query(
+        `INSERT INTO Asiento (idAsiento, idSala, fila, columna, estado, estadoA, fechaA, usuarioA)
+         VALUES ${placeholders}
+         ON DUPLICATE KEY UPDATE estado = VALUES(estado), estadoA = VALUES(estadoA), fechaA = CURDATE(), usuarioA = VALUES(usuarioA)`,
+        lote.flat()
+      );
+    }
+  }
 
   await createAudit({ tablaNombre: 'Sala', registroId: id, accion: 'SALA_MODIFICADA', usuarioA: actor.idUsuario, req });
 

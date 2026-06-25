@@ -34,7 +34,10 @@ export async function runPromoSchedulerJob(): Promise<void> {
     for (const funcion of funciones) {
       // 2. Obtener el número de boletos vendidos y activos (estadoA = 1) para esta función
       const [boletos] = await pool.query<any[]>(
-        'SELECT COUNT(*) as vendidos FROM Boleto WHERE idFuncion = ? AND estadoA = 1',
+        `SELECT COUNT(*) as vendidos
+         FROM Boleto b
+         JOIN Venta v ON b.idVenta = v.idVenta
+         WHERE v.idFuncion = ? AND b.estadoA = 1`,
         [funcion.idFuncion]
       );
 

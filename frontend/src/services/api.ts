@@ -111,6 +111,7 @@ export const api = {
 
   // Salas
   listarSalas: () => request<{ ok: boolean; salas: any[] }>('/salas'),
+  obtenerAsientosSala: (id: string) => request<{ ok: boolean; asientos: any[] }>(`/salas/${id}/asientos`),
   crearSala: (payload: Record<string, unknown>) =>
     request<{ ok: boolean; mensaje: string; idSala: string }>('/salas', { method: 'POST', body: JSON.stringify(payload) }),
   actualizarSala: (id: string, payload: Record<string, unknown>) =>
