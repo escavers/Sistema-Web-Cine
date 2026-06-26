@@ -536,7 +536,28 @@ export default function CompraOnlinePage() {
                 }
               }}
             >
-              Descargar comprobante PDF
+              Descargar comprobante
+            </a>
+            <a
+              className="btn-secondary w-full sm:w-auto text-center !border-emerald-500 !text-emerald-400 hover:!bg-emerald-500 hover:!text-black"
+              href="#"
+              onClick={async (event) => {
+                event.preventDefault();
+                if (!resultado?.numeroComprobante) return;
+                try {
+                  const blob = await api.descargarComprobanteTicketPdf(resultado.numeroComprobante);
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `pase-${resultado.numeroComprobante}.pdf`;
+                  link.click();
+                  URL.revokeObjectURL(url);
+                } catch (error) {
+                  setMessage({ type: 'error', text: error instanceof Error ? error.message : 'No se pudo descargar el pase de entrada.' });
+                }
+              }}
+            >
+              Descargar pase de entrada
             </a>
             <button className="btn-primary w-full sm:w-auto" onClick={nuevaCompra}>Nueva compra</button>
           </div>

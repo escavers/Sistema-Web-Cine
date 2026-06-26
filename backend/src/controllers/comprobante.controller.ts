@@ -314,10 +314,10 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
     doc.text(`Boleto #${b.idBoleto}`, { align: 'center' });
 
     if (i < boletos.length - 1) {
-      doc.moveDown(0.1);
+      doc.moveDown(1.5);
       doc.fontSize(6).fillColor('#cccccc');
-      doc.text('· · ·', { align: 'center' });
-      doc.moveDown(0.1);
+      doc.text('- - - - - - - - - - - -', { align: 'center' });
+      doc.moveDown(1.5);
     }
   }
 
