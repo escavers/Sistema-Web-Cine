@@ -80,6 +80,22 @@ export default function HistorialPage() {
     }
   }, []);
 
+  const downloadTicketPdf = useCallback(async (numero: string) => {
+    try {
+      const blob = await api.descargarComprobanteTicketPdf(numero);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `pase-${numero}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setMessage({ type: 'error', text: 'Error al descargar el pase de entrada' });
+    }
+  }, []);
+
   // rerender-derived-state + js-combine-iterations: filtrar y calcular totales en un solo paso
   const { filteredHistorial, totalMonto } = useMemo(() => {
     let total = 0;
@@ -218,13 +234,22 @@ export default function HistorialPage() {
                     <td className="px-5 py-4 text-white font-medium">
                       <div>{h.numero}</div>
                       {h.estadoVenta === 'COMPLETADA' && (
-                        <button
-                          onClick={() => downloadPdf(h.numero)}
-                          className="mt-2 inline-flex items-center gap-1 rounded bg-white/[0.05] px-2 py-1 text-[10px] uppercase tracking-wider text-cinema-gold transition hover:bg-cinema-gold hover:text-black"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                          PDF
-                        </button>
+                        <>
+                          <button
+                            onClick={() => downloadPdf(h.numero)}
+                            className="mt-2 inline-flex items-center gap-1 rounded bg-white/[0.05] px-2 py-1 text-[10px] uppercase tracking-wider text-cinema-gold transition hover:bg-cinema-gold hover:text-black"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Comprobante
+                          </button>
+                          <button
+                            onClick={() => downloadTicketPdf(h.numero)}
+                            className="mt-2 ml-1 inline-flex items-center gap-1 rounded bg-white/[0.05] px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-400 transition hover:bg-emerald-500 hover:text-black"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a3 3 0 0 1 0 6v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a3 3 0 0 1 0-6V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path><path d="M13 5v2"></path><path d="M13 17v2"></path><path d="M13 11v2"></path></svg>
+                            Pase
+                          </button>
+                        </>
                       )}
                     </td>
                     <td className="px-5 py-4">{h.peliculaTitulo}</td>

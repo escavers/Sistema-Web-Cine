@@ -91,14 +91,6 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   }
 
   const comprobante = (rows as any[])[0];
-  const boletos = await getBoletos(comprobante.idVenta);
-
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const QRCode = require('qrcode');
-
-  const qrImages = await Promise.all(
-    boletos.map((b) => QRCode.toDataURL(String(b.idBoleto)))
-  );
 
   const { doc, chunks } = createPdfDoc();
   const PAGE_WIDTH = 595.28;
@@ -150,7 +142,7 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
     { header: 'Subtotal', key: 'sub', width: 100, align: 'right' },
   ];
 
-  const cantidad = boletos.length || 1;
+  const cantidad = comprobante.asientos ? comprobante.asientos.split(', ').length : 1;
   const precioUnitario = Number(comprobante.montoTotal) / cantidad;
 
   const tableRows = [[
@@ -171,67 +163,13 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   });
   doc.moveDown(1);
 
-  // ─── Pases de entrada con QR ───
-  // Check page break antes de la sección QR
-  const estimatedQrHeight = boletos.length > 3 ? 280 : 160;
-  if (doc.y + estimatedQrHeight > 760) {
-    doc.addPage();
-  }
-
-  drawSectionTitle(doc, 'PASES DE ENTRADA', MARGIN, PAGE_WIDTH);
-  doc.moveDown(0.3);
-
-  const qrSize = 60;
-  const colWidth = 170;
-  const cols = 3;
-  let x = MARGIN;
-  let y = doc.y;
-  let cellHeight = 0;
-
-  for (let i = 0; i < boletos.length; i++) {
-    const b = boletos[i];
-    const img = Buffer.from(qrImages[i].replace('data:image/png;base64,', ''), 'base64');
-
-    // Medir altura real del texto del asiento
-    const seatTextHeight = doc.heightOfString(b.idAsiento, { width: colWidth - 10, align: 'center' });
-    cellHeight = seatTextHeight + 14 + qrSize + 18; // text + gap + qr + boleto text
-
-    // Nueva fila de QRs
-    if (i > 0 && i % cols === 0) {
-      x = MARGIN;
-      y += cellHeight + 10;
-    }
-
-    // Page break si no cabe
-    if (y + cellHeight > 760) {
-      doc.addPage();
-      y = 50;
-    }
-
-    // Asiento label
-    doc.fontSize(8).font('Helvetica-Bold').fillColor('#1a1a1a');
-    doc.text(b.idAsiento, x, y, { width: colWidth, align: 'center' });
-
-    // QR image
-    const qrY = y + seatTextHeight + 4;
-    doc.image(img, x + (colWidth - qrSize) / 2, qrY, { width: qrSize, height: qrSize });
-
-    // Boleto label
-    doc.fontSize(7).font('Helvetica').fillColor('#666666');
-    doc.text(`Boleto #${b.idBoleto}`, x, qrY + qrSize + 4, { width: colWidth, align: 'center' });
-
-    x += colWidth;
-  }
-
-  doc.y = y + cellHeight + 20;
-
   // ─── Footer ───
   if (doc.y + 40 > 760) doc.addPage();
   doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).stroke('#cccccc');
   doc.moveDown(0.3);
   doc.fontSize(9).font('Helvetica').fillColor('#999999');
   doc.text('Gracias por comprar en Cine La Paz', { align: 'center' });
-  doc.text('Este comprobante valida tu entrada al cine', { align: 'center' });
+  doc.text('El pase de entrada con código QR se descarga por separado', { align: 'center' });
 
   addPageFooters(doc);
   await sendPdf(res, doc, chunks, comprobante.numero);
