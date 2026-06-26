@@ -125,9 +125,10 @@ export async function reporteOcupacionPdf(req: Request, res: Response) {
 
     const endY = drawPdfTable(doc, columns, tableRows);
 
+    if (endY + 30 > 760) doc.addPage();
     doc.moveDown(1);
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#333333');
-    doc.text(`Total registros: ${data.length}`, 40, endY + 10);
+    doc.text(`Total registros: ${data.length}`, 40);
 
     addPageFooters(doc);
     await sendPdf(res, doc, chunks, 'reporte-ocupacion');
@@ -172,9 +173,10 @@ export async function reporteMasVistasPdf(req: Request, res: Response) {
 
     const endY = drawPdfTable(doc, columns, tableRows);
 
+    if (endY + 30 > 760) doc.addPage();
     doc.moveDown(1);
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#333333');
-    doc.text(`Total películas: ${data.length}`, 40, endY + 10);
+    doc.text(`Total películas: ${data.length}`, 40);
 
     addPageFooters(doc);
     await sendPdf(res, doc, chunks, 'reporte-mas-vistas');
@@ -224,9 +226,10 @@ export async function reporteVentasPdf(req: Request, res: Response) {
 
     const endY = drawPdfTable(doc, columns, tableRows);
 
+    if (endY + 30 > 760) doc.addPage();
     doc.moveDown(1);
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#333333');
-    doc.text(`Total ventas: ${data.length}`, 40, endY + 10);
+    doc.text(`Total ventas: ${data.length}`, 40);
 
     addPageFooters(doc);
     await sendPdf(res, doc, chunks, 'reporte-ventas');

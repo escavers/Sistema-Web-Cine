@@ -257,7 +257,7 @@ export default function ReportesPage() {
       {data.length > 0 && (
         <>
           <div className="card-cine overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="max-h-[70vh] overflow-auto">
               <table className="min-w-full text-sm text-cinema-gray" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
                   <tr>
