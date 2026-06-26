@@ -4,10 +4,13 @@ node_modules/
 
 # Build output
 dist/
+build/
 
 # Environment files
 .env
 .env.local
+.env.development
+.env.production
 .env.*.local
 
 # IDE
@@ -24,6 +27,9 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Frontend build
 frontend/dist/
@@ -34,39 +40,15 @@ temp/
 
 # Agent skills (no subir al repositorio)
 .agents/
-=======
-# Dependencias
-node_modules/
-
-# Variables de entorno
-.env
-.env.local
-.env.development
-.env.production
-
-# Builds
-dist/
-build/
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Sistema
-.DS_Store
-Thumbs.db
-
-# VS Code opcional
-.vscode/
 
 # Archivos temporales
-*.log
 *.tmp
 
 # Backups de base de datos con datos sensibles
 *.bak
 *.backup
 *.dump
+
+# Reportes mensuales generados por cron
+backend/reportes-mensuales/*.pdf
 

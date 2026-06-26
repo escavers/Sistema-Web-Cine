@@ -216,6 +216,22 @@ export function sendPdf(res: any, doc: any, chunks: Uint8Array[], filename: stri
   });
 }
 
+export function sendPdfFile(doc: any, chunks: Uint8Array[], filePath: string) {
+  return new Promise<void>((resolve, reject) => {
+    doc.on('end', () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        const fs = require('fs');
+        fs.writeFileSync(filePath, buffer);
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    });
+    doc.end();
+  });
+}
+
 // ── Utility ─────────────────────────────────────────────────
 
 export function formatDateEs(date: string | Date): string {
