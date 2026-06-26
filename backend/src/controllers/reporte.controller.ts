@@ -150,13 +150,13 @@ export async function reporteMasVistasPdf(req: Request, res: Response) {
     buildPdfTitle(doc, 'PELÍCULAS MÁS VISTAS', fi, ff);
 
     const columns: TableColumn[] = [
-      { header: '#', key: 'num', width: 30, align: 'center' },
-      { header: 'Película', key: 'pelicula', width: 140 },
-      { header: 'Director', key: 'director', width: 110 },
-      { header: 'Boletos', key: 'boletos', width: 55, align: 'right' },
-      { header: 'Ingreso (Bs.)', key: 'ingreso', width: 75, align: 'right' },
-      { header: '% Ocup.', key: 'ocup', width: 50, align: 'right' },
-      { header: 'Funciones', key: 'funciones', width: 55, align: 'right' },
+      { header: '#', key: 'num', width: 25, align: 'center' },
+      { header: 'Película', key: 'pelicula', width: 120 },
+      { header: 'Director', key: 'director', width: 100 },
+      { header: 'Boletos', key: 'boletos', width: 50, align: 'right' },
+      { header: 'Ingreso (Bs.)', key: 'ingreso', width: 70, align: 'right' },
+      { header: '% Ocup.', key: 'ocup', width: 45, align: 'right' },
+      { header: 'Funciones', key: 'funciones', width: 50, align: 'right' },
       { header: 'Semanas', key: 'semanas', width: 55, align: 'right' },
     ];
 
@@ -197,17 +197,15 @@ export async function reporteVentasPdf(req: Request, res: Response) {
     buildPdfTitle(doc, 'REPORTE DE VENTAS', fi, ff);
 
     const columns: TableColumn[] = [
-      { header: 'ID', key: 'id', width: 35, align: 'center' },
-      { header: 'Fecha', key: 'fecha', width: 60 },
-      { header: 'Cliente', key: 'cliente', width: 100 },
+      { header: 'ID', key: 'id', width: 28, align: 'center' },
+      { header: 'Fecha', key: 'fecha', width: 52 },
+      { header: 'Cliente', key: 'cliente', width: 85 },
       { header: 'Película', key: 'pelicula', width: 90 },
-      { header: 'Función', key: 'funcion', width: 80 },
       { header: 'Sala', key: 'sala', width: 45 },
-      { header: 'Entradas', key: 'entradas', width: 50, align: 'right' },
+      { header: 'Entradas', key: 'entradas', width: 42, align: 'right' },
       { header: 'Monto', key: 'monto', width: 60, align: 'right' },
-      { header: 'Pago', key: 'pago', width: 45 },
-      { header: 'Canal', key: 'canal', width: 50 },
-      { header: 'Estado', key: 'estado', width: 60 },
+      { header: 'Pago', key: 'pago', width: 48 },
+      { header: 'Estado', key: 'estado', width: 65 },
     ];
 
     const tableRows = data.map((r: any) => [
@@ -215,12 +213,10 @@ export async function reporteVentasPdf(req: Request, res: Response) {
       formatDateEs(r.fechaCompra),
       r.cliente,
       r.pelicula,
-      `${formatDateEs(r.fechaFuncion)} ${r.horaInicio?.substring(0, 5)}`,
       r.sala,
       r.cantidadEntradas,
       formatMoney(Number(r.montoTotal)),
       r.metodoPago,
-      r.canal,
       r.estadoVenta,
     ]);
 

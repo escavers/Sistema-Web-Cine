@@ -86,7 +86,14 @@ export function drawPdfTable(
   const definedWidths = columns.filter(c => c.width).reduce((sum, c) => sum + (c.width || 0), 0);
   const remaining = CONTENT_WIDTH - definedWidths;
   const autoWidth = remaining / columns.filter(c => !c.width).length;
-  const colWidths = columns.map(c => c.width || autoWidth);
+  let colWidths = columns.map(c => c.width || autoWidth);
+
+  // Safeguard: escalar si los anchos exceden el espacio disponible
+  const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
+  if (totalWidth > CONTENT_WIDTH) {
+    const scale = CONTENT_WIDTH / totalWidth;
+    colWidths = colWidths.map(w => w * scale);
+  }
 
   let y = doc.y;
 
