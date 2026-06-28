@@ -15,11 +15,8 @@ export default function AccessValidationPage() {
   const [html5QrCode, setHtml5QrCode] = useState<Html5Qrcode | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Estados para la validación por matriz de asiento
-  const [manualIdBoleto, setManualIdBoleto] = useState('');
-  const [selectedSala, setSelectedSala] = useState('1');
-  const [selectedFila, setSelectedFila] = useState('');
-  const [selectedColumna, setSelectedColumna] = useState('');
+  // Estado para la validación manual por código de acceso (XXXX-XXXX)
+  const [manualCode, setManualCode] = useState('');
 
   // Simulación de sonido de escaneo (Beep) usando la API de Audio del navegador
   function playBeep(success: boolean) {
@@ -211,125 +208,57 @@ export default function AccessValidationPage() {
         </button>
       </div>
 
-      {/* Panel Manual */}
+      {/* Panel Manual — Ingreso por Código de Acceso */}
       {mode === 'manual' && (
         <div className="card-cine p-6 space-y-5">
-          <div className="border-b border-white/10 pb-3">
+          <div className="border-b border-white/10 pb-4">
             <h3 className="text-lg font-bold text-white">Ingreso Manual</h3>
-            <p className="text-xs text-cinema-gray">Ingrese los datos en el mismo orden que figuran en el código de acceso del boleto.</p>
+            <p className="text-xs text-cinema-gray mt-1">
+              Ingrese el código de acceso impreso en el boleto físico o digital (formato <span className="font-mono text-cinema-gold">XXXX-XXXX</span>).
+            </p>
           </div>
 
-          <div className="space-y-5 text-center">
-            {/* 1. Nro. de Boleto (ID) */}
-            <div className="space-y-2 text-left">
-              <label className="text-xs font-semibold text-cinema-cream uppercase tracking-wider">1. Nro. de Boleto (ID)</label>
+          <div className="space-y-4">
+            {/* Campo único de código */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-cinema-cream uppercase tracking-wider">
+                Código de Acceso
+              </label>
               <input
-                type="number"
-                value={manualIdBoleto}
-                onChange={e => setManualIdBoleto(e.target.value)}
-                placeholder="Ej. 19"
-                className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm font-mono text-white placeholder-white/30 focus:border-cinema-gold focus:outline-none"
+                id="manualCodeInput"
+                type="text"
+                value={manualCode}
+                onChange={e => setManualCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
+                onKeyDown={e => { if (e.key === 'Enter' && manualCode.trim()) handleValidate(manualCode.trim()); }}
+                placeholder="Ej. A8B9-C3D2"
+                maxLength={9}
+                autoComplete="off"
+                autoFocus
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-4 text-2xl font-mono font-black text-center text-cinema-gold placeholder-white/20 tracking-widest focus:border-cinema-gold focus:outline-none focus:ring-1 focus:ring-cinema-gold/30 transition"
               />
+              <p className="text-[10px] text-cinema-gray text-center">
+                Se acepta con o sin guión (XXXX-XXXX o XXXXXXXX).
+              </p>
             </div>
 
-            {/* 2. Seleccionar Sala */}
-            <div className="space-y-2 text-left">
-              <label className="text-xs font-semibold text-cinema-cream uppercase tracking-wider">2. Seleccionar Sala</label>
-              <div className="grid grid-cols-3 gap-2">
-                {['1', '2', '3'].map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setSelectedSala(s)}
-                    className={`rounded-xl border py-2 text-sm font-bold uppercase transition-all ${
-                      selectedSala === s 
-                        ? 'border-cinema-gold bg-cinema-gold/10 text-cinema-gold' 
-                        : 'border-white/5 bg-white/[0.02] text-cinema-gray hover:text-white'
-                    }`}
-                  >
-                    Sala {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 3. Selección de Fila */}
-            <div className="space-y-2 text-left">
-              <label className="text-xs font-semibold text-cinema-cream uppercase tracking-wider">3. Fila (Asiento)</label>
-              <div className="grid grid-cols-6 gap-1.5">
-                {['A', 'B', 'C', 'D', 'E', 'F'].map(f => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setSelectedFila(f)}
-                    className={`rounded-lg border py-1.5 text-sm font-bold transition-all ${
-                      selectedFila === f 
-                        ? 'border-cinema-gold bg-cinema-gold/10 text-cinema-gold' 
-                        : 'border-white/5 bg-white/[0.02] text-cinema-gray hover:text-white'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 4. Selección de Columna */}
-            <div className="space-y-2 text-left">
-              <label className="text-xs font-semibold text-cinema-cream uppercase tracking-wider">4. Columna (Asiento)</label>
-              <div className="grid grid-cols-5 gap-1.5">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'].map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setSelectedColumna(c)}
-                    className={`rounded-lg border py-1.5 text-sm font-mono font-bold transition-all ${
-                      selectedColumna === c 
-                        ? 'border-cinema-gold bg-cinema-gold/10 text-cinema-gold' 
-                        : 'border-white/5 bg-white/[0.02] text-cinema-gray hover:text-white'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Vista Previa de Selección y Acción */}
-            <div className="border-t border-white/5 pt-4 space-y-4">
-              <div className="rounded-xl bg-black/40 border border-white/5 p-4">
-                <p className="text-xs text-cinema-gray uppercase tracking-widest font-semibold">Código a Validar</p>
-                <p className="text-xl font-mono font-black text-cinema-gold mt-1">
-                  {manualIdBoleto || '?'}-S{selectedSala}-{selectedFila || '?'}{selectedColumna || '?'}
-                </p>
-              </div>
-
-              <div className="flex gap-2 justify-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setManualIdBoleto('');
-                    setSelectedSala('1');
-                    setSelectedFila('');
-                    setSelectedColumna('');
-                  }}
-                  className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold px-4 py-2.5 text-xs uppercase tracking-wider transition-all"
-                >
-                  Resetear
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const cleanSala = 'S' + selectedSala;
-                    const code = `${manualIdBoleto}-${cleanSala}-${selectedFila}${selectedColumna}`;
-                    handleValidate(code);
-                  }}
-                  disabled={loading || !manualIdBoleto.trim() || !selectedFila || !selectedColumna}
-                  className="btn-primary flex-1 font-bold py-2.5 text-xs uppercase tracking-wider"
-                >
-                  ✓ Validar Boleto
-                </button>
-              </div>
+            {/* Acciones */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setManualCode(''); setResult(null); setMessage(null); }}
+                className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold px-5 py-3 text-xs uppercase tracking-wider transition-all"
+              >
+                Limpiar
+              </button>
+              <button
+                type="button"
+                id="btnValidarManual"
+                onClick={() => handleValidate(manualCode.trim())}
+                disabled={loading || !manualCode.trim()}
+                className="btn-primary flex-1 font-bold py-3 text-sm uppercase tracking-wider"
+              >
+                {loading ? 'Validando...' : '✓ Validar Boleto'}
+              </button>
             </div>
           </div>
         </div>
@@ -449,8 +378,8 @@ export default function AccessValidationPage() {
                   <p className="font-semibold text-white mt-0.5">{result.detalle.pelicula}</p>
                 </div>
                 <div>
-                  <p className="text-cinema-gray font-bold uppercase tracking-wider text-[10px]">Identificador</p>
-                  <p className="font-semibold text-white mt-0.5">Boleto: #{result.detalle.idBoleto}</p>
+                  <p className="text-cinema-gray font-bold uppercase tracking-wider text-[10px]">Código de Acceso</p>
+                  <p className="font-mono font-bold text-cinema-gold mt-0.5 tracking-widest">{result.detalle.codigoAcceso || `#${result.detalle.idBoleto}`}</p>
                 </div>
                 <div>
                   <p className="text-cinema-gray font-bold uppercase tracking-wider text-[10px]">Sala</p>

@@ -37,8 +37,8 @@ export default function VentaPresencialPage() {
 
   // Generar QR y mostrar ventana emergente al procesar la venta presencial
   useEffect(() => {
-    if (step === 3 && resultado?.numeroComprobante) {
-      api.obtenerComprobante(resultado.numeroComprobante)
+    if (step === 3 && resultado?.idVenta) {
+      api.obtenerBoletos(resultado.idVenta)
         .then(async (res: any) => {
           const boletosList = res.boletos || [];
           setModalBoletos(boletosList);
@@ -46,10 +46,7 @@ export default function VentaPresencialPage() {
           
           // Generar URLs de QR para cada boleto individual
           const qrPromises = boletosList.map(async (b: any) => {
-            const asientoCorto = b.idAsiento.includes('-') 
-              ? b.idAsiento.split('-').pop() 
-              : b.idAsiento;
-            const qrData = `${b.idBoleto}-${getCleanSalaCode(selectedFuncion?.idSala)}-${asientoCorto}`;
+            const qrData = b.codigoAcceso || String(b.idBoleto);
             return QRCode.toDataURL(qrData);
           });
           
@@ -57,7 +54,7 @@ export default function VentaPresencialPage() {
           setModalQrUrls(urls);
           setShowModal(true);
         })
-        .catch(err => console.error('Error al cargar comprobante para modal:', err));
+        .catch(err => console.error('Error al cargar boletos para modal:', err));
     } else {
       setShowModal(false);
       setModalBoletos([]);
@@ -354,11 +351,7 @@ export default function VentaPresencialPage() {
                   </div>
 
                   <div className="text-xs font-mono font-black text-cinema-gold tracking-wide mt-2 bg-white/5 py-1.5 px-2 rounded-lg border border-white/5">
-                    CÓDIGO DE ACCESO: {modalBoletos[currentTicketIndex]?.idBoleto}-{getCleanSalaCode(selectedFuncion?.idSala)}-{modalBoletos[currentTicketIndex]
-                      ? (modalBoletos[currentTicketIndex].idAsiento.includes('-')
-                          ? modalBoletos[currentTicketIndex].idAsiento.split('-').pop()
-                          : modalBoletos[currentTicketIndex].idAsiento)
-                      : ''}
+                    CÓDIGO DE ACCESO: {modalBoletos[currentTicketIndex]?.codigoAcceso || `#${modalBoletos[currentTicketIndex]?.idBoleto}`}
                   </div>
                   <div className="text-[10px] text-cinema-gray font-mono">
                     Comprobante: {resultado?.numeroComprobante || 'N/A'}

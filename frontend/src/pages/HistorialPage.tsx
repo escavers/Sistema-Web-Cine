@@ -52,17 +52,14 @@ export default function HistorialPage() {
   const handleVerTickets = async (venta: any) => {
     setSelectedVenta(venta);
     try {
-      const res = await api.obtenerComprobante(venta.numero);
+      const res = await api.obtenerBoletos(venta.idVenta);
       const boletosList = res.boletos || [];
       setModalBoletos(boletosList);
       setCurrentTicketIndex(0);
       
       // Generar URLs de QR para cada boleto individual
       const qrPromises = boletosList.map(async (b: any) => {
-        const asientoCorto = b.idAsiento.includes('-') 
-          ? b.idAsiento.split('-').pop() 
-          : b.idAsiento;
-        const qrData = `${b.idBoleto}-${getCleanSalaCode(venta.idSala)}-${asientoCorto}`;
+        const qrData = b.codigoAcceso || String(b.idBoleto);
         return QRCode.toDataURL(qrData);
       });
       
@@ -274,11 +271,7 @@ export default function HistorialPage() {
               </div>
 
               <div className="text-xs font-mono font-black text-cinema-gold tracking-wide mt-2 bg-white/5 py-1.5 px-2 rounded-lg border border-white/5">
-                CÓDIGO DE ACCESO: {modalBoletos[currentTicketIndex]?.idBoleto}-{getCleanSalaCode(selectedVenta.idSala)}-{modalBoletos[currentTicketIndex]
-                  ? (modalBoletos[currentTicketIndex].idAsiento.includes('-')
-                      ? modalBoletos[currentTicketIndex].idAsiento.split('-').pop()
-                      : modalBoletos[currentTicketIndex].idAsiento)
-                  : ''}
+                CÓDIGO DE ACCESO: {modalBoletos[currentTicketIndex]?.codigoAcceso || `#${modalBoletos[currentTicketIndex]?.idBoleto}`}
               </div>
               <div className="text-[10px] text-cinema-gray font-mono">
                 Comprobante: {selectedVenta.numero || 'N/A'}
