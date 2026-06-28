@@ -328,8 +328,8 @@ export default function CompraOnlinePage() {
       )}
 
       {previewFuncion && step === 1 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 md:items-center">
+          <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] shadow-2xl my-8 md:my-0">
             <div className="flex flex-col gap-6 p-6 lg:p-8">
               <div className="flex items-start justify-between gap-4">
                 <div>
