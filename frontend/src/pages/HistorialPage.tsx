@@ -111,11 +111,102 @@ export default function HistorialPage() {
       {message && <Message type={message.type} text={message.text} />}
 
       <div className="card-cine overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-cinema-gray">
+        {/* VISTA MÓVIL (Tarjetas) */}
+        <div className="md:hidden flex flex-col gap-4 p-4">
+          {historial.map((h, i) => {
+            const canCancel = h.estadoVenta === 'COMPLETADA' && (() => {
+              const fechaFuncion = buildFuncionDateTime(h.fecha, h.horaInicio);
+              if (!fechaFuncion) return false;
+              const now = new Date();
+              const diffHours = (fechaFuncion.getTime() - now.getTime()) / (1000 * 60 * 60);
+              return diffHours >= 24;
+            })();
+
+            return (
+              <div key={i} className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
+                <div className="flex justify-end items-start">
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider ${
+                    h.estadoVenta === 'COMPLETADA' ? 'bg-emerald-500/20 text-emerald-300' :
+                    h.estadoVenta === 'CANCELADA' ? 'bg-red-500/20 text-red-300' :
+                    'bg-cinema-gold/20 text-cinema-gold'
+                  }`}>
+                    {h.estadoVenta || '—'}
+                  </span>
+                </div>
+                
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-cinema-gray font-bold">Película</span>
+                  <p className="text-white font-bold text-base leading-tight">{h.peliculaTitulo}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-cinema-gray font-bold">Fecha / Hora</span>
+                    <p className="text-white">
+                      {h.fecha ? new Date(h.fecha).toLocaleDateString('es-BO') : '—'} <br/>
+                      <span className="text-cinema-cream text-xs">{h.horaInicio?.substring(0, 5)}</span>
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-cinema-gray font-bold">Sala / Asientos</span>
+                    <p className="text-white">
+                      Sala {h.idSala ? h.idSala.replace('SALA-', '') : ''} {h.salaTipo ? `(${h.salaTipo})` : ''} <br/>
+                      <span className="text-cinema-cream text-xs">{h.asientos}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-end">
+                  <div>
+                     <span className="text-[10px] uppercase tracking-wider text-cinema-gray font-bold">Total</span>
+                     <p className="text-cinema-gold font-bold text-lg">Bs. {Number(h.montoTotal).toFixed(2)}</p>
+                  </div>
+                </div>
+
+                {(h.estadoVenta === 'COMPLETADA' || canCancel) && (
+                  <div className="flex flex-col gap-2 pt-3 border-t border-white/5">
+                    {h.estadoVenta === 'COMPLETADA' && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="flex-1 rounded-lg bg-cinema-gold hover:bg-cinema-gold/80 text-cinema-black py-2.5 text-xs font-bold transition flex justify-center items-center gap-1.5"
+                          onClick={() => handleVerTickets(h)}
+                        >
+                          🔍 Ver Tickets
+                        </button>
+                        <button
+                          type="button"
+                          className="flex-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white py-2.5 text-xs font-bold transition flex justify-center items-center gap-1.5"
+                          onClick={() => handleDescargarPdf(h.numero)}
+                        >
+                          📥 PDF
+                        </button>
+                      </div>
+                    )}
+                    {canCancel && (
+                      <button
+                        className="w-full rounded-lg bg-red-600/90 py-2.5 text-xs font-bold text-white hover:bg-red-500 disabled:opacity-50 transition"
+                        disabled={loadingCancel === h.idVenta}
+                        onClick={() => handleCancel(h.idVenta)}
+                      >
+                        {loadingCancel === h.idVenta ? 'Cancelando...' : 'Cancelar Compra'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {historial.length === 0 && (
+            <div className="p-8 text-center text-cinema-gray text-sm">No tienes compras registradas.</div>
+          )}
+        </div>
+
+        {/* VISTA DESKTOP (Tabla) */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="min-w-full text-sm text-cinema-gray whitespace-nowrap">
             <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
               <tr>
-                <th className="px-5 py-4">Comprobante</th>
                 <th className="px-5 py-4">Película</th>
                 <th className="px-5 py-4">Fecha función</th>
                 <th className="px-5 py-4">Horario</th>
@@ -139,11 +230,10 @@ export default function HistorialPage() {
 
                 return (
                   <tr key={i} className="border-t border-white/5">
-                    <td className="px-5 py-4 text-white font-medium">{h.numero}</td>
                     <td className="px-5 py-4">{h.peliculaTitulo}</td>
                     <td className="px-5 py-4">{h.fecha ? new Date(h.fecha).toLocaleDateString('es-BO') : '—'}</td>
                     <td className="px-5 py-4">{h.horaInicio?.substring(0, 5)}</td>
-                    <td className="px-5 py-4">{h.salaTipo || h.idSala}</td>
+                    <td className="px-5 py-4">Sala {h.idSala ? h.idSala.replace('SALA-', '') : ''} {h.salaTipo ? `(${h.salaTipo})` : ''}</td>
                     <td className="px-5 py-4">{h.asientos}</td>
                     <td className="px-5 py-4 text-cinema-gold font-semibold">Bs. {Number(h.montoTotal).toFixed(2)}</td>
                     <td className="px-5 py-4">

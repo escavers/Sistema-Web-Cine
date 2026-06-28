@@ -1,4 +1,4 @@
-﻿import type { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { pool } from '../config/db.js';
 import { fail, ok } from '../utils/response.js';
 import {
@@ -57,7 +57,7 @@ export async function obtenerComprobantePorNumero(req: Request, res: Response) {
   const { numero } = req.params;
 
   if (!numero) {
-    return fail(res, 'N├║mero de comprobante requerido.', 400);
+    return fail(res, 'Número de comprobante requerido.', 400);
   }
 
   const [rows] = await pool.query(
@@ -78,7 +78,7 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   const { numero } = req.params;
 
   if (!numero) {
-    return fail(res, 'N├║mero de comprobante requerido.', 400);
+    return fail(res, 'Número de comprobante requerido.', 400);
   }
 
   const [rows] = await pool.query(
@@ -108,27 +108,27 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
 
   // ÔöÇÔöÇÔöÇ Datos del comprobante ÔöÇÔöÇÔöÇ
   doc.fontSize(10).font('Helvetica').fillColor('#333333');
-  doc.text(`Comprobante N┬║: ${comprobante.numero}`);
-  doc.text(`Fecha de emisi├│n: ${new Date(comprobante.fechaEmision).toLocaleString('es-BO')}`);
+  doc.text(`Comprobante Nº: ${comprobante.numero}`);
+  doc.text(`Fecha de emisión: ${new Date(comprobante.fechaEmision).toLocaleString('es-BO')}`);
   doc.text(`Fecha de compra: ${new Date(comprobante.fechaCompra).toLocaleString('es-BO')}`);
-  doc.text(`Canal: ${comprobante.canal === 'ONLINE' ? 'Compra en l├¡nea' : 'Venta presencial'}`);
-  doc.text(`M├®todo de pago: ${comprobante.metodoPago === 'QR' ? 'C├│digo QR' : comprobante.metodoPago}`);
+  doc.text(`Canal: ${comprobante.canal === 'ONLINE' ? 'Compra en línea' : 'Venta presencial'}`);
+  doc.text(`Método de pago: ${comprobante.metodoPago === 'QR' ? 'Código QR' : comprobante.metodoPago}`);
   doc.moveDown(0.6);
 
-  // ÔöÇÔöÇÔöÇ Secci├│n de pel├¡cula ÔöÇÔöÇÔöÇ
-  drawSectionTitle(doc, 'PEL├ìCULA', MARGIN, PAGE_WIDTH);
+  // ─── Sección de película ───
+  drawSectionTitle(doc, 'PELÍCULA', MARGIN, PAGE_WIDTH);
   doc.fontSize(10).font('Helvetica').fillColor('#333333');
-  doc.text(`T├¡tulo: ${comprobante.peliculaTitulo}`, MARGIN + 5);
+  doc.text(`Título: ${comprobante.peliculaTitulo}`, MARGIN + 5);
   doc.text(`Sala: ${comprobante.salaTipo} (${comprobante.idSala})`, MARGIN + 5);
   doc.text(`Fecha: ${formatDateEs(comprobante.fecha)}`, MARGIN + 5);
   doc.text(`Hora: ${comprobante.horaInicio} - ${comprobante.horaFin}`, MARGIN + 5);
   doc.text(`Asientos: ${comprobante.asientos}`, MARGIN + 5);
   doc.moveDown(0.6);
 
-  // ÔöÇÔöÇÔöÇ Secci├│n de cliente ÔöÇÔöÇÔöÇ
+  // ─── Sección de cliente ───
   drawSectionTitle(doc, 'DATOS DEL CLIENTE', MARGIN, PAGE_WIDTH);
   doc.fontSize(10).font('Helvetica').fillColor('#333333');
-  doc.text(`Raz├│n social: ${comprobante.razonSocialCliente || 'Consumidor Final'}`, MARGIN + 5);
+  doc.text(`Razón social: ${comprobante.razonSocialCliente || 'Consumidor Final'}`, MARGIN + 5);
   doc.text(`NIT/CI: ${comprobante.nitCliente || 'N/A'}`, MARGIN + 5);
   doc.moveDown(0.6);
 
@@ -163,13 +163,13 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   });
   doc.moveDown(1);
 
-  // ÔöÇÔöÇÔöÇ Footer ÔöÇÔöÇÔöÇ
+  // ─── Footer ───
   if (doc.y + 40 > 760) doc.addPage();
   doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).stroke('#cccccc');
   doc.moveDown(0.3);
   doc.fontSize(9).font('Helvetica').fillColor('#999999');
   doc.text('Gracias por comprar en Cine La Paz', { align: 'center' });
-  doc.text('El pase de entrada con c├│digo QR se descarga por separado', { align: 'center' });
+  doc.text('El pase de entrada con código QR se descarga por separado', { align: 'center' });
 
   addPageFooters(doc);
   await sendPdf(res, doc, chunks, comprobante.numero);
@@ -237,20 +237,20 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.text('Ticket de Venta', { align: 'center' });
   doc.moveDown(0.3);
   doc.fontSize(8).fillColor('#cccccc');
-  doc.text('ÔöÇ'.repeat(30), { align: 'center' });
+  doc.text('─'.repeat(30), { align: 'center' });
 
-  // ÔöÇÔöÇÔöÇ Datos ÔöÇÔöÇÔöÇ
+  // ─── Datos ───
   doc.fontSize(8).font('Helvetica').fillColor('#333333');
   doc.text(`Nro: ${comprobante.numero}`);
   doc.text(`Fecha: ${new Date(comprobante.fechaEmision).toLocaleString('es-BO')}`);
-  doc.text(`Cajero: Boleter├¡a`);
+  doc.text(`Cajero: Boletería`);
   doc.fontSize(8).fillColor('#cccccc');
-  doc.text('ÔöÇ'.repeat(30), { align: 'center' });
+  doc.text('─'.repeat(30), { align: 'center' });
   doc.moveDown(0.3);
 
-  // ÔöÇÔöÇÔöÇ Pel├¡cula ÔöÇÔöÇÔöÇ
+  // ─── Película ───
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
-  doc.text('PEL├ìCULA:', { underline: true });
+  doc.text('PELÍCULA:', { underline: true });
   doc.font('Helvetica').text(truncateText(doc, comprobante.peliculaTitulo, TICKET_CONTENT - 10), { align: 'center' });
   doc.moveDown(0.2);
 
@@ -259,7 +259,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.moveDown(0.2);
 
   doc.font('Helvetica-Bold').text('SALA:', { underline: true });
-  doc.font('Helvetica').text(`${comprobante.idSala} (${comprobante.salaTipo || 'Est├índar'})`, { align: 'center' });
+  doc.font('Helvetica').text(`${comprobante.idSala} (${comprobante.salaTipo || 'Estándar'})`, { align: 'center' });
   doc.moveDown(0.2);
 
   doc.font('Helvetica-Bold').text('ASIENTOS:', { underline: true });
@@ -267,9 +267,9 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.moveDown(0.3);
 
   doc.fillColor('#cccccc');
-  doc.text('ÔöÇ'.repeat(30), { align: 'center' });
+  doc.text('─'.repeat(30), { align: 'center' });
 
-  // ÔöÇÔöÇÔöÇ Cliente ÔöÇÔöÇÔöÇ
+  // ─── Cliente ───
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
   doc.text('CLIENTE:', { underline: true });
   doc.font('Helvetica').text(truncateText(doc, comprobante.razonSocialCliente || 'Consumidor Final', TICKET_CONTENT - 10), { align: 'center' });
@@ -277,9 +277,9 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.moveDown(0.3);
 
   doc.fillColor('#cccccc');
-  doc.text('ÔöÇ'.repeat(30), { align: 'center' });
+  doc.text('─'.repeat(30), { align: 'center' });
 
-  // ÔöÇÔöÇÔöÇ Total ÔöÇÔöÇÔöÇ
+  // ─── Total ───
   const cantidad = boletos.length || 1;
   doc.fontSize(9).font('Helvetica-Bold').fillColor('#1a1a1a');
   doc.text(`TOTAL (${cantidad}x):`, { align: 'center', underline: true });
@@ -287,10 +287,10 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.moveDown(0.3);
 
   doc.fontSize(8).fillColor('#cccccc');
-  doc.text('ÔöÇ'.repeat(30), { align: 'center' });
+  doc.text('─'.repeat(30), { align: 'center' });
   doc.moveDown(0.3);
 
-  // ÔöÇÔöÇÔöÇ QR por asiento ÔöÇÔöÇÔöÇ
+  // ─── QR por asiento ───
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
   doc.text('PASES DE ENTRADA', { align: 'center', underline: true });
   doc.moveDown(0.3);
@@ -340,12 +340,12 @@ function drawSectionTitle(doc: any, title: string, x: number, pageWidth: number)
 }
 
 function truncateText(doc: any, text: string, maxWidth: number): string {
-  if (!text) return 'ÔÇö';
+  if (!text) return '—';
   const w = doc.widthOfString(text);
   if (w <= maxWidth) return text;
   let truncated = text;
-  while (truncated.length > 0 && doc.widthOfString(truncated + 'ÔÇª') > maxWidth) {
+  while (truncated.length > 0 && doc.widthOfString(truncated + '…') > maxWidth) {
     truncated = truncated.slice(0, -1);
   }
-  return truncated + 'ÔÇª';
+  return truncated + '…';
 }

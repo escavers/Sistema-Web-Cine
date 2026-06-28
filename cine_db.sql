@@ -915,6 +915,7 @@ BEGIN
         v.fechaCompra,
         f.fecha,
         f.horaInicio,
+        f.idSala,
         s.tipo AS salaTipo,
         GROUP_CONCAT(CONCAT(a.fila, a.columna) ORDER BY a.fila, a.columna SEPARATOR ', ') AS asientos,
         v.montoTotal,
@@ -929,7 +930,7 @@ BEGIN
     WHERE v.idCliente = p_idCliente
       AND v.estadoA = 1
       AND v.estadoVenta IN ('COMPLETADA', 'CANCELADA')
-    GROUP BY c.idComprobante, c.numero, p.titulo, v.fechaCompra, f.fecha, f.horaInicio, s.tipo, v.montoTotal, v.estadoVenta, v.idVenta
+    GROUP BY c.idComprobante, c.numero, p.titulo, v.fechaCompra, f.fecha, f.horaInicio, f.idSala, s.tipo, v.montoTotal, v.estadoVenta, v.idVenta
     ORDER BY v.fechaCompra DESC, f.horaInicio DESC;
 END$$
 

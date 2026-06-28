@@ -2,6 +2,9 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Sora', 'sans-serif'],
+      },
       colors: {
         cinema: {
           black: '#0a0a0f',
