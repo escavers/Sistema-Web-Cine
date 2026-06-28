@@ -1,59 +1,58 @@
-# Informe Técnico de Actualizaciones y Ajustes de Seguridad (Desarrollador 4)
+# Informe Tecnico de Actualizaciones y Ajustes de Seguridad (Desarrollador 4)
 
 **Fecha:** 28 de junio de 2026  
 **Autor:** Desarrollador 4 (D4)  
-**Módulo:** Seguridad, Autenticación y Validación de Boletos  
+**Modulo:** Seguridad, Autenticacion y Validacion de Boletos  
 
 ---
 
 ## 1. Resumen Ejecutivo
-El presente informe documenta las modificaciones arquitectónicas, de base de datos y de lógica de negocio implementadas en la última iteración del proyecto **Sistema Web Cine**. El propósito principal de estos ajustes ha sido cerrar una vulnerabilidad crítica de diseño en la validación de boletos y alinear la experiencia de usuario (UX) del control de accesos con los estándares industriales del mundo real.
+El presente informe documenta las modificaciones arquitectonicas, de base de datos y de logica de negocio implementadas en la ultima iteracion del proyecto **Sistema Web Cine**. El proposito principal de estos ajustes ha sido cerrar una vulnerabilidad critica de diseno en la validacion de boletos y alinear la experiencia de usuario (UX) del control de accesos con los estandares industriales del mundo real.
 
 ## 2. Vulnerabilidad Identificada (Contexto)
-Durante el ciclo de desarrollo anterior, el identificador empleado para los códigos QR y la validación manual de entradas consistía en una concatenación determinista: `[ID_Boleto]-[ID_Sala]-[Asiento]` (Ejemplo: `15-S1-A1`). 
-Esta decisión técnica presentaba dos riesgos graves:
-1. **Predictibilidad:** Un usuario malintencionado podría adivinar fácilmente la sintaxis y fabricar códigos QR falsificados para ingresar a otras funciones o asientos que no compró.
-2. **Fricción Operativa:** El encargado de acceso (`Rol: ACCESO`) debía ingresar manualmente cuatro datos por separado en la interfaz gráfica si el escáner fallaba, lo cual enlentecía inaceptablemente la fila de entrada.
+Durante el ciclo de desarrollo anterior, el identificador empleado para los codigos QR y la validacion manual de entradas consistia en una concatenacion determinista: `[ID_Boleto]-[ID_Sala]-[Asiento]` (Ejemplo: `15-S1-A1`). 
+Esta decision tecnica presentaba dos riesgos graves:
+1. **Predictibilidad:** Un usuario malintencionado podria adivinar facilmente la sintaxis y fabricar codigos QR falsificados para ingresar a otras funciones o asientos que no compro.
+2. **Friccion Operativa:** El encargado de acceso (`Rol: ACCESO`) debia ingresar manualmente cuatro datos por separado en la interfaz grafica si el escaner fallaba, lo cual enlentecia inaceptablemente la fila de entrada.
 
-## 3. Resolución y Justificación Técnica
+## 3. Resolucion y Justificacion Tecnica
 
-Para subsanar las observaciones, se implementó el **Sistema Seguro de Validación Criptográfica (Tokens XXXX-XXXX)**. A continuación, se detallan y justifican los ajustes realizados en cada capa del sistema:
+Para subsanar las observaciones, se implemento el **Sistema Seguro de Validacion Criptografica (Tokens XXXX-XXXX)**. A continuacion, se detallan y justifican los ajustes realizados en cada capa del sistema:
 
 ### 3.1. Capa de Datos (Base de Datos)
 *   **Ajuste:** Se introdujo la columna `codigoAcceso (VARCHAR 20, UNIQUE)` a la tabla transaccional `Boleto`.
-*   **Ajuste:** Se ejecutó un script de migración para poblar retroactivamente un código a todos los boletos históricos.
-*   **Justificación:** Era imperativo desvincular el ID auto-incremental de la base de datos de la credencial de acceso del cliente. La migración retroactiva fue necesaria para garantizar que ningún cliente que haya comprado una entrada en el pasado pierda el acceso a su película (Principio de Compatibilidad Hacia Atrás).
+*   **Ajuste:** Se ejecuto un script de migracion para poblar retroactivamente un codigo a todos los boletos historicos.
+*   **Justificacion:** Era imperativo desvincular el ID auto-incremental de la base de datos de la credencial de acceso del cliente. La migracion retroactiva fue necesaria para garantizar que ningun cliente que haya comprado una entrada en el pasado pierda el acceso a su pelicula (Principio de Compatibilidad Hacia Atras).
 
 ### 3.2. Capa de Negocio (Backend)
-*   **Ajuste en `venta.controller.ts`:** Se introdujo un algoritmo generador apoyado en `crypto.randomBytes`, utilizando un alfabeto estricto (excluyendo vocales prestadas y números ambiguos como `0` y `O`, `1` y `I`) para generar tokens del tipo `A8B9-C3D2`.
-*   **Ajuste en `accessController.ts`:** Se refactorizó la lógica central del escáner. 
-*   **Justificación:** El generador criptográfico garantiza colisiones estadísticamente nulas y anula los ataques de fuerza bruta por adivinación. El `accessController` fue rescrito bajo un patrón de "Resolución por Estrategia": Si el código entrante es de 8 o 9 caracteres (con o sin guion), se busca por token seguro; de lo contrario, aplica la búsqueda por ID clásico (Retrocompatibilidad).
-*   **Nuevo Endpoint (`/ventas/:id/boletos`):** Se creó para exponer esta data al frontend de manera atómica, sin requerir reconstruir la lógica de visualización del comprobante madre.
+*   **Ajuste en `venta.controller.ts`:** Se introdujo un algoritmo generador apoyado en `crypto.randomBytes`, utilizando un alfabeto estricto (excluyendo vocales prestadas y numeros ambiguos como `0` y `O`, `1` y `I`) para generar tokens del tipo `A8B9-C3D2`.
+*   **Ajuste en `accessController.ts`:** Se refactorizo la logica central del escaner. 
+*   **Justificacion:** El generador criptografico garantiza colisiones estadisticamente nulas y anula los ataques de fuerza bruta por adivinacion. El `accessController` fue rescrito bajo un patron de "Resolucion por Estrategia": Si el codigo entrante es de 8 o 9 caracteres (con o sin guion), se busca por token seguro; de lo contrario, aplica la busqueda por ID clasico (Retrocompatibilidad).
+*   **Nuevo Endpoint (`/ventas/:id/boletos`):** Se creo para exponer esta data al frontend de manera atomica, sin requerir reconstruir la logica de visualizacion del comprobante madre.
 
-### 3.3. Capa de Presentación (Frontend)
-*   **Interfaz de Validación (`AccessValidationPage.tsx`):**
-    *   *Ajuste:* Se eliminó la matriz de inputs múltiples. Se introdujo una caja de texto gigante, única y con *auto-focus*.
-    *   *Justificación:* El hardware de escáner láser emula pulsaciones de teclado ultrarrápidas y culmina con un "ENTER". La interfaz antigua era incompatible con este hardware. La nueva interfaz permite que el láser arroje la cadena completa instantáneamente o que el operador tipee el código corto sin desglose manual, acelerando el flujo a niveles de producción.
-*   **Unificación de Modales al Cliente (`Historial`, `CompraOnline`, `VentaPresencial`):**
-    *   *Ajuste:* Se re-enrutó la generación de los QR para consumir el endpoint nuevo y renderizar la cadena `XXXX-XXXX`.
-    *   *Justificación:* El usuario final (Cliente) y el usuario de Boletería requerían uniformidad. Ahora, el código que ven en pantalla, el que imprimen en el PDF y el que leen los acomodadores es visualmente el mismo, disipando la confusión del cliente sobre su identificador de entrada.
+### 3.3. Capa de Presentacion (Frontend)
+*   **Interfaz de Validacion (`AccessValidationPage.tsx`):**
+    *   *Ajuste:* Se elimino la matriz de inputs multiples. Se introdujo una caja de texto gigante, unica y con *auto-focus*.
+    *   *Justificacion:* El hardware de escaner laser emula pulsaciones de teclado ultrarrapidas y culmina con un "ENTER". La interfaz antigua era incompatible con este hardware. La nueva interfaz permite que el laser arroje la cadena completa instantaneamente o que el operador tipee el codigo corto sin desglose manual, acelerando el flujo a niveles de produccion.
+*   **Unificacion de Modales al Cliente (`Historial`, `CompraOnline`, `VentaPresencial`):**
+    *   *Ajuste:* Se re-enruto la generacion de los QR para consumir el endpoint nuevo y renderizar la cadena `XXXX-XXXX`.
+    *   *Justificacion:* El usuario final (Cliente) y el usuario de Boleteria requerian uniformidad. Ahora, el codigo que ven en pantalla, el que imprimen en el PDF y el que leen los acomodadores es visualmente el mismo, disipando la confusion del cliente sobre su identificador de entrada.
 
 ## 4. Impacto en el Sistema
-*   **Seguridad:** Vulnerabilidad de falsificación (Forgery) **mitigada**.
-*   **UX del Empleado:** Tiempo de validación manual reducido en un 80% gracias al input unificado.
-*   **Estabilidad:** **0 Regresiones**. Todo el código histórico de comprobantes sigue operando gracias a los _fallbacks_ de compatibilidad incluidos en el controlador de acceso.
+*   **Seguridad:** Vulnerabilidad de falsificacion (Forgery) **mitigada**.
+*   **UX del Empleado:** Tiempo de validacion manual reducido en un 80% gracias al input unificado.
+*   **Estabilidad:** **0 Regresiones**. Todo el codigo historico de comprobantes sigue operando gracias a los _fallbacks_ de compatibilidad incluidos en el controlador de acceso.
 
-## 5. Conclusión
-Las modificaciones cumplen y superan los requerimientos de la observación técnica inicial. El sistema no solo es ahora resistente contra ataques básicos de alteración de boletos, sino que su interfaz de hardware está preparada para operar eficazmente en las instalaciones ruidosas y de ritmo rápido que caracterizan a los cines reales. Todo el trabajo fue acoplado de forma aislada a los componentes de venta, sin perturbar los endpoints que competen al manejo de películas o salas elaborados por otros desarrolladores.
+## 5. Conclusion
+Las modificaciones cumplen y superan los requerimientos de la observacion tecnica inicial. El sistema no solo es ahora resistente contra ataques basicos de alteracion de boletos, sino que su interfaz de hardware esta preparada para operar eficazmente en las instalaciones ruidosas y de ritmo rapido que caracterizan a los cines reales. Todo el trabajo fue acoplado de forma aislada a los componentes de venta, sin perturbar los endpoints que competen al manejo de peliculas o salas elaborados por otros desarrolladores.
 
 ## 6. Pruebas de QA Automatizadas (Checklist)
-Como medida extra de aseguramiento de calidad, se elabor� un script automatizado en Node (qa_test.mjs) que ejecut� simulaciones de red en tiempo real contra los endpoints protegidos. Los resultados certifican la robustez del sistema:
+Como medida extra de aseguramiento de calidad, se elaboro un script automatizado en Node (`qa_test.mjs`) que ejecuto simulaciones de red en tiempo real contra los endpoints protegidos. Los resultados certifican la robustez del sistema:
 
-*   ? **[Login Cliente]** Autenticaci�n correcta y expedici�n de tokens JWT.
-*   ? **[Seguridad Roles]** Intento de acceso prohibido (403) manejado exitosamente cuando un cliente intent� listar usuarios del sistema.
-*   ? **[Login Acceso]** Autenticaci�n correcta para el rol del esc�ner.
-*   ? **[SQL Injection]** Inyecci�n maliciosa (' OR '1'='1) en el validador detenida exitosamente; el servidor no se cay� y manej� la inyecci�n como un c�digo err�neo est�ndar.
-*   ? **[Edge Case]** C�digo inexistente pero con sintaxis correcta (A1B2-C3D4) rechazado con gracia.
+*   [Login Cliente] Autenticacion correcta y expedicion de tokens JWT.
+*   [Seguridad Roles] Intento de acceso prohibido (403) manejado exitosamente cuando un cliente intento listar usuarios del sistema.
+*   [Login Acceso] Autenticacion correcta para el rol del escaner.
+*   [SQL Injection] Inyeccion maliciosa (`' OR '1'='1`) en el validador detenida exitosamente; el servidor no se cayo y manejo la inyeccion como un codigo erroneo estandar.
+*   [Edge Case] Codigo inexistente pero con sintaxis correcta (`A1B2-C3D4`) rechazado con gracia.
 
-Estos tests fueron ejecutados tras reiniciar la base de datos limpia, garantizando que el entorno est� calificado para pasar a Producci�n.
-
+Estos tests fueron ejecutados tras reiniciar la base de datos limpia, garantizando que el entorno esta calificado para pasar a Produccion.
