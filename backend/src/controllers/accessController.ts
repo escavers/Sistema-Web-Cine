@@ -19,7 +19,6 @@ export async function validateQrPass(qrCode: string, idEncargado?: number): Prom
     result = await _validateQrPassInternal(connection, qrCode, idEncargado);
 
     if (result.valido) {
-      // Si es válido, registramos en EscanearBoleto dentro de la misma transacción para consistencia atómica
       if (idEncargado) {
         const idBoleto = result.detalle?.idBoleto || null;
         await connection.query(
@@ -30,11 +29,9 @@ export async function validateQrPass(qrCode: string, idEncargado?: number): Prom
       await connection.commit();
       transactionStarted = false;
     } else {
-      // Si no es válido, revertimos bloqueos
       await connection.rollback();
       transactionStarted = false;
 
-      // Registrar fallo en EscanearBoleto de forma independiente
       if (idEncargado) {
         const idBoleto = result.detalle?.idBoleto || await _findBoletoIdIndependent(qrCode);
         await pool.query(
@@ -46,13 +43,8 @@ export async function validateQrPass(qrCode: string, idEncargado?: number): Prom
   } catch (err) {
     console.error("Error en validateQrPass:", err);
     if (transactionStarted) {
-      try {
-        await connection.rollback();
-      } catch (rollbackErr) {
-        console.error("Error al hacer rollback:", rollbackErr);
-      }
+      try { await connection.rollback(); } catch (rollbackErr) { console.error("Error al hacer rollback:", rollbackErr); }
     }
-    // Registrar error en EscanearBoleto
     if (idEncargado) {
       try {
         const idBoleto = await _findBoletoIdIndependent(qrCode).catch(() => null);
@@ -64,11 +56,7 @@ export async function validateQrPass(qrCode: string, idEncargado?: number): Prom
         console.error("Error al registrar fallo de BD en EscanearBoleto:", logErr);
       }
     }
-    return {
-      valido: false,
-      motivo: 'ERROR_BD',
-      mensaje: 'Error de base de datos al registrar el acceso.'
-    };
+    return { valido: false, motivo: 'ERROR_BD', mensaje: 'Error de base de datos al registrar el acceso.' };
   } finally {
     connection.release();
   }
@@ -78,20 +66,24 @@ export async function validateQrPass(qrCode: string, idEncargado?: number): Prom
 
 async function _findBoletoIdIndependent(qrCode: string): Promise<number | null> {
   try {
-    let searchCode = qrCode.trim().toUpperCase();
-    const parts = searchCode.split('-');
+    const codeStr = qrCode.trim().toUpperCase();
+    const normalizedNoHyphen = codeStr.replace(/-/g, '');
+    // Intentar por codigoAcceso primero
+    if (/^[A-Z2-9]{8}$/.test(normalizedNoHyphen)) {
+      const canonical = `${normalizedNoHyphen.slice(0, 4)}-${normalizedNoHyphen.slice(4)}`;
+      const [rows] = await pool.query<any[]>('SELECT idBoleto FROM Boleto WHERE codigoAcceso = ? LIMIT 1', [canonical]);
+      if ((rows as any[]).length > 0) return (rows as any[])[0].idBoleto;
+    }
+    // Fallback legacy
+    const parts = codeStr.split('-');
+    let searchCode = codeStr;
     let foundId = false;
     if (parts.length >= 1) {
       const numFirst = Number(parts[0]);
-      if (!isNaN(numFirst) && parts[0] !== '') {
-        searchCode = parts[0];
-        foundId = true;
-      } else if (searchCode.startsWith('T-') && parts.length >= 2) {
+      if (!isNaN(numFirst) && parts[0] !== '') { searchCode = parts[0]; foundId = true; }
+      else if (codeStr.startsWith('T-') && parts.length >= 2) {
         const numSecond = Number(parts[1]);
-        if (!isNaN(numSecond)) {
-          searchCode = parts[1];
-          foundId = true;
-        }
+        if (!isNaN(numSecond)) { searchCode = parts[1]; foundId = true; }
       }
     }
     const isNumeric = foundId || /^\d+$/.test(searchCode);
@@ -116,21 +108,39 @@ async function _validateQrPassInternal(connection: any, qrCode: string, idEncarg
   // Normalizar entrada
   const codeStr = qrCode.trim().toUpperCase();
 
-  // 1. Verificar si es un formato de comprobante (ej: CINE-C-1782366890414-2-CLIENTE-1719289291 o C-1782366890414-2)
+  // ══ ESTRATEGIA 1 (NUEVA): codigoAcceso seguro (XXXX-XXXX) ═══════════════
+  // El encargado puede escribir con o sin guión. Ambas formas son aceptadas.
+  const normalizedNoHyphen = codeStr.replace(/-/g, '');
+  const isSecureCode = /^[A-Z2-9]{8}$/.test(normalizedNoHyphen);
+
+  if (isSecureCode) {
+    const canonicalCode = `${normalizedNoHyphen.slice(0, 4)}-${normalizedNoHyphen.slice(4)}`;
+    const [rows] = await connection.query(
+      'SELECT * FROM Boleto WHERE codigoAcceso = ? LIMIT 1 FOR UPDATE',
+      [canonicalCode]
+    );
+    if ((rows as any[]).length > 0) {
+      return await _processValidatedBoleto(connection, (rows as any[])[0], idEncargado);
+    }
+    // Formato nuevo pero no encontrado → código inválido
+    return {
+      valido: false,
+      motivo: 'BOLETO_NO_ENCONTRADO',
+      mensaje: 'Código de acceso inválido. No se encontró ninguna entrada con ese código.'
+    };
+  }
+
+  // ══ ESTRATEGIA 2 (legado): Comprobante (C-XXXXXXXXX-ID) ════════════════
   let comprobanteNumero = '';
   if (codeStr.startsWith('CINE-')) {
     const match = codeStr.match(/C-\d+-\d+/);
-    if (match) {
-      comprobanteNumero = match[0];
-      isComprobante = true;
-    }
+    if (match) { comprobanteNumero = match[0]; isComprobante = true; }
   } else if (codeStr.startsWith('C-')) {
     comprobanteNumero = codeStr;
     isComprobante = true;
   }
 
   if (isComprobante) {
-    // Si es un comprobante, buscamos el primer boleto activo (estadoA = 1) para esta venta
     query = `
       SELECT b.* FROM Boleto b
       JOIN Venta v ON b.idVenta = v.idVenta
@@ -141,19 +151,17 @@ async function _validateQrPassInternal(connection: any, qrCode: string, idEncarg
     `;
     params = [comprobanteNumero];
   } else {
-    // 2. Verificar si es formato estructurado [idBoleto]-S[idSala]-[Asiento] o T-[idBoleto]-S[idSala]-[Asiento]
+    // ══ ESTRATEGIA 3 (legado): [idBoleto]-S[Sala]-[Asiento] ═════════════
     let parsedIdBoleto: number | null = null;
     const parts = codeStr.split('-');
-    
+
     if (parts.length >= 1) {
       const numFirst = Number(parts[0]);
       if (!isNaN(numFirst) && parts[0] !== '') {
         parsedIdBoleto = numFirst;
       } else if (codeStr.startsWith('T-') && parts.length >= 2) {
         const numSecond = Number(parts[1]);
-        if (!isNaN(numSecond)) {
-          parsedIdBoleto = numSecond;
-        }
+        if (!isNaN(numSecond)) parsedIdBoleto = numSecond;
       }
     }
 
@@ -166,17 +174,11 @@ async function _validateQrPassInternal(connection: any, qrCode: string, idEncarg
         query = 'SELECT * FROM Boleto WHERE idBoleto = ? LIMIT 1 FOR UPDATE';
         params = [Number(codeStr)];
       } else {
-        // Formato asiento (ej: SALA-1-A1 o S1-A1)
         let asientoId = codeStr;
         if (codeStr.startsWith('S') && !codeStr.startsWith('SALA-')) {
-          // Si ingresan S1-A1, normalizar a SALA-1-A1
           const match = codeStr.match(/^S(\d+)-([A-Z]\d+)$/);
-          if (match) {
-            asientoId = `SALA-${match[1]}-${match[2]}`;
-          }
+          if (match) asientoId = `SALA-${match[1]}-${match[2]}`;
         }
-
-        // Buscar el boleto activo para hoy en esa sala/asiento para evitar ambigüedad en auditorías
         query = `
           SELECT b.* FROM Boleto b
           JOIN Venta v ON b.idVenta = v.idVenta
@@ -193,8 +195,6 @@ async function _validateQrPassInternal(connection: any, qrCode: string, idEncarg
 
   let [boletos] = await connection.query(query, params);
 
-  // Si buscamos por comprobante y no hay boletos activos (estadoA = 1),
-  // pero el comprobante sí existe, significa que todos los boletos asociados ya fueron usados.
   if (isComprobante && boletos.length === 0) {
     const [comprobanteCheck] = await connection.query(
       `SELECT b.* FROM Boleto b
@@ -203,7 +203,6 @@ async function _validateQrPassInternal(connection: any, qrCode: string, idEncarg
        WHERE c.numero = ? LIMIT 1`,
       [comprobanteNumero]
     );
-
     if (comprobanteCheck.length > 0) {
       return {
         valido: false,
@@ -221,8 +220,14 @@ async function _validateQrPassInternal(connection: any, qrCode: string, idEncarg
     };
   }
 
-  const boleto = boletos[0];
+  return await _processValidatedBoleto(connection, boletos[0], idEncargado);
+}
 
+/**
+ * Valida las reglas de negocio (fecha, estado, función) de un boleto encontrado en BD
+ * y lo marca como usado si todo es correcto.
+ */
+async function _processValidatedBoleto(connection: any, boleto: any, idEncargado?: number): Promise<any> {
   if (boleto.estadoA === 0 || boleto.estadoA === false) {
     return {
       valido: false,
@@ -237,11 +242,7 @@ async function _validateQrPassInternal(connection: any, qrCode: string, idEncarg
   );
 
   if (!ventaRows.length) {
-    return {
-      valido: false,
-      motivo: 'VENTA_NO_ENCONTRADA',
-      mensaje: 'No se encontró la venta asociada a este boleto.'
-    };
+    return { valido: false, motivo: 'VENTA_NO_ENCONTRADA', mensaje: 'No se encontró la venta asociada a este boleto.' };
   }
 
   const idFuncion = ventaRows[0].idFuncion;
@@ -252,34 +253,21 @@ async function _validateQrPassInternal(connection: any, qrCode: string, idEncarg
   );
 
   if (funciones.length === 0) {
-    return {
-      valido: false,
-      motivo: 'FUNCION_INEXISTENTE',
-      mensaje: 'La función asociada a esta entrada no está activa o fue cancelada.'
-    };
+    return { valido: false, motivo: 'FUNCION_INEXISTENTE', mensaje: 'La función asociada a esta entrada no está activa o fue cancelada.' };
   }
 
   const funcion = funciones[0];
 
   const today = new Date().toLocaleDateString('sv-SE');
   if (funcion.fecha !== today) {
-    return {
-      valido: false,
-      motivo: 'FECHA_INCORRECTA',
-      mensaje: `Esta entrada es para la fecha ${funcion.fecha}. Fecha actual del sistema: ${today}.`
-    };
+    return { valido: false, motivo: 'FECHA_INCORRECTA', mensaje: `Esta entrada es para la fecha ${funcion.fecha}. Fecha actual del sistema: ${today}.` };
   }
 
   const currentTime = new Date().toTimeString().split(' ')[0];
   if (funcion.horaFin < currentTime) {
-    return {
-      valido: false,
-      motivo: 'FUNCION_EXPIRADA',
-      mensaje: `La función asociada a esta entrada ya finalizó a las ${funcion.horaFin}.`
-    };
+    return { valido: false, motivo: 'FUNCION_EXPIRADA', mensaje: `La función asociada a esta entrada ya finalizó a las ${funcion.horaFin}.` };
   }
 
-  // UPDATE Boleto actualizando estadoA y los campos de auditoría (fechaA, usuarioA)
   await connection.query(
     'UPDATE Boleto SET estadoA = 0, fechaA = CURDATE(), usuarioA = ? WHERE idBoleto = ?',
     [idEncargado || null, boleto.idBoleto]
@@ -299,6 +287,7 @@ async function _validateQrPassInternal(connection: any, qrCode: string, idEncarg
     detalle: {
       idBoleto: boleto.idBoleto,
       asientoId: boleto.idAsiento,
+      codigoAcceso: boleto.codigoAcceso || null,
       idFuncion: idFuncion,
       pelicula: funcion.titulo,
       horaInicio: funcion.horaInicio,

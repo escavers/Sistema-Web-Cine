@@ -180,6 +180,9 @@ export const api = {
     const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
     return requestBlob(`/reportes/ventas/pdf${qs}`);
   },
+  obtenerBoletos: (idVenta: number) =>
+    request<{ ok: boolean; boletos: { idBoleto: number; idAsiento: string; codigoAcceso: string | null }[] }>(`/ventas/${idVenta}/boletos`),
+
   validarAcceso: (qrCode: string) =>
     request<{ ok: boolean; mensaje: string; detalle: any }>('/acceso/validate', {
       method: 'POST',

@@ -4,6 +4,21 @@ import { z } from 'zod';
 import { fail, ok } from '../utils/response.js';
 import { createAudit } from '../services/audit.service.js';
 import { sendComprobanteEmailInternal } from './email.controller.js';
+import { randomBytes } from 'crypto';
+
+/**
+ * Genera un código de acceso aleatorio seguro en formato XXXX-XXXX.
+ * Usa el alfabeto sin caracteres ambiguos (0,O,I,1,L) para facilitar la lectura.
+ */
+function generateAccessCode(): string {
+  const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = randomBytes(8);
+  let part1 = '';
+  let part2 = '';
+  for (let i = 0; i < 4; i++) part1 += CHARS[bytes[i] % CHARS.length];
+  for (let i = 4; i < 8; i++) part2 += CHARS[bytes[i] % CHARS.length];
+  return `${part1}-${part2}`;
+}
 
 const ventaSchema = z.object({
   idCliente: z.number().nullable().optional().default(null),
@@ -68,10 +83,11 @@ export async function crearVenta(req: Request, res: Response) {
     const idVenta = ventaResult.insertId as number;
 
     for (const idAsiento of data.asientos) {
+      const codigoAcceso = generateAccessCode();
       await connection.query(
-        `INSERT INTO Boleto (idAsiento, idVenta, precioPagado, estadoA, fechaA, usuarioA)
-         VALUES (?, ?, ?, 1, NOW(), ?)`,
-        [idAsiento, idVenta, montoTotal / data.asientos.length, data.usuarioA]
+        `INSERT INTO Boleto (idAsiento, idVenta, precioPagado, codigoAcceso, estadoA, fechaA, usuarioA)
+         VALUES (?, ?, ?, ?, 1, NOW(), ?)`,
+        [idAsiento, idVenta, montoTotal / data.asientos.length, codigoAcceso, data.usuarioA]
       );
 
       const [seatRows] = await connection.query<any[]>(
@@ -149,4 +165,18 @@ export async function crearVenta(req: Request, res: Response) {
   } finally {
     connection.release();
   }
+}
+
+/**
+ * GET /ventas/:id/boletos
+ * Retorna los boletos individuales de una venta con su codigoAcceso.
+ */
+export async function obtenerBoletosPorVenta(req: Request, res: Response) {
+  const idVenta = Number(req.params.id);
+  if (isNaN(idVenta)) return fail(res, 'ID de venta invalido.', 400);
+  const [rows] = await pool.query<any[]>(
+    'SELECT idBoleto, idAsiento, codigoAcceso, precioPagado FROM Boleto WHERE idVenta = ? ORDER BY idAsiento',
+    [idVenta]
+  );
+  return ok(res, { boletos: rows });
 }

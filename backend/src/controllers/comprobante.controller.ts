@@ -45,9 +45,9 @@ const comprobanteGroupBy = `
     f.idFuncion, f.fecha, f.horaInicio, f.horaFin, f.idSala, s.tipo, pel.titulo, pel.posterUrl, pel.clasificacionEdad
 `;
 
-async function getBoletos(idVenta: number): Promise<{ idBoleto: number; idAsiento: string }[]> {
+async function getBoletos(idVenta: number): Promise<{ idBoleto: number; idAsiento: string; codigoAcceso: string | null }[]> {
   const [rows] = await pool.query<any[]>(
-    'SELECT b.idBoleto, b.idAsiento FROM Boleto b WHERE b.idVenta = ? ORDER BY b.idAsiento',
+    'SELECT b.idBoleto, b.idAsiento, b.codigoAcceso FROM Boleto b WHERE b.idVenta = ? ORDER BY b.idAsiento',
     [idVenta]
   );
   return rows;
@@ -70,6 +70,8 @@ export async function obtenerComprobantePorNumero(req: Request, res: Response) {
   }
 
   return ok(res, { comprobante: (rows as any[])[0] });
+
+  // Nota: los boletos individuales con codigoAcceso se cargan via GET /boletos?idVenta=:id
 }
 
 // ÔöÇÔöÇ A4 Comprobante PDF ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
@@ -209,7 +211,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   const QRCode = require('qrcode');
 
   const qrImages = await Promise.all(
-    boletos.map((b) => QRCode.toDataURL(String(b.idBoleto)))
+    boletos.map((b) => QRCode.toDataURL(b.codigoAcceso || String(b.idBoleto)))
   );
 
   // 80mm roll width = ~226 points
@@ -311,7 +313,8 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
     doc.y += qrSize + 4;
 
     doc.fontSize(7).font('Helvetica').fillColor('#666666');
-    doc.text(`Boleto #${b.idBoleto}`, { align: 'center' });
+    const codigoDisplay = b.codigoAcceso || `#${b.idBoleto}`;
+    doc.text(`Cód: ${codigoDisplay}`, { align: 'center' });
 
     if (i < boletos.length - 1) {
       doc.moveDown(1.5);
