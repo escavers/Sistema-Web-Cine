@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import Message from '../components/Message';
+import { Html5Qrcode } from 'html5-qrcode';
 
 export default function AccessValidationPage() {
   const [qrCode, setQrCode] = useState('');
@@ -8,18 +9,17 @@ export default function AccessValidationPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'error' | 'info'; text: string } | null>(null);
   
-  // Modos: 'simulador' (selección de tickets de prueba), 'manual' (escribir ID), 'camara' (mock de cámara escaneando)
-  const [mode, setMode] = useState<'simulador' | 'manual' | 'camara'>('simulador');
+  // Modos: 'manual' (escribir ID), 'camara' (cámara real)
+  const [mode, setMode] = useState<'manual' | 'camara'>('manual');
   const [cameraActive, setCameraActive] = useState(false);
-  const [scanProgress, setScanProgress] = useState(0);
+  const [html5QrCode, setHtml5QrCode] = useState<Html5Qrcode | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Lista de ejemplos de boletos comunes para facilitar las pruebas
-  const boletosPrueba = [
-    { label: 'Boleto Válido (Simulado)', code: '1', desc: 'Asiento SALA-1-A1, función programada hoy' },
-    { label: 'Asiento Directo (Válido)', code: 'SALA-1-A1', desc: 'Escaneo por identificador de asiento' },
-    { label: 'Boleto Usado / Inválido', code: 'SALA-1-A2', desc: 'Asiento registrado como ya usado' },
-    { label: 'Boleto Inexistente', code: '99999', desc: 'Código no registrado en el sistema' },
-  ];
+  // Estados para la validación por matriz de asiento
+  const [manualIdBoleto, setManualIdBoleto] = useState('');
+  const [selectedSala, setSelectedSala] = useState('1');
+  const [selectedFila, setSelectedFila] = useState('');
+  const [selectedColumna, setSelectedColumna] = useState('');
 
   // Simulación de sonido de escaneo (Beep) usando la API de Audio del navegador
   function playBeep(success: boolean) {
@@ -49,6 +49,72 @@ export default function AccessValidationPage() {
     } catch (e) {
       // Ignorar fallos de audio si el navegador bloquea la reproducción autónoma
     }
+  }
+
+  // Iniciar cámara real
+  async function startCamera() {
+    setCameraError(null);
+    setResult(null);
+    setCameraActive(true);
+
+    setTimeout(async () => {
+      try {
+        const scanner = new Html5Qrcode('reader');
+        setHtml5QrCode(scanner);
+
+        await scanner.start(
+          { facingMode: 'environment' },
+          {
+            fps: 10,
+            qrbox: (width, height) => {
+              const size = Math.min(width, height) * 0.7;
+              return { width: size, height: size };
+            }
+          },
+          (decodedText) => {
+            // Extraer el id del boleto si viene con el formato CINE-ID-NIT-FECHA
+            // Si el QR tiene guiones, intentamos verificar si es un formato completo
+            // Ej: CINE-1-123456-1719289291
+            let finalCode = decodedText;
+            if (decodedText.startsWith('CINE-')) {
+              const parts = decodedText.split('-');
+              if (parts.length >= 2) {
+                // Buscamos si la segunda parte es un número (idBoleto) o el código de comprobante
+                finalCode = parts[1];
+              }
+            }
+
+            setQrCode(finalCode);
+            scanner.stop().then(() => {
+              setCameraActive(false);
+              handleValidate(finalCode);
+            }).catch(err => console.error(err));
+          },
+          () => {
+            // Error silencioso del scanner buscando el QR
+          }
+        );
+      } catch (err: any) {
+        console.error('Error al iniciar cámara:', err);
+        setCameraError(err.message || 'No se pudo acceder a la cámara. Asegúrese de otorgar permisos.');
+        setCameraActive(false);
+      }
+    }, 150);
+  }
+
+  // Detener cámara real
+  async function stopCamera() {
+    if (html5QrCode) {
+      if (html5QrCode.isScanning) {
+        try {
+          await html5QrCode.stop();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+      setHtml5QrCode(null);
+    }
+    setCameraActive(false);
   }
 
   // Ejecuta la validación en el Backend
@@ -92,30 +158,24 @@ export default function AccessValidationPage() {
     }
   }
 
-  // Simular la cámara con un scanner activo de barra de progreso
+  // Limpieza al desmontar
   useEffect(() => {
-    let interval: any;
-    if (mode === 'camara' && cameraActive) {
-      setScanProgress(0);
-      interval = setInterval(() => {
-        setScanProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            // Simular escaneo de un código aleatorio después de cargar la barra
-            const randomCodes = ['1', 'SALA-1-A1', 'SALA-1-A2', '99999'];
-            const randomIdx = Math.floor(Math.random() * randomCodes.length);
-            const selectedCode = randomCodes[randomIdx];
-            setQrCode(selectedCode);
-            setCameraActive(false);
-            handleValidate(selectedCode);
-            return 100;
-          }
-          return prev + 10;
-        });
-      }, 150);
+    return () => {
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().catch(err => console.error(err));
+      }
+    };
+  }, [html5QrCode]);
+
+  // Detener cámara si cambia de modo
+  useEffect(() => {
+    if (mode !== 'camara') {
+      stopCamera();
+    } else {
+      startCamera();
     }
-    return () => clearInterval(interval);
-  }, [mode, cameraActive]);
+  }, [mode]);
+
 
   return (
     <section className="mx-auto max-w-lg space-y-6">
@@ -130,94 +190,162 @@ export default function AccessValidationPage() {
       </div>
 
       {/* Tabs de Modo de Escaneo */}
-      <div className="grid grid-cols-3 gap-1.5 rounded-2xl border border-white/10 bg-black/40 p-1.5 backdrop-blur">
+      <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/10 bg-black/40 p-1.5 backdrop-blur">
         <button
-          onClick={() => { setMode('simulador'); setCameraActive(false); setResult(null); }}
-          className={`rounded-xl py-2.5 text-xs font-bold uppercase tracking-wider transition ${
-            mode === 'simulador' ? 'bg-cinema-gold text-cinema-black' : 'text-cinema-gray hover:text-white'
-          }`}
-        >
-          Simulador
-        </button>
-        <button
+          type="button"
           onClick={() => { setMode('manual'); setCameraActive(false); setResult(null); }}
           className={`rounded-xl py-2.5 text-xs font-bold uppercase tracking-wider transition ${
             mode === 'manual' ? 'bg-cinema-gold text-cinema-black' : 'text-cinema-gray hover:text-white'
           }`}
         >
-          Teclado
+          Manual
         </button>
         <button
-          onClick={() => { setMode('camara'); setCameraActive(true); setResult(null); }}
+          type="button"
+          onClick={() => { setMode('camara'); setResult(null); }}
           className={`rounded-xl py-2.5 text-xs font-bold uppercase tracking-wider transition ${
             mode === 'camara' ? 'bg-cinema-gold text-cinema-black' : 'text-cinema-gray hover:text-white'
           }`}
         >
-          Cámara (Mock)
+          Cámara
         </button>
       </div>
-
-      {/* Panel del Simulador de Prueba */}
-      {mode === 'simulador' && (
-        <div className="card-cine p-6 space-y-4">
-          <h3 className="text-lg font-bold text-white">Acceso Rápido para Pruebas</h3>
-          <p className="text-xs text-cinema-gray leading-5">
-            Seleccione uno de los siguientes pases de prueba cargados desde el diseño para verificar la respuesta del servidor inmediatamente:
-          </p>
-          <div className="grid gap-3">
-            {boletosPrueba.map((b) => (
-              <button
-                key={b.code}
-                onClick={() => {
-                  setQrCode(b.code);
-                  handleValidate(b.code);
-                }}
-                disabled={loading}
-                className="flex flex-col items-start gap-1 rounded-xl border border-white/5 bg-white/[0.02] p-4 text-left transition hover:border-cinema-gold/30 hover:bg-white/[0.05]"
-              >
-                <span className="text-xs font-bold text-cinema-gold uppercase tracking-wider">{b.label}</span>
-                <span className="text-xs font-mono text-cinema-cream mt-0.5">Código/Asiento: {b.code}</span>
-                <span className="text-[11px] text-cinema-gray mt-0.5">{b.desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Panel Manual */}
       {mode === 'manual' && (
         <div className="card-cine p-6 space-y-5">
-          <h3 className="text-lg font-bold text-white">Ingreso Manual de ID</h3>
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-cinema-cream uppercase tracking-wider">Código de Boleto / Asiento</label>
-            <div className="flex gap-2">
+          <div className="border-b border-white/10 pb-3">
+            <h3 className="text-lg font-bold text-white">Ingreso Manual</h3>
+            <p className="text-xs text-cinema-gray">Ingrese los datos en el mismo orden que figuran en el código de acceso del boleto.</p>
+          </div>
+
+          <div className="space-y-5 text-center">
+            {/* 1. Nro. de Boleto (ID) */}
+            <div className="space-y-2 text-left">
+              <label className="text-xs font-semibold text-cinema-cream uppercase tracking-wider">1. Nro. de Boleto (ID)</label>
               <input
-                type="text"
-                value={qrCode}
-                onChange={(e) => setQrCode(e.target.value)}
-                placeholder="Ej. 1 o SALA-1-A1"
+                type="number"
+                value={manualIdBoleto}
+                onChange={e => setManualIdBoleto(e.target.value)}
+                placeholder="Ej. 19"
                 className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm font-mono text-white placeholder-white/30 focus:border-cinema-gold focus:outline-none"
               />
-              <button
-                onClick={() => handleValidate(qrCode)}
-                disabled={loading || !qrCode.trim()}
-                className="btn-primary px-6"
-              >
-                Validar
-              </button>
+            </div>
+
+            {/* 2. Seleccionar Sala */}
+            <div className="space-y-2 text-left">
+              <label className="text-xs font-semibold text-cinema-cream uppercase tracking-wider">2. Seleccionar Sala</label>
+              <div className="grid grid-cols-3 gap-2">
+                {['1', '2', '3'].map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSelectedSala(s)}
+                    className={`rounded-xl border py-2 text-sm font-bold uppercase transition-all ${
+                      selectedSala === s 
+                        ? 'border-cinema-gold bg-cinema-gold/10 text-cinema-gold' 
+                        : 'border-white/5 bg-white/[0.02] text-cinema-gray hover:text-white'
+                    }`}
+                  >
+                    Sala {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 3. Selección de Fila */}
+            <div className="space-y-2 text-left">
+              <label className="text-xs font-semibold text-cinema-cream uppercase tracking-wider">3. Fila (Asiento)</label>
+              <div className="grid grid-cols-6 gap-1.5">
+                {['A', 'B', 'C', 'D', 'E', 'F'].map(f => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setSelectedFila(f)}
+                    className={`rounded-lg border py-1.5 text-sm font-bold transition-all ${
+                      selectedFila === f 
+                        ? 'border-cinema-gold bg-cinema-gold/10 text-cinema-gold' 
+                        : 'border-white/5 bg-white/[0.02] text-cinema-gray hover:text-white'
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. Selección de Columna */}
+            <div className="space-y-2 text-left">
+              <label className="text-xs font-semibold text-cinema-cream uppercase tracking-wider">4. Columna (Asiento)</label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'].map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setSelectedColumna(c)}
+                    className={`rounded-lg border py-1.5 text-sm font-mono font-bold transition-all ${
+                      selectedColumna === c 
+                        ? 'border-cinema-gold bg-cinema-gold/10 text-cinema-gold' 
+                        : 'border-white/5 bg-white/[0.02] text-cinema-gray hover:text-white'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Vista Previa de Selección y Acción */}
+            <div className="border-t border-white/5 pt-4 space-y-4">
+              <div className="rounded-xl bg-black/40 border border-white/5 p-4">
+                <p className="text-xs text-cinema-gray uppercase tracking-widest font-semibold">Código a Validar</p>
+                <p className="text-xl font-mono font-black text-cinema-gold mt-1">
+                  {manualIdBoleto || '?'}-S{selectedSala}-{selectedFila || '?'}{selectedColumna || '?'}
+                </p>
+              </div>
+
+              <div className="flex gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualIdBoleto('');
+                    setSelectedSala('1');
+                    setSelectedFila('');
+                    setSelectedColumna('');
+                  }}
+                  className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold px-4 py-2.5 text-xs uppercase tracking-wider transition-all"
+                >
+                  Resetear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cleanSala = 'S' + selectedSala;
+                    const code = `${manualIdBoleto}-${cleanSala}-${selectedFila}${selectedColumna}`;
+                    handleValidate(code);
+                  }}
+                  disabled={loading || !manualIdBoleto.trim() || !selectedFila || !selectedColumna}
+                  className="btn-primary flex-1 font-bold py-2.5 text-xs uppercase tracking-wider"
+                >
+                  ✓ Validar Boleto
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Panel de Cámara Mocked */}
+      {/* Panel de Cámara Real */}
       {mode === 'camara' && (
         <div className="card-cine overflow-hidden p-6 space-y-5">
           <h3 className="text-lg font-bold text-white">Lector de Cámara QR</h3>
           
           <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black/60">
-            {cameraActive ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 space-y-4">
+            {/* Contenedor donde se insertará el elemento de video */}
+            <div id="reader" className="absolute inset-0 w-full h-full object-cover"></div>
+
+            {cameraActive && (
+              <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 space-y-4">
                 {/* Cuadro de enfoque de QR */}
                 <div className="relative h-48 w-48 border-2 border-dashed border-cinema-gold/60 animate-pulse flex items-center justify-center">
                   <div className="absolute top-0 left-0 h-4 w-4 border-t-4 border-l-4 border-cinema-gold"></div>
@@ -229,26 +357,14 @@ export default function AccessValidationPage() {
                   <div className="absolute w-full h-0.5 bg-red-500 animate-[bounce_2s_infinite] top-0 shadow-[0_0_10px_#ef4444]"></div>
                   
                   <span className="text-[10px] font-bold uppercase tracking-widest text-cinema-gold/80 bg-black/60 px-2 py-1 rounded">
-                    Buscando QR...
+                    Escaneando...
                   </span>
                 </div>
-                
-                {/* Barra de progreso de escaneo */}
-                <div className="w-48 space-y-1.5">
-                  <div className="flex justify-between text-[10px] text-cinema-gray font-bold">
-                    <span>ESCANEANDO</span>
-                    <span>{scanProgress}%</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-cinema-gold transition-all duration-150"
-                      style={{ width: `${scanProgress}%` }}
-                    ></div>
-                  </div>
-                </div>
               </div>
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-4">
+            )}
+
+            {!cameraActive && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-4 bg-black/80">
                 <div className="rounded-full bg-white/5 p-4 text-cinema-gray">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
@@ -257,10 +373,13 @@ export default function AccessValidationPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-bold text-white">Escáner detenido</p>
-                  <p className="text-xs text-cinema-gray">Inicie la cámara simulada para procesar códigos de barra/QR.</p>
+                  <p className="text-xs text-cinema-gray">Inicie la cámara física para procesar códigos de barra/QR de boletos.</p>
                 </div>
+                {cameraError && (
+                  <p className="text-xs text-red-400 font-semibold max-w-xs">{cameraError}</p>
+                )}
                 <button
-                  onClick={() => setCameraActive(true)}
+                  onClick={startCamera}
                   className="btn-primary py-2 px-6 text-xs uppercase"
                 >
                   Iniciar Cámara
@@ -268,6 +387,17 @@ export default function AccessValidationPage() {
               </div>
             )}
           </div>
+          
+          {cameraActive && (
+            <div className="flex justify-center">
+              <button
+                onClick={stopCamera}
+                className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition px-6 py-2 text-xs font-bold uppercase tracking-wider text-cinema-cream"
+              >
+                Detener Cámara
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -320,14 +450,26 @@ export default function AccessValidationPage() {
                 </div>
                 <div>
                   <p className="text-cinema-gray font-bold uppercase tracking-wider text-[10px]">Identificador</p>
-                  <p className="font-semibold text-cinema-gold mt-0.5">Boleto: #{result.detalle.idBoleto}</p>
+                  <p className="font-semibold text-white mt-0.5">Boleto: #{result.detalle.idBoleto}</p>
+                </div>
+                <div>
+                  <p className="text-cinema-gray font-bold uppercase tracking-wider text-[10px]">Sala</p>
+                  <p className="font-semibold text-white mt-0.5">
+                    {result.detalle.asientoId?.includes('SALA-') 
+                      ? 'Sala ' + result.detalle.asientoId.split('-')[1] 
+                      : 'Sala ' + result.detalle.asientoId}
+                  </p>
                 </div>
                 <div>
                   <p className="text-cinema-gray font-bold uppercase tracking-wider text-[10px]">Asiento</p>
-                  <p className="font-semibold text-white mt-0.5 font-mono">{result.detalle.asientoId}</p>
+                  <p className="font-semibold text-cinema-gold mt-0.5 font-mono text-sm">
+                    {result.detalle.asientoId?.includes('-') 
+                      ? result.detalle.asientoId.split('-').pop() 
+                      : result.detalle.asientoId}
+                  </p>
                 </div>
-                <div>
-                  <p className="text-cinema-gray font-bold uppercase tracking-wider text-[10px]">Horario</p>
+                <div className="col-span-2">
+                  <p className="text-cinema-gray font-bold uppercase tracking-wider text-[10px]">Horario de Función</p>
                   <p className="font-semibold text-white mt-0.5">{result.detalle.horaInicio?.substring(0, 5)} - {result.detalle.horaFin?.substring(0, 5)}</p>
                 </div>
               </div>

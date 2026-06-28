@@ -27,6 +27,48 @@ export default function CompraOnlinePage() {
   const [qrConfirmed, setQrConfirmed] = useState(false);
   const [selectedModalIsPast, setSelectedModalIsPast] = useState(false);
 
+  // Estados para la vista previa del boleto (carrusel de QRs individuales)
+  const [showModal, setShowModal] = useState(false);
+  const [modalBoletos, setModalBoletos] = useState<any[]>([]);
+  const [modalQrUrls, setModalQrUrls] = useState<string[]>([]);
+  const [currentTicketIndex, setCurrentTicketIndex] = useState(0);
+
+  const getCleanSalaCode = (idSala?: string) => {
+    if (!idSala) return '';
+    return idSala.includes('SALA-')
+      ? 'S' + idSala.split('-').pop()
+      : (idSala.startsWith('S') ? idSala : 'S' + idSala);
+  };
+
+  // Cargar detalles del comprobante y generar QRs de boletos individuales para el modal
+  useEffect(() => {
+    if (showModal && resultado?.numeroComprobante) {
+      api.obtenerComprobante(resultado.numeroComprobante)
+        .then(async (res: any) => {
+          const boletosList = res.boletos || [];
+          setModalBoletos(boletosList);
+          setCurrentTicketIndex(0);
+
+          // Generar URLs de QR para cada boleto individual
+          const qrPromises = boletosList.map(async (b: any) => {
+            const asientoCorto = b.idAsiento.includes('-')
+              ? b.idAsiento.split('-').pop()
+              : b.idAsiento;
+            const qrData = `${b.idBoleto}-${getCleanSalaCode(selectedFuncion?.idSala)}-${asientoCorto}`;
+            return QRCode.toDataURL(qrData);
+          });
+
+          const urls = await Promise.all(qrPromises);
+          setModalQrUrls(urls);
+        })
+        .catch(err => console.error('Error al cargar comprobante para modal online:', err));
+    } else {
+      setModalBoletos([]);
+      setModalQrUrls([]);
+      setCurrentTicketIndex(0);
+    }
+  }, [showModal, resultado, selectedFuncion]);
+
   useEffect(() => {
     api.listarFunciones().then(res => {
       setFunciones(res.funciones);
@@ -146,15 +188,11 @@ export default function CompraOnlinePage() {
   function openMovieModal(f: any) {
     const funcionesPorPelicula = funciones.filter(fn => fn.peliculaTitulo === f.peliculaTitulo);
     // Sólo fechas desde hoy en adelante, incluyendo hoy even if no functions
-    const today = new Date();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`; // Local date in YYYY-MM-DD
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`; // Local date in YYYY-MM-DD
     const fechasSet = new Set<string>(funcionesPorPelicula.map(fn => fn.fecha));
     fechasSet.add(todayStr);
-    const fechas = Array.from(fechasSet).sort().filter(d => {
-      const dateObj = buildLocalDateTime(d);
-      return dateObj ? dateObj >= todayStart : false;
-    });
+    const fechas = Array.from(fechasSet).sort().filter(d => d >= todayStr);
     const selected = fechas[0] || '';
 
     setModalFunciones(funcionesPorPelicula);
@@ -257,6 +295,11 @@ export default function CompraOnlinePage() {
               <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] transition hover:border-cinema-gold/30">
                 {f.peliculaPoster && (
                   <div className="relative overflow-hidden">
+                    {funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1) && (
+                      <span className="absolute left-4 top-4 z-10 rounded-full bg-cinema-gold px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-cinema-black shadow-md shadow-black/50">
+                        🔥 ¡2x1 Activo!
+                      </span>
+                    )}
                     <img src={f.peliculaPoster} alt={f.peliculaTitulo} className="w-full object-contain max-h-[36rem] mx-auto transition duration-500 group-hover:scale-105" />
                     <div className="pointer-events-none absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/20" />
                     <button
@@ -289,7 +332,7 @@ export default function CompraOnlinePage() {
 
       {previewFuncion && step === 1 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#08080d] shadow-2xl">
+          <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] shadow-2xl">
             <div className="flex flex-col gap-6 p-6 lg:p-8">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -305,7 +348,7 @@ export default function CompraOnlinePage() {
 
               <div className="grid gap-6 lg:grid-cols-[350px_minmax(0,1fr)]">
                 {previewFuncion.peliculaPoster && (
-                  <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} className="max-h-[40vh] lg:max-h-[80vh] w-full rounded-3xl bg-black object-contain" />
+                  <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} className="max-h-[80vh] w-full rounded-3xl bg-black object-contain" />
                 )}
                 <div className="space-y-4">
                   <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
@@ -320,6 +363,11 @@ export default function CompraOnlinePage() {
                         <>
                           <p className="mt-3 text-sm text-cinema-gray">Sala: <span className="text-white">{selectedModalFuncion.idSala} ({selectedModalFuncion.salaTipo})</span></p>
                           <p className="mt-1 text-sm text-cinema-gray">Precio: <span className="text-white">Bs. {Number(selectedModalFuncion.precioBase).toFixed(2)}</span></p>
+                          {selectedModalFuncion.promocionActiva === 1 && (
+                            <div className="mt-2 inline-block rounded-full bg-cinema-gold/20 border border-cinema-gold/30 px-3 py-1 text-xs font-bold text-cinema-gold">
+                              🔥 ¡Promoción 2x1 Activa!
+                            </div>
+                          )}
                         </>
                       ) : (
                         <p className="mt-3 text-sm text-cinema-gray">Seleccione una función para ver los detalles.</p>
@@ -329,34 +377,25 @@ export default function CompraOnlinePage() {
                     <div>
                       <p className="text-xs uppercase tracking-[0.25em] text-cinema-cream/70">Selecciona fecha</p>
                       <div className="grid grid-cols-2 gap-3 mt-4 sm:grid-cols-3 lg:grid-cols-4">
-                        {
-                          modalAvailableDates
-                            .filter(date => {
-                              const today = new Date();
-                              const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                              const dateObj = buildLocalDateTime(date);
-                              return dateObj ? dateObj >= todayStart : false;
-                            })
-                            .map((date) => {
-                              const fechaObj = buildLocalDateTime(date) || new Date(date);
-                              const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
-                              const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
-                              const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
-                              const active = modalSelectedDate === date;
-                              return (
-                                <button
-                                  key={date}
-                                  type="button"
-                                  className={`group flex flex-col items-center justify-center gap-1 rounded-[2rem] border px-3 py-4 text-center transition ${active ? 'border-cinema-gold bg-cinema-gold text-cinema-black' : 'border-white/10 bg-white/[0.05] text-cinema-gray hover:border-white/20 hover:bg-white/[0.1]'}`}
-                                  onClick={() => setModalSelectedDate(date)}
-                                >
-                                  <span className="text-[10px] uppercase tracking-[0.25em] text-cinema-cream/80">{weekday}</span>
-                                  <span className="text-2xl font-bold leading-none">{day}</span>
-                                  <span className="text-xs uppercase tracking-[0.2em] text-cinema-cream/80">{month}</span>
-                                </button>
-                              );
-                            })
-                        }
+                        {modalAvailableDates.map((date) => {
+                          const fechaObj = new Date(date);
+                          const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
+                          const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
+                          const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
+                          const active = modalSelectedDate === date;
+                          return (
+                            <button
+                              key={date}
+                              type="button"
+                              className={`group flex flex-col items-center justify-center gap-1 rounded-[2rem] border px-3 py-4 text-center transition ${active ? 'border-cinema-gold bg-cinema-gold text-cinema-black' : 'border-white/10 bg-white/[0.05] text-cinema-gray hover:border-white/20 hover:bg-white/[0.1]'}`}
+                              onClick={() => setModalSelectedDate(date)}
+                            >
+                              <span className="text-[10px] uppercase tracking-[0.25em] text-cinema-cream/80">{weekday}</span>
+                              <span className="text-2xl font-bold leading-none">{day}</span>
+                              <span className="text-xs uppercase tracking-[0.2em] text-cinema-cream/80">{month}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -367,7 +406,7 @@ export default function CompraOnlinePage() {
                           <div key={salaTipo} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
                             <h4 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-white">{salaTipo}</h4>
                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {funciones.filter(func => { const dt = buildLocalDateTime(func.fecha, func.horaInicio || '00:00'); return dt && dt.getTime() >= Date.now(); }).map(func => {
+                              {funciones.map(func => {
                                 const time = func.horaInicio?.substring(0, 5) ?? '—';
                                 const fechaHora = buildLocalDateTime(func.fecha, func.horaInicio || '00:00');
                                 const isPast = func.horaInicio ? (fechaHora ? fechaHora.getTime() <= Date.now() : true) : true;
@@ -429,6 +468,11 @@ export default function CompraOnlinePage() {
             <p className="text-sm text-cinema-gray">
               <span className="font-semibold text-white">{selectedFuncion.peliculaTitulo}</span> — {selectedFuncion.idSala} ({selectedFuncion.salaTipo}) — {new Date(selectedFuncion.fecha).toLocaleDateString('es-BO')} {selectedFuncion.horaInicio?.substring(0, 5)}
             </p>
+            {selectedFuncion.promocionActiva === 1 && (
+              <span className="inline-block rounded-full bg-cinema-gold/20 border border-cinema-gold/30 px-3 py-1 text-xs font-bold text-cinema-gold">
+                🔥 ¡Promoción 2x1 Aplicada!
+              </span>
+            )}
           </div>
 
           <SeatMap asientos={asientos} selectedAsientos={selectedAsientos} onToggle={toggleAsiento} />
@@ -447,9 +491,9 @@ export default function CompraOnlinePage() {
               <span className="font-semibold text-cinema-cream">Total:</span>
               <span className="font-bold text-cinema-gold">Bs. {precioTotal.toFixed(2)}</span>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-              <button className="btn-secondary sm:w-auto w-full" onClick={() => setStep(1)}>Volver</button>
-              <button className="btn-primary sm:w-auto w-full" disabled={loading || !selectedAsientos.length} onClick={confirmarCompra}>
+            <div className="flex gap-3">
+              <button className="btn-secondary" onClick={() => setStep(1)}>Volver</button>
+              <button className="btn-primary" disabled={loading || !selectedAsientos.length} onClick={confirmarCompra}>
                 {loading ? 'Procesando...' : 'Pagar con QR'}
               </button>
             </div>
@@ -486,20 +530,20 @@ export default function CompraOnlinePage() {
               <p className="text-xs text-white/90 mt-1">{selectedAsientos.map(code => code.split('-').slice(-1)[0]).join(', ')}</p>
             </div>
             <div className="flex justify-between pt-2 border-t border-white/10 text-sm">
-              <span className="text-cinema-gray">Total</span>
+              <span className="text-cinema-gray">Total {selectedFuncion.promocionActiva === 1 && <span className="text-xs text-cinema-gold font-bold">(Promo 2x1)</span>}</span>
               <span className="text-cinema-gold font-semibold">Bs. {precioTotal.toFixed(2)}</span>
             </div>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button className="btn-secondary w-full sm:w-auto" onClick={() => {
+            <button className="btn-secondary" onClick={() => {
               setQrCode('');
               setQrTimer(600);
               setQrConfirmed(false);
               setStep(2);
             }}>Cancelar</button>
             <button
-              className="btn-primary w-full sm:w-auto"
+              className="btn-primary"
               disabled={loading || qrConfirmed}
               onClick={confirmarPagoQR}
             >
@@ -510,57 +554,179 @@ export default function CompraOnlinePage() {
       )}
 
       {step === 3 && resultado && (
+        <div className="space-y-6">
+          <div className="card-cine p-8 text-center space-y-4">
+            <h3 className="text-2xl font-bold text-cinema-gold font-black">Compra Exitosa</h3>
+            <p className="text-cinema-gray text-sm">Comprobante de Venta: <span className="text-white font-mono font-bold bg-white/5 px-2.5 py-1 rounded">{resultado.numeroComprobante}</span></p>
+            <p className="text-cinema-gray text-sm">Total Cobrado: <span className="text-cinema-gold font-bold">Bs. {Number(resultado.montoTotal).toFixed(2)}</span></p>
+            <p className="text-sm text-cinema-gray">{emailStatus || 'El comprobante ha sido enviado a tu correo electrónico.'}</p>
 
-        <div className="card-cine p-8 text-center space-y-4">
-          <h3 className="text-2xl font-bold text-cinema-gold">Compra exitosa</h3>
-          <p className="text-cinema-gray">Comprobante: <span className="text-white font-semibold">{resultado.numeroComprobante}</span></p>
-          <p className="text-cinema-gray">Total: <span className="text-cinema-gold font-bold">Bs. {Number(resultado.montoTotal).toFixed(2)}</span></p>
-          <p className="text-sm text-cinema-gray">{emailStatus || 'El comprobante será enviado a tu correo electrónico.'}</p>
-          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <a
-              className="btn-secondary w-full sm:w-auto text-center"
-              href="#"
-              onClick={async (event) => {
-                event.preventDefault();
-                if (!resultado?.numeroComprobante) return;
-                try {
-                  const blob = await api.descargarComprobantePdf(resultado.numeroComprobante);
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = `${resultado.numeroComprobante}.pdf`;
-                  link.click();
-                  URL.revokeObjectURL(url);
-                } catch (error) {
-                  setMessage({ type: 'error', text: error instanceof Error ? error.message : 'No se pudo descargar el comprobante.' });
-                }
-              }}
-            >
-              Descargar comprobante
-            </a>
-            <a
-              className="btn-secondary w-full sm:w-auto text-center !border-emerald-500 !text-emerald-400 hover:!bg-emerald-500 hover:!text-black"
-              href="#"
-              onClick={async (event) => {
-                event.preventDefault();
-                if (!resultado?.numeroComprobante) return;
-                try {
-                  const blob = await api.descargarComprobanteTicketPdf(resultado.numeroComprobante);
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = `pase-${resultado.numeroComprobante}.pdf`;
-                  link.click();
-                  URL.revokeObjectURL(url);
-                } catch (error) {
-                  setMessage({ type: 'error', text: error instanceof Error ? error.message : 'No se pudo descargar el pase de entrada.' });
-                }
-              }}
-            >
-              Descargar pase de entrada
-            </a>
-            <button className="btn-primary w-full sm:w-auto" onClick={nuevaCompra}>Nueva compra</button>
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center pt-2">
+              <button
+                type="button"
+                className="btn-primary flex items-center gap-1.5"
+                onClick={() => setShowModal(true)}
+              >
+                🎟️ Ver Boletos (Códigos QR)
+              </button>
+              <button
+                type="button"
+                className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold px-5 py-2.5 text-sm transition"
+                onClick={nuevaCompra}
+              >
+                Nueva compra
+              </button>
+            </div>
           </div>
+
+          {/* VENTANA EMERGENTE (MODAL) CON VISTA PREVIA Y ACCIONES DE BOLETOS INDIVIDUALES */}
+          {showModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl space-y-5">
+                {/* Header del Modal */}
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-cinema-gold">Vista Previa de Boleto</h4>
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="text-cinema-gray hover:text-white transition"
+                    title="Cerrar vista previa"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Cuerpo del Boleto Estilo Físico */}
+                <div className="border border-dashed border-white/20 bg-white/[0.01] rounded-xl p-5 space-y-4 text-center relative overflow-hidden">
+                  {/* Semicírculos laterales de boleto de cine */}
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-7 bg-[#0d0d14] border-r border-t border-b border-white/10 rounded-r-full"></div>
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-7 bg-[#0d0d14] border-l border-t border-b border-white/10 rounded-l-full"></div>
+
+                  <div className="text-sm font-black tracking-[0.25em] text-cinema-gold">CINE LA PAZ</div>
+                  <div className="text-[10px] text-cinema-gray font-mono uppercase tracking-widest">Boleto de Entrada</div>
+
+                  <hr className="border-white/5 my-1" />
+
+                  <div className="space-y-1 text-left text-xs">
+                    <div className="mb-2">
+                      <p className="text-cinema-gray uppercase text-[9px] tracking-wider font-bold">Película</p>
+                      <p className="font-bold text-white text-sm truncate">{selectedFuncion?.peliculaTitulo}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Sala</p>
+                        <p className="font-medium text-white">{selectedFuncion?.idSala} ({selectedFuncion?.salaTipo})</p>
+                      </div>
+                      <div>
+                        <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Fecha</p>
+                        <p className="font-medium text-white">{selectedFuncion?.fecha ? new Date(selectedFuncion.fecha).toLocaleDateString('es-BO') : ''}</p>
+                      </div>
+                      <div>
+                        <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Horario</p>
+                        <p className="font-medium text-white">{selectedFuncion?.horaInicio?.substring(0, 5)}</p>
+                      </div>
+                      <div>
+                        <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Asiento</p>
+                        <p className="font-medium text-cinema-gold font-mono truncate">
+                          {modalBoletos[currentTicketIndex]
+                            ? (modalBoletos[currentTicketIndex].idAsiento.includes('-')
+                              ? modalBoletos[currentTicketIndex].idAsiento.split('-').pop()
+                              : modalBoletos[currentTicketIndex].idAsiento)
+                            : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <hr className="border-white/5 my-1" />
+
+                  {/* QR Code */}
+                  <div className="flex flex-col items-center justify-center p-2.5 bg-white rounded-xl mx-auto w-36 h-36 border-2 border-cinema-gold shadow-lg shadow-black/40">
+                    {modalQrUrls[currentTicketIndex] ? (
+                      <img src={modalQrUrls[currentTicketIndex]} alt="Boleto QR" className="w-32 h-32" />
+                    ) : (
+                      <div className="h-32 w-32 animate-pulse bg-cinema-gray/20 rounded-lg"></div>
+                    )}
+                  </div>
+
+                  <div className="text-xs font-mono font-black text-cinema-gold tracking-wide mt-2 bg-white/5 py-1.5 px-2 rounded-lg border border-white/5">
+                    CÓDIGO DE ACCESO: {modalBoletos[currentTicketIndex]?.idBoleto}-{getCleanSalaCode(selectedFuncion?.idSala)}-{modalBoletos[currentTicketIndex]
+                      ? (modalBoletos[currentTicketIndex].idAsiento.includes('-')
+                        ? modalBoletos[currentTicketIndex].idAsiento.split('-').pop()
+                        : modalBoletos[currentTicketIndex].idAsiento)
+                      : ''}
+                  </div>
+                  <div className="text-[10px] text-cinema-gray font-mono">
+                    Comprobante: {resultado?.numeroComprobante || 'N/A'}
+                  </div>
+                  <div className="text-[10px] text-cinema-gold font-bold">
+                    ¡Presenta este QR para ingresar a la sala!
+                  </div>
+                  <div className="text-[9px] text-cinema-gray font-mono">
+                    (Para ingreso manual por teclado use el Nro: {modalBoletos[currentTicketIndex]?.idBoleto})
+                  </div>
+                </div>
+
+                {/* Controles de Navegación de Boletos (Si hay más de uno) */}
+                {modalBoletos.length > 1 && (
+                  <div className="flex justify-between items-center px-1 text-xs text-cinema-cream">
+                    <button
+                      type="button"
+                      disabled={currentTicketIndex === 0}
+                      onClick={() => setCurrentTicketIndex(prev => prev - 1)}
+                      className="rounded-lg bg-white/5 hover:bg-white/10 px-2.5 py-1.5 font-bold transition disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      ◀ Anterior
+                    </button>
+                    <span className="font-semibold text-cinema-gray">
+                      Boleto {currentTicketIndex + 1} de {modalBoletos.length}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={currentTicketIndex === modalBoletos.length - 1}
+                      onClick={() => setCurrentTicketIndex(prev => prev + 1)}
+                      className="rounded-lg bg-white/5 hover:bg-white/10 px-2.5 py-1.5 font-bold transition disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      Siguiente ▶
+                    </button>
+                  </div>
+                )}
+
+                {/* Acciones del Modal */}
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!resultado?.numeroComprobante) return;
+                      try {
+                        const blob = await api.descargarComprobantePdf(resultado.numeroComprobante);
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `${resultado.numeroComprobante}.pdf`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                      } catch (error) {
+                        setMessage({ type: 'error', text: 'No se pudo descargar el comprobante.' });
+                      }
+                    }}
+                    className="btn-primary py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 w-full"
+                  >
+                    📥 Descargar Boleto PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold py-2.5 text-xs uppercase tracking-wider transition w-full"
+                  >
+                    Volver
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>

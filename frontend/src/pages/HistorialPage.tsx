@@ -1,40 +1,81 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Message from '../components/Message';
 import { api } from '../services/api';
+import * as QRCode from 'qrcode';
 
 export default function HistorialPage() {
   const { user } = useAuth();
   const [historial, setHistorial] = useState<any[]>([]);
-  const [page, setPage] = useState(1);
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [loadingCancel, setLoadingCancel] = useState<number | null>(null);
 
-  const [filterEstado, setFilterEstado] = useState('');
-  const [filterFechaDesde, setFilterFechaDesde] = useState('');
-  const [filterFechaHasta, setFilterFechaHasta] = useState('');
-  const [searchPelicula, setSearchPelicula] = useState('');
+  // Estados para la vista previa del boleto (carrusel de QRs individuales)
+  const [showModal, setShowModal] = useState(false);
+  const [selectedVenta, setSelectedVenta] = useState<any>(null);
+  const [modalBoletos, setModalBoletos] = useState<any[]>([]);
+  const [modalQrUrls, setModalQrUrls] = useState<string[]>([]);
+  const [currentTicketIndex, setCurrentTicketIndex] = useState(0);
 
-  const fetchHistorial = useCallback(() => {
+  const getCleanSalaCode = (idSala?: string) => {
+    if (!idSala) return '';
+    return idSala.includes('SALA-')
+      ? 'S' + idSala.split('-').pop()
+      : (idSala.startsWith('S') ? idSala : 'S' + idSala);
+  };
+
+  const fetchHistorial = () => {
     if (!user) return;
     api.historialCliente(user.idUsuario)
-      .then(res => {
-        setHistorial(res.historial);
-        setPage(1);
-      })
+      .then(res => setHistorial(res.historial))
       .catch(err => setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al cargar historial.' }));
-  }, [user]);
+  };
 
   useEffect(() => {
     fetchHistorial();
-  }, [fetchHistorial]);
+  }, [user]);
 
-  // rerender-functional-setstate: functional setState para reset estable
-  useEffect(() => {
-    setPage(1);
-  }, [filterEstado, filterFechaDesde, filterFechaHasta, searchPelicula]);
+  const handleDescargarPdf = async (numero: string) => {
+    try {
+      const blob = await api.descargarComprobantePdf(numero);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${numero}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'No se pudo descargar el comprobante.' });
+    }
+  };
 
-  const handleCancel = useCallback(async (idVenta: number) => {
+  const handleVerTickets = async (venta: any) => {
+    setSelectedVenta(venta);
+    try {
+      const res = await api.obtenerComprobante(venta.numero);
+      const boletosList = res.boletos || [];
+      setModalBoletos(boletosList);
+      setCurrentTicketIndex(0);
+      
+      // Generar URLs de QR para cada boleto individual
+      const qrPromises = boletosList.map(async (b: any) => {
+        const asientoCorto = b.idAsiento.includes('-') 
+          ? b.idAsiento.split('-').pop() 
+          : b.idAsiento;
+        const qrData = `${b.idBoleto}-${getCleanSalaCode(venta.idSala)}-${asientoCorto}`;
+        return QRCode.toDataURL(qrData);
+      });
+      
+      const urls = await Promise.all(qrPromises);
+      setModalQrUrls(urls);
+      setShowModal(true);
+    } catch (err) {
+      console.error(err);
+      setMessage({ type: 'error', text: 'No se pudieron cargar los boletos para visualización.' });
+    }
+  };
+
+  const handleCancel = async (idVenta: number) => {
     const confirmCancel = window.confirm('¿Estás seguro de que deseas cancelar esta compra? La acción requiere al menos 24 horas antes de la función.');
     if (!confirmCancel) return;
 
@@ -49,9 +90,9 @@ export default function HistorialPage() {
     } finally {
       setLoadingCancel(null);
     }
-  }, [fetchHistorial]);
+  };
 
-  const buildFuncionDateTime = useCallback((fecha: string | Date | null, hora: string | undefined) => {
+  const buildFuncionDateTime = (fecha: string | Date | null, hora: string | undefined) => {
     if (!fecha) return null;
     const fechaObj = new Date(fecha);
     if (Number.isNaN(fechaObj.getTime())) return null;
@@ -62,151 +103,16 @@ export default function HistorialPage() {
       }
     }
     return fechaObj;
-  }, []);
-
-  const downloadPdf = useCallback(async (numero: string) => {
-    try {
-      const blob = await api.descargarComprobantePdf(numero);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${numero}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch {
-      setMessage({ type: 'error', text: 'Error al descargar el PDF' });
-    }
-  }, []);
-
-  const downloadTicketPdf = useCallback(async (numero: string) => {
-    try {
-      const blob = await api.descargarComprobanteTicketPdf(numero);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `pase-${numero}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch {
-      setMessage({ type: 'error', text: 'Error al descargar el pase de entrada' });
-    }
-  }, []);
-
-  // rerender-derived-state + js-combine-iterations: filtrar y calcular totales en un solo paso
-  const { filteredHistorial, totalMonto } = useMemo(() => {
-    let total = 0;
-    const filtered = historial.filter(h => {
-      if (filterEstado && h.estadoVenta !== filterEstado) return false;
-
-      if (filterFechaDesde) {
-        const hDate = h.fecha ? new Date(h.fecha).toISOString().split('T')[0] : '';
-        if (hDate < filterFechaDesde) return false;
-      }
-
-      if (filterFechaHasta) {
-        const hDate = h.fecha ? new Date(h.fecha).toISOString().split('T')[0] : '';
-        if (hDate > filterFechaHasta) return false;
-      }
-
-      if (searchPelicula) {
-        const title = h.peliculaTitulo?.toLowerCase() || '';
-        if (!title.includes(searchPelicula.toLowerCase())) return false;
-      }
-
-      total += Number(h.montoTotal || 0);
-      return true;
-    });
-    return { filteredHistorial: filtered, totalMonto: total };
-  }, [historial, filterEstado, filterFechaDesde, filterFechaHasta, searchPelicula]);
-
-  const itemsPerPage = 8;
-  const totalPages = Math.ceil(filteredHistorial.length / itemsPerPage);
-  const currentItems = filteredHistorial.slice((page - 1) * itemsPerPage, page * itemsPerPage);
-
-  const hasActiveFilters = filterEstado || filterFechaDesde || filterFechaHasta || searchPelicula;
-
-  const clearFilters = useCallback(() => {
-    setFilterEstado('');
-    setFilterFechaDesde('');
-    setFilterFechaHasta('');
-    setSearchPelicula('');
-  }, []);
+  };
 
   return (
     <section className="space-y-8">
       <h2 className="text-2xl font-bold text-white">Mi historial de compras</h2>
       {message && <Message type={message.type} text={message.text} />}
 
-      <div className="card-cine p-5">
-        <div className="grid gap-4 md:grid-cols-4">
-          <div>
-            <label className="label-cine">Buscar por película</label>
-            <input
-              type="text"
-              className="input-cine"
-              placeholder="Ej: Mufasa..."
-              value={searchPelicula}
-              onChange={e => setSearchPelicula(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="label-cine">Desde</label>
-            <input
-              type="date"
-              className="input-cine"
-              value={filterFechaDesde}
-              onChange={e => setFilterFechaDesde(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="label-cine">Hasta</label>
-            <input
-              type="date"
-              className="input-cine"
-              value={filterFechaHasta}
-              onChange={e => setFilterFechaHasta(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="label-cine">Filtrar por estado</label>
-            <select
-              className="input-cine"
-              value={filterEstado}
-              onChange={e => setFilterEstado(e.target.value)}
-            >
-              <option value="">Todos los estados</option>
-              <option value="COMPLETADA">Completada</option>
-              <option value="CANCELADA">Cancelada</option>
-            </select>
-          </div>
-        </div>
-        {hasActiveFilters && (
-          <div className="mt-3 flex items-center gap-4">
-            <button
-              className="text-xs font-semibold text-cinema-gold underline transition hover:text-white"
-              onClick={clearFilters}
-            >
-              Limpiar filtros
-            </button>
-            <span className="text-xs text-cinema-gray">
-              Mostrando {filteredHistorial.length} de {historial.length} compras | Total: Bs. {totalMonto.toFixed(2)}
-            </span>
-          </div>
-        )}
-        {!hasActiveFilters && historial.length > 0 && (
-          <div className="mt-3 text-xs text-cinema-gray">
-            Total: {historial.length} compras | Bs. {historial.reduce((s, h) => s + Number(h.montoTotal || 0), 0).toFixed(2)}
-          </div>
-        )}
-      </div>
-
-      <div className="card-cine overflow-hidden flex flex-col">
+      <div className="card-cine overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-cinema-gray" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <table className="min-w-full text-sm text-cinema-gray">
             <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
               <tr>
                 <th className="px-5 py-4">Comprobante</th>
@@ -217,41 +123,23 @@ export default function HistorialPage() {
                 <th className="px-5 py-4">Asientos</th>
                 <th className="px-5 py-4">Total</th>
                 <th className="px-5 py-4">Estado</th>
+                <th className="px-5 py-4">Tickets</th>
                 <th className="px-5 py-4">Acción</th>
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((h, i) => {
+              {historial.map((h, i) => {
                 const canCancel = h.estadoVenta === 'COMPLETADA' && (() => {
                   const fechaFuncion = buildFuncionDateTime(h.fecha, h.horaInicio);
                   if (!fechaFuncion) return false;
-                  const diffHours = (fechaFuncion.getTime() - Date.now()) / (1000 * 60 * 60);
+                  const now = new Date();
+                  const diffHours = (fechaFuncion.getTime() - now.getTime()) / (1000 * 60 * 60);
                   return diffHours >= 24;
                 })();
 
                 return (
-                  <tr key={h.numero || i} className="border-t border-white/5">
-                    <td className="px-5 py-4 text-white font-medium">
-                      <div>{h.numero}</div>
-                      {h.estadoVenta === 'COMPLETADA' && (
-                        <>
-                          <button
-                            onClick={() => downloadPdf(h.numero)}
-                            className="mt-2 inline-flex items-center gap-1 rounded bg-white/[0.05] px-2 py-1 text-[10px] uppercase tracking-wider text-cinema-gold transition hover:bg-cinema-gold hover:text-black"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                            Comprobante
-                          </button>
-                          <button
-                            onClick={() => downloadTicketPdf(h.numero)}
-                            className="mt-2 ml-1 inline-flex items-center gap-1 rounded bg-white/[0.05] px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-400 transition hover:bg-emerald-500 hover:text-black"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a3 3 0 0 1 0 6v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a3 3 0 0 1 0-6V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path><path d="M13 5v2"></path><path d="M13 17v2"></path><path d="M13 11v2"></path></svg>
-                            Pase
-                          </button>
-                        </>
-                      )}
-                    </td>
+                  <tr key={i} className="border-t border-white/5">
+                    <td className="px-5 py-4 text-white font-medium">{h.numero}</td>
                     <td className="px-5 py-4">{h.peliculaTitulo}</td>
                     <td className="px-5 py-4">{h.fecha ? new Date(h.fecha).toLocaleDateString('es-BO') : '—'}</td>
                     <td className="px-5 py-4">{h.horaInicio?.substring(0, 5)}</td>
@@ -268,13 +156,35 @@ export default function HistorialPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
+                      {h.estadoVenta === 'COMPLETADA' ? (
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            className="rounded-lg bg-cinema-gold hover:bg-cinema-gold/80 text-cinema-black px-2.5 py-1.5 text-xs font-bold transition flex items-center gap-1"
+                            onClick={() => handleVerTickets(h)}
+                          >
+                            🔍 Ver
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white px-2.5 py-1.5 text-xs font-bold transition flex items-center gap-1"
+                            onClick={() => handleDescargarPdf(h.numero)}
+                          >
+                            📥 PDF
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-cinema-gray">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
                       {canCancel ? (
                         <button
                           className="rounded bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50"
                           disabled={loadingCancel === h.idVenta}
                           onClick={() => handleCancel(h.idVenta)}
                         >
-                          {loadingCancel === h.idVenta ? 'Cancelando…' : 'Cancelar'}
+                          {loadingCancel === h.idVenta ? 'Cancelando...' : 'Cancelar'}
                         </button>
                       ) : (
                         <span className="text-xs text-cinema-cream">No cancelable</span>
@@ -283,41 +193,149 @@ export default function HistorialPage() {
                   </tr>
                 );
               })}
-              {filteredHistorial.length === 0 && (
-                <tr>
-                  <td className="px-5 py-8 text-center" colSpan={9}>
-                    {historial.length === 0 ? 'No tienes compras registradas.' : 'No hay compras que coincidan con los filtros.'}
-                  </td>
-                </tr>
+              {historial.length === 0 && (
+                <tr><td className="px-5 py-8 text-center" colSpan={10}>No tienes compras registradas.</td></tr>
               )}
             </tbody>
           </table>
         </div>
+      </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-white/5 px-5 py-4 bg-white/[0.01]">
-            <p className="text-sm text-cinema-gray">
-              Página <span className="font-semibold text-white">{page}</span> de <span className="font-semibold text-white">{totalPages}</span>
-            </p>
-            <div className="flex gap-2">
-              <button
-                className="btn-secondary px-3 py-1 text-xs"
-                disabled={page === 1}
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+      {/* VENTANA EMERGENTE (MODAL) CON VISTA PREVIA Y ACCIONES DE BOLETOS INDIVIDUALES */}
+      {showModal && selectedVenta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 text-center">
+          <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl space-y-5">
+            {/* Header del Modal */}
+            <div className="flex justify-between items-center border-b border-white/10 pb-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-cinema-gold">Vista Previa de Boleto</h4>
+              <button 
+                onClick={() => setShowModal(false)}
+                className="text-cinema-gray hover:text-white transition"
+                title="Cerrar vista previa"
               >
-                Anterior
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
               </button>
-              <button
-                className="btn-secondary px-3 py-1 text-xs"
-                disabled={page === totalPages}
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            </div>
+
+            {/* Cuerpo del Boleto Estilo Físico */}
+            <div className="border border-dashed border-white/20 bg-white/[0.01] rounded-xl p-5 space-y-4 text-center relative overflow-hidden">
+              {/* Semicírculos laterales de boleto de cine */}
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-7 bg-[#0d0d14] border-r border-t border-b border-white/10 rounded-r-full"></div>
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-7 bg-[#0d0d14] border-l border-t border-b border-white/10 rounded-l-full"></div>
+
+              <div className="text-sm font-black tracking-[0.25em] text-cinema-gold">CINE LA PAZ</div>
+              <div className="text-[10px] text-cinema-gray font-mono uppercase tracking-widest">Boleto de Entrada</div>
+              
+              <hr className="border-white/5 my-1" />
+
+              <div className="space-y-1 text-left text-xs">
+                <div className="mb-2">
+                  <p className="text-cinema-gray uppercase text-[9px] tracking-wider font-bold">Película</p>
+                  <p className="font-bold text-white text-sm truncate">{selectedVenta.peliculaTitulo}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Sala</p>
+                    <p className="font-medium text-white">{selectedVenta.idSala}</p>
+                  </div>
+                  <div>
+                    <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Fecha</p>
+                    <p className="font-medium text-white">{selectedVenta.fecha ? new Date(selectedVenta.fecha).toLocaleDateString('es-BO') : ''}</p>
+                  </div>
+                  <div>
+                    <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Horario</p>
+                    <p className="font-medium text-white">{selectedVenta.horaInicio?.substring(0, 5)}</p>
+                  </div>
+                  <div>
+                    <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Asiento</p>
+                    <p className="font-medium text-cinema-gold font-mono truncate">
+                      {modalBoletos[currentTicketIndex]
+                        ? (modalBoletos[currentTicketIndex].idAsiento.includes('-')
+                            ? modalBoletos[currentTicketIndex].idAsiento.split('-').pop()
+                            : modalBoletos[currentTicketIndex].idAsiento)
+                        : ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <hr className="border-white/5 my-1" />
+
+              {/* QR Code */}
+              <div className="flex flex-col items-center justify-center p-2.5 bg-white rounded-xl mx-auto w-36 h-36 border-2 border-cinema-gold shadow-lg shadow-black/40">
+                {modalQrUrls[currentTicketIndex] ? (
+                  <img src={modalQrUrls[currentTicketIndex]} alt="Boleto QR" className="w-32 h-32" />
+                ) : (
+                  <div className="h-32 w-32 animate-pulse bg-cinema-gray/20 rounded-lg"></div>
+                )}
+              </div>
+
+              <div className="text-xs font-mono font-black text-cinema-gold tracking-wide mt-2 bg-white/5 py-1.5 px-2 rounded-lg border border-white/5">
+                CÓDIGO DE ACCESO: {modalBoletos[currentTicketIndex]?.idBoleto}-{getCleanSalaCode(selectedVenta.idSala)}-{modalBoletos[currentTicketIndex]
+                  ? (modalBoletos[currentTicketIndex].idAsiento.includes('-')
+                      ? modalBoletos[currentTicketIndex].idAsiento.split('-').pop()
+                      : modalBoletos[currentTicketIndex].idAsiento)
+                  : ''}
+              </div>
+              <div className="text-[10px] text-cinema-gray font-mono">
+                Comprobante: {selectedVenta.numero || 'N/A'}
+              </div>
+              <div className="text-[10px] text-cinema-gold font-bold">
+                ¡Presenta este QR para ingresar a la sala!
+              </div>
+              <div className="text-[9px] text-cinema-gray font-mono">
+                (Para ingreso manual por teclado use el Nro: {modalBoletos[currentTicketIndex]?.idBoleto})
+              </div>
+            </div>
+
+            {/* Controles de Navegación de Boletos (Si hay más de uno) */}
+            {modalBoletos.length > 1 && (
+              <div className="flex justify-between items-center px-1 text-xs text-cinema-cream">
+                <button
+                  type="button"
+                  disabled={currentTicketIndex === 0}
+                  onClick={() => setCurrentTicketIndex(prev => prev - 1)}
+                  className="rounded-lg bg-white/5 hover:bg-white/10 px-2.5 py-1.5 font-bold transition disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  ◀ Anterior
+                </button>
+                <span className="font-semibold text-cinema-gray">
+                  Boleto {currentTicketIndex + 1} de {modalBoletos.length}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentTicketIndex === modalBoletos.length - 1}
+                  onClick={() => setCurrentTicketIndex(prev => prev + 1)}
+                  className="rounded-lg bg-white/5 hover:bg-white/10 px-2.5 py-1.5 font-bold transition disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  Siguiente ▶
+                </button>
+              </div>
+            )}
+
+            {/* Acciones del Modal */}
+            <div className="flex flex-col gap-2">
+              <button 
+                type="button"
+                onClick={() => handleDescargarPdf(selectedVenta.numero)}
+                className="btn-primary py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 w-full"
               >
-                Siguiente
+                📥 Descargar Boleto PDF
+              </button>
+              <button 
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold py-2.5 text-xs uppercase tracking-wider transition w-full"
+              >
+                Volver
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }

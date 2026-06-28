@@ -3,18 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 import Message from '../components/Message';
 import SeatMap from '../components/SeatMap.tsx';
 import { api } from '../services/api';
+import * as QRCode from 'qrcode';
 
 export default function VentaPresencialPage() {
   const { user } = useAuth();
   const [funciones, setFunciones] = useState<any[]>([]);
-  const [peliculas, setPeliculas] = useState<any[]>([]);
-  const [selectedMovie, setSelectedMovie] = useState<any>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalFunciones, setModalFunciones] = useState<any[]>([]);
-  const [modalAvailableDates, setModalAvailableDates] = useState<string[]>([]);
-  const [modalSelectedDate, setModalSelectedDate] = useState('');
-  const [selectedModalFuncion, setSelectedModalFuncion] = useState<any>(null);
-  const [selectedModalIsPast, setSelectedModalIsPast] = useState(false);
   const [selectedFuncion, setSelectedFuncion] = useState<any>(null);
   const [asientos, setAsientos] = useState<any[]>([]);
   const [selectedAsientos, setSelectedAsientos] = useState<string[]>([]);
@@ -26,73 +19,53 @@ export default function VentaPresencialPage() {
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
 
+  const [showModal, setShowModal] = useState(false);
+  const [modalBoletos, setModalBoletos] = useState<any[]>([]);
+  const [modalQrUrls, setModalQrUrls] = useState<string[]>([]);
+  const [currentTicketIndex, setCurrentTicketIndex] = useState(0);
+
   useEffect(() => {
     api.listarFunciones().then(res => setFunciones(res.funciones)).catch(() => {});
-    api.listarPeliculas().then(res => setPeliculas(res.peliculas)).catch(() => {});
   }, []);
-  // Construye un Date en hora local a partir de fecha 'YYYY-MM-DD' y hora 'HH:MM'
-  function buildLocalDateTime(fecha?: string | Date | null, hora?: string | null) {
-    if (!fecha) return null;
-    let fechaStr = '';
-    if (fecha instanceof Date) {
-      fechaStr = fecha.toISOString().slice(0, 10);
-    } else {
-      const s = String(fecha);
-      const match = s.match(/\d{4}-\d{2}-\d{2}/);
-      if (!match) return null;
-      fechaStr = match[0];
-    }
-    const [yStr, mStr, dStr] = fechaStr.split('-');
-    const y = Number(yStr), m = Number(mStr), d = Number(dStr);
-    if ([y, m, d].some(v => Number.isNaN(v))) return null;
-    const dt = new Date(y, m - 1, d, 0, 0, 0, 0);
-    let horaToUse: string | null = hora || null;
-    if (!horaToUse && typeof fecha === 'string') {
-      const s = fecha as string;
-      const timeMatch = s.match(/\d{2}:\d{2}(:\d{2})?/);
-      if (timeMatch) horaToUse = timeMatch[0];
-    }
-    if (horaToUse) {
-      const [hhStr, mmStr] = horaToUse.split(':');
-      const hh = Number(hhStr || 0);
-      const mm = Number(mmStr || 0);
-      if (!Number.isNaN(hh)) dt.setHours(hh, Number.isNaN(mm) ? 0 : mm, 0, 0);
-    }
-    return dt;
-  }
 
+  const getCleanSalaCode = (idSala?: string) => {
+    if (!idSala) return '';
+    return idSala.includes('SALA-')
+      ? 'S' + idSala.split('-').pop()
+      : (idSala.startsWith('S') ? idSala : 'S' + idSala);
+  };
+
+  // Generar QR y mostrar ventana emergente al procesar la venta presencial
   useEffect(() => {
-    if (selectedModalFuncion) {
-      const now = new Date();
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      const isToday = selectedModalFuncion.fecha === todayStr;
-      const fechaHora = buildLocalDateTime(selectedModalFuncion.fecha, selectedModalFuncion.horaInicio || '00:00');
-      const past = isToday && fechaHora ? fechaHora.getTime() <= Date.now() : false;
-      setSelectedModalIsPast(past);
+    if (step === 3 && resultado?.numeroComprobante) {
+      api.obtenerComprobante(resultado.numeroComprobante)
+        .then(async (res: any) => {
+          const boletosList = res.boletos || [];
+          setModalBoletos(boletosList);
+          setCurrentTicketIndex(0);
+          
+          // Generar URLs de QR para cada boleto individual
+          const qrPromises = boletosList.map(async (b: any) => {
+            const asientoCorto = b.idAsiento.includes('-') 
+              ? b.idAsiento.split('-').pop() 
+              : b.idAsiento;
+            const qrData = `${b.idBoleto}-${getCleanSalaCode(selectedFuncion?.idSala)}-${asientoCorto}`;
+            return QRCode.toDataURL(qrData);
+          });
+          
+          const urls = await Promise.all(qrPromises);
+          setModalQrUrls(urls);
+          setShowModal(true);
+        })
+        .catch(err => console.error('Error al cargar comprobante para modal:', err));
     } else {
-      setSelectedModalIsPast(false);
+      setShowModal(false);
+      setModalBoletos([]);
+      setModalQrUrls([]);
+      setCurrentTicketIndex(0);
     }
-  }, [selectedModalFuncion]);
+  }, [step, resultado, selectedFuncion]);
 
-  function openMovieModal(movie) {
-    const funcionesPorPelicula = funciones.filter(fn => fn.peliculaTitulo === movie.peliculaTitulo);
-    const today = new Date();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const fechasSet = new Set<string>(funcionesPorPelicula.map(fn => fn.fecha));
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-    fechasSet.add(todayStr);
-    const fechas = Array.from(fechasSet).sort().filter(d => {
-      const dateObj = buildLocalDateTime(d);
-      return dateObj ? dateObj >= todayStart : false;
-    });
-    const selected = fechas[0] || '';
-    setSelectedMovie(movie);
-    setModalFunciones(funcionesPorPelicula);
-    setModalAvailableDates(fechas);
-    setModalSelectedDate(selected);
-    setSelectedModalFuncion(null);
-    setModalOpen(true);
-  }
   async function selectFuncion(f: any) {
     setSelectedFuncion(f);
     setSelectedAsientos([]);
@@ -138,6 +111,32 @@ export default function VentaPresencialPage() {
     }
   }
 
+  async function printTicket() {
+    if (!resultado?.numeroComprobante) return;
+    try {
+      const blob = await api.descargarComprobantePdf(resultado.numeroComprobante);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (error) {
+      setMessage({ type: 'error', text: 'No se pudo generar la impresión del comprobante.' });
+    }
+  }
+
+  async function downloadTicket() {
+    if (!resultado?.numeroComprobante) return;
+    try {
+      const blob = await api.descargarComprobantePdf(resultado.numeroComprobante);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${resultado.numeroComprobante}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'No se pudo descargar el comprobante.' });
+    }
+  }
+
   function nuevaVenta() {
     setStep(1);
     setSelectedFuncion(null);
@@ -146,11 +145,10 @@ export default function VentaPresencialPage() {
     setMessage(null);
   }
 
-  const precioTotal = selectedFuncion ? Number(selectedFuncion.precioBase) * selectedAsientos.length : 0;
+  const is2x1 = selectedFuncion?.promocionActiva === 1;
+  const seatsToPay = is2x1 ? Math.ceil(selectedAsientos.length / 2) : selectedAsientos.length;
+  const precioTotal = selectedFuncion ? Number(selectedFuncion.precioBase) * seatsToPay : 0;
 
-  const peliculasFiltradas = Array.from(
-    new Map(funciones.map(funcion => [funcion.idPelicula ?? funcion.peliculaTitulo, funcion])).values()
-  );
 
   return (
     <section className="space-y-8">
@@ -159,142 +157,47 @@ export default function VentaPresencialPage() {
       {message && <Message type={message.type} text={message.text} />}
 
       {step === 1 && (
-  <>
-    <div className="grid gap-4 lg:grid-cols-3">
-      {peliculasFiltradas.map(movie => (
-        <div key={movie.idPelicula ?? movie.peliculaTitulo} className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] transition hover:border-cinema-gold/30">
-          {movie.peliculaPoster && (
-            <div className="relative overflow-hidden">
-              <img src={movie.peliculaPoster} alt={movie.peliculaTitulo} className="w-full object-contain max-h-[36rem] mx-auto transition duration-500 group-hover:scale-105" />
-              <div className="pointer-events-none absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/20" />
-              <button
-                type="button"
-                className="absolute left-1/2 bottom-4 z-10 -translate-x-1/2 rounded-full bg-cinema-gold px-5 py-3 text-sm font-semibold text-cinema-black shadow-lg shadow-black/20 opacity-0 transition duration-300 group-hover:opacity-100"
-                onClick={() => openMovieModal(movie)}
-              >
-                Ver funciones
-              </button>
-            </div>
-          )}
-          <div className="space-y-3 p-5">
-            <h4 className="text-lg font-bold text-white">{movie.peliculaTitulo}</h4>
+        <div className="card-cine overflow-hidden">
+          <div className="border-b border-white/10 px-6 py-5">
+            <h3 className="text-lg font-bold text-white">Seleccionar función</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm text-cinema-gray">
+              <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
+                <tr>
+                  <th className="px-5 py-4">Película</th>
+                  <th className="px-5 py-4">Sala</th>
+                  <th className="px-5 py-4">Fecha</th>
+                  <th className="px-5 py-4">Horario</th>
+                  <th className="px-5 py-4">Precio</th>
+                  <th className="px-5 py-4">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funciones.map(f => (
+                  <tr key={f.idFuncion} className="border-t border-white/5">
+                    <td className="px-5 py-4 text-white font-medium">{f.peliculaTitulo}</td>
+                    <td className="px-5 py-4">{f.idSala} ({f.salaTipo})</td>
+                    <td className="px-5 py-4">{new Date(f.fecha).toLocaleDateString('es-BO')}</td>
+                    <td className="px-5 py-4">{f.horaInicio?.substring(0, 5)}</td>
+                    <td className="px-5 py-4">
+                      Bs. {Number(f.precioBase).toFixed(2)}
+                      {f.promocionActiva === 1 && (
+                        <span className="ml-2 rounded bg-cinema-gold/20 px-2 py-0.5 text-xs font-bold text-cinema-gold">
+                          2x1
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <button className="btn-primary px-3 py-1" onClick={() => selectFuncion(f)}>Seleccionar</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-      ))}
-    </div>
-    {peliculasFiltradas.length === 0 && (
-      <p className="text-cinema-gray col-span-full text-center py-8">No hay películas disponibles.</p>
-    )}
-    {modalOpen && selectedMovie && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-              <div className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#08080d] shadow-2xl">
-                <div className="flex flex-col gap-6 p-6 lg:p-8">
-                  <div className="flex items-start justify-between gap-4">
-                    <h3 className="text-3xl font-bold text-white">{selectedMovie.peliculaTitulo}</h3>
-                    <button className="btn-secondary shrink-0" onClick={() => setModalOpen(false)}>Cerrar</button>
-                  </div>
-
-                  <div className="grid gap-6 lg:grid-cols-[350px_minmax(0,1fr)]">
-                    {selectedMovie.peliculaPoster && (
-                      <img src={selectedMovie.peliculaPoster} alt={selectedMovie.peliculaTitulo} className="max-h-[40vh] lg:max-h-[80vh] w-full rounded-3xl bg-black object-contain" />
-                    )}
-                    
-                    <div className="space-y-6">
-                      <div className="space-y-4">
-                        <p className="label-cine">Selecciona fecha</p>
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                          {modalAvailableDates.filter(date => {
-                            const today = new Date();
-                            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                            const dateObj = buildLocalDateTime(date);
-                            return dateObj ? dateObj >= todayStart : false;
-                          }).map(date => {
-                            const fechaObj = buildLocalDateTime(date) || new Date(date);
-                            const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
-                            const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
-                            const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
-                            const active = modalSelectedDate === date;
-                            return (
-                              <button
-                                key={date}
-                                type="button"
-                                className={`group flex flex-col items-center justify-center gap-1 rounded-[2rem] border px-3 py-4 text-center transition ${active ? 'border-cinema-gold bg-cinema-gold text-cinema-black' : 'border-white/10 bg-white/[0.05] text-cinema-gray hover:border-white/20 hover:bg-white/[0.1]'}`}
-                                onClick={() => setModalSelectedDate(date)}
-                              >
-                                <span className="text-[10px] uppercase tracking-[0.25em] text-cinema-cream/80">{weekday}</span>
-                                <span className="text-2xl font-bold leading-none">{day}</span>
-                                <span className="text-xs uppercase tracking-[0.2em] text-cinema-cream/80">{month}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <p className="label-cine">Funciones</p>
-                      {Object.entries(modalFunciones.filter(fn => fn.fecha === modalSelectedDate).reduce((acc, fn) => {
-                        const sala = fn.salaTipo || 'GENERAL';
-                        if (!acc[sala]) acc[sala] = [];
-                        acc[sala].push(fn);
-                        return acc;
-                      }, {} as Record<string, any[]>)).map(([salaTipo, funciones]) => (
-                        <div key={salaTipo} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-                          <h4 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-white">{salaTipo}</h4>
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {funciones.map(func => {
-                              const todayStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
-                              const isToday = func.fecha === todayStr;
-                              const fechaHora = buildLocalDateTime(func.fecha, func.horaInicio || '00:00');
-                              const isPast = isToday && fechaHora ? fechaHora.getTime() <= Date.now() : false;
-                              const active = selectedModalFuncion?.idFuncion === func.idFuncion;
-                              return (
-                                <button
-                                  key={func.idFuncion}
-                                  type="button"
-                                  disabled={isPast}
-                                  className={`group rounded-3xl border px-4 py-3 text-left transition ${active ? 'border-cinema-gold bg-cinema-gold/10 text-white' : isPast ? 'border-white/10 bg-white/[0.02] text-cinema-gray opacity-60 cursor-not-allowed' : 'border-white/10 bg-white/[0.03] text-cinema-gray hover:border-white/20'}`}
-                                  onClick={() => { if (!isPast) setSelectedModalFuncion(func); }}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <span className="block rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.2em] bg-black/70 text-white">Español</span>
-                                    <span className="mt-3 block text-lg font-semibold text-white">
-                                      {func.horaInicio?.substring(0,5)}{isPast && <span className="text-sm text-red-400 ml-1">(Cerrada)</span>}
-                                    </span>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                      {modalFunciones.filter(fn => fn.fecha === modalSelectedDate).length === 0 && (
-                        <p className="text-sm text-cinema-gray">No hay funciones para la fecha seleccionada.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                    <button
-                      className="btn-primary"
-                      disabled={!selectedModalFuncion || selectedModalIsPast}
-                      onClick={() => {
-                        if (selectedModalFuncion && !selectedModalIsPast) {
-                          selectFuncion(selectedModalFuncion);
-                          setModalOpen(false);
-                        }
-                      }}
-                    >
-                      {selectedModalFuncion ? (selectedModalIsPast ? 'Función cerrada' : 'Seleccionar') : 'Seleccione una función'}
-                    </button>
-                    <button className="btn-secondary" onClick={() => setModalOpen(false)}>Cancelar</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-  </>
-)}
+      )}
 
       {step === 2 && selectedFuncion && (
         <div className="space-y-6">
@@ -302,6 +205,11 @@ export default function VentaPresencialPage() {
             <p className="text-sm text-cinema-gray">
               <span className="font-semibold text-white">{selectedFuncion.peliculaTitulo}</span> — {selectedFuncion.idSala} ({selectedFuncion.salaTipo}) — {new Date(selectedFuncion.fecha).toLocaleDateString('es-BO')} {selectedFuncion.horaInicio?.substring(0, 5)}
             </p>
+            {selectedFuncion.promocionActiva === 1 && (
+              <span className="mt-2 inline-block rounded-full bg-cinema-gold/20 border border-cinema-gold/30 px-3 py-1 text-xs font-bold text-cinema-gold">
+                🔥 ¡Promoción 2x1 Activa!
+              </span>
+            )}
           </div>
 
           <SeatMap asientos={asientos} selectedAsientos={selectedAsientos} onToggle={toggleAsiento} />
@@ -309,21 +217,14 @@ export default function VentaPresencialPage() {
           <div className="card-cine p-5 space-y-4">
             <div className="flex justify-between text-sm">
               <span className="text-cinema-gray">Asientos seleccionados:</span>
-              <div className="text-right">
-                <span className="text-white font-semibold block">{selectedAsientos.length}</span>
-                {selectedAsientos.length > 0 && (
-                  <span className="text-cinema-cream/70 text-xs mt-1 block">
-                    {selectedAsientos.map(code => code.split('-').slice(-1)[0]).join(', ')}
-                  </span>
-                )}
-              </div>
+              <span className="text-white font-semibold">{selectedAsientos.length}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-cinema-gray">Precio por boleto:</span>
               <span className="text-white">Bs. {Number(selectedFuncion.precioBase).toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-lg border-t border-white/10 pt-3">
-              <span className="font-semibold text-cinema-cream">Total:</span>
+              <span className="font-semibold text-cinema-cream">Total {is2x1 && <span className="text-xs text-cinema-gold font-bold">(Promo 2x1)</span>}:</span>
               <span className="font-bold text-cinema-gold">Bs. {precioTotal.toFixed(2)}</span>
             </div>
 
@@ -358,24 +259,161 @@ export default function VentaPresencialPage() {
       )}
 
       {step === 3 && resultado && (
-        <div className="card-cine p-8 text-center space-y-4">
-          <h3 className="text-2xl font-bold text-cinema-gold">Venta registrada</h3>
-          <p className="text-cinema-gray">Comprobante: <span className="text-white font-semibold">{resultado.numeroComprobante}</span></p>
-          <p className="text-cinema-gray">Total: <span className="text-cinema-gold font-bold">Bs. {Number(resultado.montoTotal).toFixed(2)}</span></p>
-          <div className="flex gap-4 justify-center mt-6">
-            <button className="btn-secondary" onClick={async () => {
-              try {
-                const blob = await api.descargarComprobanteTicketPdf(resultado.numeroComprobante);
-                const url = window.URL.createObjectURL(blob);
-                window.open(url, '_blank');
-              } catch (err) {
-                alert('Error al generar ticket.');
-              }
-            }}>
-              Imprimir ticket
-            </button>
-            <button className="btn-primary" onClick={nuevaVenta}>Nueva venta</button>
+        <div className="space-y-6">
+          <div className="card-cine p-8 text-center space-y-4">
+            <h3 className="text-2xl font-bold text-cinema-gold font-black">Venta Procesada Exitosamente</h3>
+            <p className="text-cinema-gray text-sm">Comprobante de Venta: <span className="text-white font-mono font-bold bg-white/5 px-2.5 py-1 rounded">{resultado.numeroComprobante}</span></p>
+            <p className="text-cinema-gray text-sm">Total Cobrado: <span className="text-cinema-gold font-bold">Bs. {Number(resultado.montoTotal).toFixed(2)}</span></p>
+            
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center pt-2">
+              <button 
+                className="btn-primary flex items-center gap-1.5" 
+                onClick={() => setShowModal(true)}
+              >
+                🎟️ Ver Boletos (Códigos QR)
+              </button>
+              <button 
+                className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold px-5 py-2.5 text-sm transition" 
+                onClick={nuevaVenta}
+              >
+                Nueva venta
+              </button>
+            </div>
           </div>
+
+          {/* VENTANA EMERGENTE (MODAL) CON VISTA PREVIA Y ACCIONES */}
+          {showModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl space-y-5">
+                {/* Header del Modal */}
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-cinema-gold">Vista Previa de Boleto</h4>
+                  <button 
+                    onClick={() => setShowModal(false)}
+                    className="text-cinema-gray hover:text-white transition"
+                    title="Cerrar vista previa"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Cuerpo del Boleto Estilo Físico */}
+                <div className="border border-dashed border-white/20 bg-white/[0.01] rounded-xl p-5 space-y-4 text-center relative overflow-hidden">
+                  {/* Semicírculos laterales de boleto de cine */}
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-7 bg-[#0d0d14] border-r border-t border-b border-white/10 rounded-r-full"></div>
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-7 bg-[#0d0d14] border-l border-t border-b border-white/10 rounded-l-full"></div>
+
+                  <div className="text-sm font-black tracking-[0.25em] text-cinema-gold">CINE LA PAZ</div>
+                  <div className="text-[10px] text-cinema-gray font-mono uppercase tracking-widest">Boleto de Entrada Presencial</div>
+                  
+                  <hr className="border-white/5 my-1" />
+
+                  <div className="space-y-1 text-left text-xs">
+                    <div className="mb-2">
+                      <p className="text-cinema-gray uppercase text-[9px] tracking-wider font-bold">Película</p>
+                      <p className="font-bold text-white text-sm truncate">{selectedFuncion?.peliculaTitulo}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Sala</p>
+                        <p className="font-medium text-white">{selectedFuncion?.idSala} ({selectedFuncion?.salaTipo})</p>
+                      </div>
+                      <div>
+                        <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Fecha</p>
+                        <p className="font-medium text-white">{selectedFuncion?.fecha ? new Date(selectedFuncion.fecha).toLocaleDateString('es-BO') : ''}</p>
+                      </div>
+                      <div>
+                        <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Horario</p>
+                        <p className="font-medium text-white">{selectedFuncion?.horaInicio?.substring(0, 5)}</p>
+                      </div>
+                      <div>
+                        <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Asiento</p>
+                        <p className="font-medium text-cinema-gold font-mono truncate">
+                          {modalBoletos[currentTicketIndex]
+                            ? (modalBoletos[currentTicketIndex].idAsiento.includes('-')
+                                ? modalBoletos[currentTicketIndex].idAsiento.split('-').pop()
+                                : modalBoletos[currentTicketIndex].idAsiento)
+                            : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <hr className="border-white/5 my-1" />
+
+                  {/* QR Code */}
+                  <div className="flex flex-col items-center justify-center p-2.5 bg-white rounded-xl mx-auto w-36 h-36 border-2 border-cinema-gold shadow-lg shadow-black/40">
+                    {modalQrUrls[currentTicketIndex] ? (
+                      <img src={modalQrUrls[currentTicketIndex]} alt="Boleto QR" className="w-32 h-32" />
+                    ) : (
+                      <div className="h-32 w-32 animate-pulse bg-cinema-gray/20 rounded-lg"></div>
+                    )}
+                  </div>
+
+                  <div className="text-xs font-mono font-black text-cinema-gold tracking-wide mt-2 bg-white/5 py-1.5 px-2 rounded-lg border border-white/5">
+                    CÓDIGO DE ACCESO: {modalBoletos[currentTicketIndex]?.idBoleto}-{getCleanSalaCode(selectedFuncion?.idSala)}-{modalBoletos[currentTicketIndex]
+                      ? (modalBoletos[currentTicketIndex].idAsiento.includes('-')
+                          ? modalBoletos[currentTicketIndex].idAsiento.split('-').pop()
+                          : modalBoletos[currentTicketIndex].idAsiento)
+                      : ''}
+                  </div>
+                  <div className="text-[10px] text-cinema-gray font-mono">
+                    Comprobante: {resultado?.numeroComprobante || 'N/A'}
+                  </div>
+                  <div className="text-[10px] text-cinema-gold font-bold">
+                    ¡Presenta este QR para ingresar a la sala!
+                  </div>
+                  <div className="text-[9px] text-cinema-gray font-mono">
+                    (Para ingreso manual por teclado use el Nro: {modalBoletos[currentTicketIndex]?.idBoleto})
+                  </div>
+                </div>
+
+                {/* Controles de Navegación de Boletos (Si hay más de uno) */}
+                {modalBoletos.length > 1 && (
+                  <div className="flex justify-between items-center px-1 text-xs text-cinema-cream">
+                    <button
+                      type="button"
+                      disabled={currentTicketIndex === 0}
+                      onClick={() => setCurrentTicketIndex(prev => prev - 1)}
+                      className="rounded-lg bg-white/5 hover:bg-white/10 px-2.5 py-1.5 font-bold transition disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      ◀ Anterior
+                    </button>
+                    <span className="font-semibold text-cinema-gray">
+                      Boleto {currentTicketIndex + 1} de {modalBoletos.length}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={currentTicketIndex === modalBoletos.length - 1}
+                      onClick={() => setCurrentTicketIndex(prev => prev + 1)}
+                      className="rounded-lg bg-white/5 hover:bg-white/10 px-2.5 py-1.5 font-bold transition disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      Siguiente ▶
+                    </button>
+                  </div>
+                )}
+
+                {/* Acciones del Modal */}
+                <div className="flex flex-col gap-2">
+                  <button 
+                    onClick={printTicket}
+                    className="btn-primary py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 w-full"
+                  >
+                    🖨️ Imprimir Boleto
+                  </button>
+                  <button 
+                    onClick={() => setShowModal(false)}
+                    className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold py-2.5 text-xs uppercase tracking-wider transition"
+                  >
+                    Volver
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>
