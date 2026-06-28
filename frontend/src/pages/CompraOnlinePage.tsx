@@ -375,7 +375,7 @@ export default function CompraOnlinePage() {
                       <p className="text-xs uppercase tracking-[0.25em] text-cinema-cream/70">Selecciona fecha</p>
                       <div className="grid grid-cols-2 gap-3 mt-4 sm:grid-cols-3 lg:grid-cols-4">
                         {modalAvailableDates.map((date) => {
-                          const fechaObj = new Date(date);
+                          const fechaObj = buildLocalDateTime(date) || new Date();
                           const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
                           const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
                           const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
@@ -463,7 +463,7 @@ export default function CompraOnlinePage() {
         <div className="space-y-6">
           <div className="card-cine p-5 space-y-3">
             <p className="text-sm text-cinema-gray">
-              <span className="font-semibold text-white">{selectedFuncion.peliculaTitulo}</span> — {selectedFuncion.idSala} ({selectedFuncion.salaTipo}) — {new Date(selectedFuncion.fecha).toLocaleDateString('es-BO')} {selectedFuncion.horaInicio?.substring(0, 5)}
+              <span className="font-semibold text-white">{selectedFuncion.peliculaTitulo}</span> — {selectedFuncion.idSala} ({selectedFuncion.salaTipo}) — {(buildLocalDateTime(selectedFuncion.fecha) || new Date()).toLocaleDateString('es-BO')} {selectedFuncion.horaInicio?.substring(0, 5)}
             </p>
             {selectedFuncion.promocionActiva === 1 && (
               <span className="inline-block rounded-full bg-cinema-gold/20 border border-cinema-gold/30 px-3 py-1 text-xs font-bold text-cinema-gold">
@@ -521,7 +521,7 @@ export default function CompraOnlinePage() {
             <p className="text-xs uppercase tracking-[0.18em] text-cinema-cream/70">Comprobante</p>
             <p className="text-sm text-white font-semibold">{selectedFuncion.peliculaTitulo}</p>
             <p className="text-xs text-cinema-gray">{selectedFuncion.idSala} ({selectedFuncion.salaTipo})</p>
-            <p className="text-xs text-cinema-gray">{new Date(selectedFuncion.fecha).toLocaleDateString('es-BO')} {selectedFuncion.horaInicio?.substring(0, 5)}</p>
+            <p className="text-xs text-cinema-gray">{(buildLocalDateTime(selectedFuncion.fecha) || new Date()).toLocaleDateString('es-BO')} {selectedFuncion.horaInicio?.substring(0, 5)}</p>
             <div className="pt-2 border-t border-white/10 text-sm">
               <p className="text-cinema-gray">Asientos: {selectedAsientos.length}</p>
               <p className="text-xs text-white/90 mt-1">{selectedAsientos.map(code => code.split('-').slice(-1)[0]).join(', ')}</p>
@@ -618,7 +618,7 @@ export default function CompraOnlinePage() {
                       </div>
                       <div>
                         <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Fecha</p>
-                        <p className="font-medium text-white">{selectedFuncion?.fecha ? new Date(selectedFuncion.fecha).toLocaleDateString('es-BO') : ''}</p>
+                        <p className="font-medium text-white">{selectedFuncion?.fecha ? (buildLocalDateTime(selectedFuncion.fecha) || new Date()).toLocaleDateString('es-BO') : ''}</p>
                       </div>
                       <div>
                         <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Horario</p>

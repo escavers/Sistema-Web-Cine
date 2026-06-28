@@ -89,17 +89,26 @@ export default function HistorialPage() {
     }
   };
 
+  const parseLocalDate = (fecha: string | Date | null) => {
+    if (!fecha) return null;
+    if (fecha instanceof Date) return fecha;
+    const match = fecha.match(/\d{4}-\d{2}-\d{2}/);
+    if (!match) return new Date(fecha); // Fallback
+    const [y, m, d] = match[0].split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
   const buildFuncionDateTime = (fecha: string | Date | null, hora: string | undefined) => {
     if (!fecha) return null;
-    const fechaObj = new Date(fecha);
-    if (Number.isNaN(fechaObj.getTime())) return null;
+    const localDate = parseLocalDate(fecha);
+    if (!localDate) return null;
     if (hora) {
       const [h, m] = hora.split(':').map(Number);
       if (!Number.isNaN(h) && !Number.isNaN(m)) {
-        fechaObj.setHours(h, m, 0, 0);
+        localDate.setHours(h, m, 0, 0);
       }
     }
-    return fechaObj;
+    return localDate;
   };
 
   return (
@@ -140,7 +149,7 @@ export default function HistorialPage() {
                   <div>
                     <span className="text-[10px] uppercase tracking-wider text-cinema-gray font-bold">Fecha / Hora</span>
                     <p className="text-white">
-                      {h.fecha ? new Date(h.fecha).toLocaleDateString('es-BO') : '—'} <br/>
+                      {h.fecha ? parseLocalDate(h.fecha)?.toLocaleDateString('es-BO') : '—'} <br/>
                       <span className="text-cinema-cream text-xs">{h.horaInicio?.substring(0, 5)}</span>
                     </p>
                   </div>
@@ -228,7 +237,7 @@ export default function HistorialPage() {
                 return (
                   <tr key={i} className="border-t border-white/5">
                     <td className="px-5 py-4">{h.peliculaTitulo}</td>
-                    <td className="px-5 py-4">{h.fecha ? new Date(h.fecha).toLocaleDateString('es-BO') : '—'}</td>
+                     <td className="px-5 py-4">{h.fecha ? parseLocalDate(h.fecha)?.toLocaleDateString('es-BO') : '—'}</td>
                     <td className="px-5 py-4">{h.horaInicio?.substring(0, 5)}</td>
                     <td className="px-5 py-4">Sala {h.idSala ? h.idSala.replace('SALA-', '') : ''} {h.salaTipo ? `(${h.salaTipo})` : ''}</td>
                     <td className="px-5 py-4">{h.asientos}</td>
@@ -330,7 +339,7 @@ export default function HistorialPage() {
                   </div>
                   <div>
                     <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Fecha</p>
-                    <p className="font-medium text-white">{selectedVenta.fecha ? new Date(selectedVenta.fecha).toLocaleDateString('es-BO') : ''}</p>
+                     <p className="font-medium text-white">{selectedVenta.fecha ? parseLocalDate(selectedVenta.fecha)?.toLocaleDateString('es-BO') : ''}</p>
                   </div>
                   <div>
                     <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Horario</p>

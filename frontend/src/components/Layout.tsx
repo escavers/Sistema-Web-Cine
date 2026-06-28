@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { Rol } from '../types';
+import logoImg from '../logo.png';
 
 const roleLabels: Record<Rol, string> = {
   ADMINISTRADOR: 'Administrador',
@@ -53,8 +54,8 @@ export default function Layout() {
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 md:flex-row md:items-center md:justify-between">
           <Link to="/" className="no-underline">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center text-cinema-gold">
-                <span className="text-2xl">🎬</span>
+              <div className="flex h-14 w-14 items-center justify-center">
+                <img src={logoImg} alt="Cine La Paz Logo" className="w-10 h-10 object-contain brightness-0 invert" />
               </div>
               <div>
                 <p className="text-4xl font-semibold uppercase tracking-[0.35em] text-cinema-gold">CINE LA PAZ</p>

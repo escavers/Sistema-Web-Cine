@@ -178,6 +178,7 @@ CREATE TABLE Boleto (
     idAsiento VARCHAR(50) NOT NULL,
     idVenta INT NOT NULL,
     precioPagado DECIMAL(10, 2) NOT NULL,
+    codigoAcceso VARCHAR (20) UNIQUE,
     estadoA BOOLEAN DEFAULT TRUE,
     fechaA DATE,
     usuarioA INT,
