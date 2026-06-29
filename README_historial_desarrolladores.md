@@ -190,6 +190,12 @@ Desde ese perfil se puede:
 
 La baja lógica solo cambia:
 No elimina físicamente el registro.
+## No duplicacion de datos
+use cine_db;
+ALTER TABLE Usuario
+ADD UNIQUE KEY uq_usuario_ci (ci);
+ALTER TABLE Usuario
+ADD UNIQUE KEY uq_usuario_correo (correo);
 ## Auditoría
 
 No existe vista de auditoría en el frontend. Se guarda solo en MySQL, en la tabla `Auditoria`.

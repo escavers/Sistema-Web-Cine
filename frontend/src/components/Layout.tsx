@@ -22,7 +22,7 @@ const navItems: NavItem[] = [
   { to: '/salas', label: 'Salas', roles: ['ADMINISTRADOR'] },
   { to: '/funciones', label: 'Funciones', roles: ['ADMINISTRADOR'] },
   { to: '/usuarios', label: 'Usuarios', roles: ['ADMINISTRADOR'] },
-  { to: '/boleteria/registro', label: 'Registro presencial', roles: ['BOLETERIA', 'ADMINISTRADOR'] },
+  { to: '/boleteria/registro', label: 'Registro Asistido', roles: ['BOLETERIA', 'ADMINISTRADOR'] },
   { to: '/boleteria/venta', label: 'Venta boletería', roles: ['BOLETERIA', 'ADMINISTRADOR'] },
   { to: '/acceso/validar', label: 'Control de acceso', roles: ['ACCESO', 'ADMINISTRADOR'] },
   { to: '/compra', label: 'Comprar boletos', roles: ['CLIENTE'] },

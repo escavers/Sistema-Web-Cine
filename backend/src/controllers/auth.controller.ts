@@ -18,11 +18,15 @@ const registroClienteSchema = z.object({
   nombre2: z.string().optional().nullable(),
   apellidoP: z.string().min(1, 'El apellido paterno es obligatorio.'),
   apellidoM: z.string().optional().nullable(),
-  ci: z.string().optional().nullable(),
+  ci: z.string().min(1, 'El CI es obligatorio.'),
   correo: z.string().email('Ingrese un correo válido.'),
   telefono: z.string().optional().nullable(),
   fechaNacimiento: z.string().optional().nullable(),
-  contrasena: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
+  contrasena: z
+    .string()
+    .min(8, 'La contraseña debe tener al menos 8 caracteres.')
+    .regex(/[A-Z]/, 'La contraseña debe incluir al menos una letra mayúscula.')
+    .regex(/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]]/, 'La contraseña debe incluir al menos un carácter especial.'),
   nit: z.string().optional().nullable(),
   razonSocial: z.string().optional().nullable()
 });
@@ -173,10 +177,36 @@ export async function registroClienteWeb(req: Request, res: Response) {
   const connection = await pool.getConnection();
 
   try {
-    await connection.beginTransaction();
+  await connection.beginTransaction();
 
-    const hashedPassword = await hashPassword(data.contrasena);
+  const [duplicadoRows] = await connection.query<any[]>(
+    `
+    SELECT idUsuario, correo, ci
+    FROM Usuario
+    WHERE estadoA = TRUE
+      AND (correo = ? OR ci = ?)
+    LIMIT 1
+    `,
+    [data.correo, data.ci]
+  );
 
+  const duplicado = duplicadoRows[0];
+
+  if (duplicado) {
+    await connection.rollback();
+
+    if (duplicado.correo === data.correo) {
+      return fail(res, 'El correo ya está registrado.', 409);
+    }
+
+    if (duplicado.ci === data.ci) {
+      return fail(res, 'El CI ya está registrado.', 409);
+    }
+
+    return fail(res, 'Ya existe una cuenta con esos datos.', 409);
+  }
+
+  const hashedPassword = await hashPassword(data.contrasena);
     const [resultUsuario] = await connection.query<any>(
       `
       INSERT INTO Usuario
@@ -204,13 +234,13 @@ export async function registroClienteWeb(req: Request, res: Response) {
         data.nombre2 ?? null,
         data.apellidoP,
         data.apellidoM ?? null,
-        data.ci ?? null,
+        data.ci ,
         data.correo,
         data.telefono ?? null,
         data.fechaNacimiento ?? null,
         hashedPassword,
-        data.nit ?? null,
-        data.razonSocial ?? null
+        null,
+        null
       ]
     );
 

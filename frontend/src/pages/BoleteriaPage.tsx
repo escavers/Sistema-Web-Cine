@@ -56,7 +56,7 @@ export default function BoleteriaPage() {
   return (
     <section className="card-cine p-7">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white">Registro presencial de cliente</h2>
+        <h2 className="text-2xl font-bold text-white">Registro asistido de cliente</h2>
         <p className="mt-2 max-w-3xl text-sm leading-7 text-cinema-gray">
           Complete los datos del cliente atendido en boletería. La contraseña temporal se genera con el CI más la inicial del apellido paterno y materno.
         </p>
@@ -76,7 +76,7 @@ export default function BoleteriaPage() {
 
         <div className="md:col-span-2 space-y-4">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-7 text-cinema-gray">
-            La contraseña temporal solo se muestra al finalizar el registro. En la base de datos queda guardada cifrada.
+            La contraseña temporal: 
           </div>
           {message && <Message type={message.type} text={message.text} />}
           <button className="btn-primary" disabled={loading}>
