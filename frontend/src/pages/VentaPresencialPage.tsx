@@ -276,7 +276,7 @@ export default function VentaPresencialPage() {
               <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] transition hover:border-cinema-gold/30">
                 {f.peliculaPoster && (
                   <div className="relative overflow-hidden">
-                    <img src={f.peliculaPoster} alt={f.peliculaTitulo} className="w-full object-contain max-h-[30rem] mx-auto transition duration-500 group-hover:scale-105" />
+                    <img src={f.peliculaPoster} alt={f.peliculaTitulo} referrerPolicy="no-referrer" className="w-full object-contain max-h-[30rem] mx-auto transition duration-500 group-hover:scale-105" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
                     <div className="pointer-events-none absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/20" />
                     <button
                       type="button"
@@ -299,6 +299,14 @@ export default function VentaPresencialPage() {
                   <div className="flex flex-wrap gap-2 pt-2 text-xs uppercase tracking-[0.2em] text-cinema-cream">
                     <span className="rounded-full bg-white/5 px-3 py-1">{f.peliculaDuracion ? formatDuration(f.peliculaDuracion) : '—'}</span>
                     <span className="rounded-full bg-white/5 px-3 py-1">{f.peliculaClasificacion || 'TP'}</span>
+                    {f.peliculaFechaEstreno && (() => {
+                      const estreno = new Date(f.peliculaFechaEstreno);
+                      const hoy = new Date();
+                      const dias = Math.floor((hoy.getTime() - estreno.getTime()) / (1000 * 60 * 60 * 24));
+                      return dias > 0 ? (
+                        <span className="rounded-full bg-white/5 px-3 py-1 text-cinema-gray/60">{dias} días en cartelera</span>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               </div>
@@ -326,7 +334,7 @@ export default function VentaPresencialPage() {
 
                   <div className="grid gap-6 lg:grid-cols-[350px_minmax(0,1fr)]">
                     {previewFuncion.peliculaPoster && (
-                      <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} className="max-h-[80vh] w-full rounded-3xl bg-black object-contain" />
+                      <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} referrerPolicy="no-referrer" className="max-h-[80vh] w-full rounded-3xl bg-black object-contain" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
                     )}
                     <div className="space-y-4">
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">

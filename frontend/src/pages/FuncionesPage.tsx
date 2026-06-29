@@ -593,6 +593,38 @@ export default function FuncionesPage() {
           >
             {programacionMasiva ? '← Individual' : 'Masiva →'}
           </button>
+          <button
+            type="button"
+            className="btn-secondary px-4 py-2 text-sm"
+            onClick={async () => {
+              const hoy = new Date();
+              const lunesActual = new Date(hoy);
+              lunesActual.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
+              const lunesSiguiente = new Date(lunesActual);
+              lunesSiguiente.setDate(lunesActual.getDate() + 7);
+
+              const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+              if (!confirm(`Copiar funciones del ${fmt(lunesActual)} al ${fmt(lunesSiguiente)}?`)) return;
+
+              try {
+                setLoading(true);
+                const res = await api.copiarSemanaFunciones({
+                  fechaOrigen: fmt(lunesActual),
+                  fechaDestino: fmt(lunesSiguiente),
+                });
+                setMessage({ type: 'ok', text: res.mensaje });
+                const refresh = await api.listarFunciones();
+                setFunciones(refresh.funciones || []);
+              } catch (err) {
+                setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al copiar semana.' });
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            Copiar semana anterior
+          </button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -870,7 +902,9 @@ export default function FuncionesPage() {
                       <img
                         src={peliculaSeleccionada.posterUrl}
                         alt={peliculaSeleccionada.titulo}
+                        referrerPolicy="no-referrer"
                         className="w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-cinema-gray/40 text-[10px]">Sin poster</div>
@@ -1005,7 +1039,7 @@ export default function FuncionesPage() {
                   <div key={movie.idPelicula} className="soft-card border-white/10 overflow-hidden">
                     <div className="aspect-[2/3] bg-white/[0.05] flex items-center justify-center overflow-hidden">
                       {movie.posterUrl ? (
-                        <img src={movie.posterUrl} alt={movie.peliculaTitulo} className="w-full h-full object-cover" />
+                        <img src={movie.posterUrl} alt={movie.peliculaTitulo} referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
                       ) : (
                         <span className="text-cinema-gray/60">Sin poster</span>
                       )}
@@ -1046,7 +1080,7 @@ export default function FuncionesPage() {
                 <div className="flex items-center gap-4 min-w-0">
                   <div className="w-14 h-20 rounded-xl overflow-hidden shrink-0 bg-white/[0.05] hidden sm:block">
                     {selectedMovie.posterUrl ? (
-                      <img src={selectedMovie.posterUrl} alt={selectedMovie.peliculaTitulo} className="w-full h-full object-cover" />
+                      <img src={selectedMovie.posterUrl} alt={selectedMovie.peliculaTitulo} referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-cinema-gray/30 text-lg">🎬</div>
                     )}

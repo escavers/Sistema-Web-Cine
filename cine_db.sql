@@ -471,10 +471,10 @@ INSERT INTO Usuario_Rol (idUsuario, idRol) VALUES
 
 -- 3.4 SALAS
 INSERT INTO Sala (idSala, tipo, capacidadTotal, filas, columnas) VALUES
-('SALA-1', 'Estándar', 80, 8, 10),
-('SALA-2', '3D', 96, 8, 12),
-('SALA-3', 'VIP', 48, 6, 8),
-('SALA-4', 'Estándar', 120, 10, 12);
+('SALA-1', 'Grande', 70, 7, 10),
+('SALA-2', 'Grande', 70, 7, 10),
+('SALA-3', 'Mediana', 50, 5, 10),
+('SALA-4', 'Pequeña', 30, 5, 6);
 
 -- 3.5 ASIENTOS (generados para cada sala)
 -- SALA-1: 8 filas (A-H) x 10 columnas
@@ -522,7 +522,7 @@ INSERT INTO Pelicula (titulo, director, sinopsis, posterUrl, duracionMinutos, cl
 ('The Brutalist', 'Brady Corbet', 'Un arquitecto húngaro sobreviviente del Holocausto emigra a Estados Unidos y busca reconstruir su vida.', 'https://image.tmdb.org/t/p/w500/d9JW3rYflRbIVqJTL5sEaOIR0s.jpg', 215, '16', '2024-12-20');
 
 -- 3.7 FUNCIONES (7 días, horarios Bolivia: 14:00, 16:30, 19:00, 21:30)
--- Precios: Estándar=20, 3D=30, VIP=40
+-- Precios: Grande=20, Mediana=25, Pequeña=30
 
 -- HOY
 INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase) VALUES
@@ -530,11 +530,11 @@ INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase)
 ('SALA-1', 2, CURDATE(), '16:30:00', '18:38:00', 20.00),
 ('SALA-2', 3, CURDATE(), '14:00:00', '16:28:00', 30.00),
 ('SALA-2', 4, CURDATE(), '19:00:00', '20:40:00', 30.00),
-('SALA-3', 5, CURDATE(), '14:00:00', '16:40:00', 40.00),
-('SALA-3', 6, CURDATE(), '19:00:00', '21:12:00', 40.00),
-('SALA-4', 7, CURDATE(), '14:00:00', '15:58:00', 20.00),
-('SALA-4', 8, CURDATE(), '16:30:00', '18:20:00', 20.00),
-('SALA-4', 9, CURDATE(), '19:00:00', '21:14:00', 20.00);
+('SALA-3', 5, CURDATE(), '14:00:00', '16:40:00', 25.00),
+('SALA-3', 6, CURDATE(), '19:00:00', '21:12:00', 25.00),
+('SALA-4', 7, CURDATE(), '14:00:00', '15:58:00', 30.00),
+('SALA-4', 8, CURDATE(), '16:30:00', '18:20:00', 30.00),
+('SALA-4', 9, CURDATE(), '19:00:00', '21:14:00', 30.00);
 
 -- MAÑANA +1
 INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase) VALUES
@@ -542,11 +542,11 @@ INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase)
 ('SALA-1', 3, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '16:30:00', '18:58:00', 20.00),
 ('SALA-2', 2, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '14:00:00', '16:08:00', 30.00),
 ('SALA-2', 5, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '19:00:00', '21:40:00', 30.00),
-('SALA-3', 4, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '14:00:00', '15:40:00', 40.00),
-('SALA-3', 7, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '19:00:00', '20:58:00', 40.00),
-('SALA-4', 6, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '14:00:00', '16:12:00', 20.00),
-('SALA-4', 8, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '16:30:00', '18:20:00', 20.00),
-('SALA-4', 10, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '19:00:00', '21:21:00', 20.00);
+('SALA-3', 4, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '14:00:00', '15:40:00', 25.00),
+('SALA-3', 7, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '19:00:00', '20:58:00', 25.00),
+('SALA-4', 6, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '14:00:00', '16:12:00', 30.00),
+('SALA-4', 8, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '16:30:00', '18:20:00', 30.00),
+('SALA-4', 10, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '19:00:00', '21:21:00', 30.00);
 
 -- +2
 INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase) VALUES
@@ -554,10 +554,10 @@ INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase)
 ('SALA-1', 6, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '19:00:00', '21:12:00', 20.00),
 ('SALA-2', 1, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '14:00:00', '15:40:00', 30.00),
 ('SALA-2', 3, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '16:30:00', '18:58:00', 30.00),
-('SALA-3', 2, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '14:00:00', '16:08:00', 40.00),
-('SALA-4', 5, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '14:00:00', '16:40:00', 20.00),
-('SALA-4', 9, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '16:30:00', '18:44:00', 20.00),
-('SALA-4', 11, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '19:00:00', '21:10:00', 20.00);
+('SALA-3', 2, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '14:00:00', '16:08:00', 25.00),
+('SALA-4', 5, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '14:00:00', '16:40:00', 30.00),
+('SALA-4', 9, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '16:30:00', '18:44:00', 30.00),
+('SALA-4', 11, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '19:00:00', '21:10:00', 30.00);
 
 -- +3
 INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase) VALUES
@@ -565,10 +565,10 @@ INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase)
 ('SALA-1', 2, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '19:00:00', '21:08:00', 20.00),
 ('SALA-2', 5, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '14:00:00', '16:40:00', 30.00),
 ('SALA-2', 8, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '19:00:00', '20:50:00', 30.00),
-('SALA-3', 3, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '14:00:00', '16:28:00', 40.00),
-('SALA-3', 10, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '19:00:00', '21:21:00', 40.00),
-('SALA-4', 1, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '14:00:00', '15:40:00', 20.00),
-('SALA-4', 4, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '16:30:00', '18:10:00', 20.00);
+('SALA-3', 3, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '14:00:00', '16:28:00', 25.00),
+('SALA-3', 10, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '19:00:00', '21:21:00', 25.00),
+('SALA-4', 1, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '14:00:00', '15:40:00', 30.00),
+('SALA-4', 4, DATE_ADD(CURDATE(), INTERVAL 3 DAY), '16:30:00', '18:10:00', 30.00);
 
 -- +4
 INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase) VALUES
@@ -576,10 +576,10 @@ INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase)
 ('SALA-1', 11, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '19:00:00', '21:10:00', 20.00),
 ('SALA-2', 6, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '14:00:00', '16:12:00', 30.00),
 ('SALA-2', 12, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '19:00:00', '22:35:00', 30.00),
-('SALA-3', 8, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '14:00:00', '15:50:00', 40.00),
-('SALA-4', 2, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '14:00:00', '16:08:00', 20.00),
-('SALA-4', 7, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '16:30:00', '18:28:00', 20.00),
-('SALA-4', 3, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '19:00:00', '21:28:00', 20.00);
+('SALA-3', 8, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '14:00:00', '15:50:00', 25.00),
+('SALA-4', 2, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '14:00:00', '16:08:00', 30.00),
+('SALA-4', 7, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '16:30:00', '18:28:00', 30.00),
+('SALA-4', 3, DATE_ADD(CURDATE(), INTERVAL 4 DAY), '19:00:00', '21:28:00', 30.00);
 
 -- +5
 INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase) VALUES
@@ -587,9 +587,9 @@ INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase)
 ('SALA-1', 4, DATE_ADD(CURDATE(), INTERVAL 5 DAY), '19:00:00', '20:40:00', 20.00),
 ('SALA-2', 7, DATE_ADD(CURDATE(), INTERVAL 5 DAY), '14:00:00', '15:58:00', 30.00),
 ('SALA-2', 1, DATE_ADD(CURDATE(), INTERVAL 5 DAY), '16:30:00', '18:10:00', 30.00),
-('SALA-3', 12, DATE_ADD(CURDATE(), INTERVAL 5 DAY), '14:00:00', '17:35:00', 40.00),
-('SALA-4', 6, DATE_ADD(CURDATE(), INTERVAL 5 DAY), '14:00:00', '16:12:00', 20.00),
-('SALA-4', 5, DATE_ADD(CURDATE(), INTERVAL 5 DAY), '16:30:00', '19:10:00', 20.00);
+('SALA-3', 12, DATE_ADD(CURDATE(), INTERVAL 5 DAY), '14:00:00', '17:35:00', 25.00),
+('SALA-4', 6, DATE_ADD(CURDATE(), INTERVAL 5 DAY), '14:00:00', '16:12:00', 30.00),
+('SALA-4', 5, DATE_ADD(CURDATE(), INTERVAL 5 DAY), '16:30:00', '19:10:00', 30.00);
 
 -- +6
 INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase) VALUES
@@ -597,10 +597,10 @@ INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase)
 ('SALA-1', 6, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '19:00:00', '21:12:00', 20.00),
 ('SALA-2', 11, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '14:00:00', '16:10:00', 30.00),
 ('SALA-2', 9, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '19:00:00', '21:14:00', 30.00),
-('SALA-3', 1, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '14:00:00', '15:40:00', 40.00),
-('SALA-3', 3, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '16:30:00', '18:58:00', 40.00),
-('SALA-4', 12, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '14:00:00', '17:35:00', 20.00),
-('SALA-4', 2, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '19:00:00', '21:08:00', 20.00);
+('SALA-3', 1, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '14:00:00', '15:40:00', 25.00),
+('SALA-3', 3, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '16:30:00', '18:58:00', 25.00),
+('SALA-4', 12, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '14:00:00', '17:35:00', 30.00),
+('SALA-4', 2, DATE_ADD(CURDATE(), INTERVAL 6 DAY), '19:00:00', '21:08:00', 30.00);
 
 -- 3.8 VENTAS (compras de clientes en diferentes días y funciones)
 INSERT INTO Venta (idCliente, idEncargado, idFuncion, fechaCompra, tipo, montoTotal, estadoVenta, metodoPago, estadoPago, codigoTransaccion, fechaPago) VALUES

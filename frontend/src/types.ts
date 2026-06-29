@@ -3,10 +3,17 @@ export type Rol = 'ADMINISTRADOR' | 'BOLETERIA' | 'CLIENTE' | 'ACCESO';
 export interface AuthUser {
   idUsuario: number;
   nombreCompleto: string;
+  nombre1: string;
+  nombre2: string | null;
+  apellidoP: string;
+  apellidoM: string | null;
   correo: string;
   idRol: Rol | Rol[] | string;
   ci: string | null;
   telefono: string | null;
+  fechaNacimiento: string | null;
+  nit: string | null;
+  razonSocial: string | null;
 }
 
 export interface Usuario {

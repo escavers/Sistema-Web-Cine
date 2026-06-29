@@ -239,8 +239,8 @@ export async function registroClienteWeb(req: Request, res: Response) {
         data.telefono ?? null,
         data.fechaNacimiento ?? null,
         hashedPassword,
-        null,
-        null
+        data.nit ?? null,
+        data.razonSocial ?? null
       ]
     );
 
@@ -288,6 +288,136 @@ export async function registroClienteWeb(req: Request, res: Response) {
 
     console.error(error);
     return fail(res, 'No se pudo crear la cuenta. Verifique la conexión y estructura de la base de datos.', 500);
+  } finally {
+    connection.release();
+  }
+}
+
+const actualizarPerfilSchema = z.object({
+  nombre1: z.string().min(1).optional(),
+  nombre2: z.string().optional().nullable(),
+  apellidoP: z.string().min(1).optional(),
+  apellidoM: z.string().optional().nullable(),
+  ci: z.string().min(1).optional(),
+  correo: z.string().email().optional(),
+  telefono: z.string().optional().nullable(),
+  fechaNacimiento: z.string().optional().nullable(),
+  nit: z.string().optional().nullable(),
+  razonSocial: z.string().optional().nullable(),
+  contrasenaActual: z.string().optional(),
+  contrasenaNueva: z.string().optional()
+});
+
+export async function actualizarPerfilPropio(req: Request, res: Response) {
+  if (!req.user) return fail(res, 'Debe iniciar sesión.', 401);
+
+  const parsed = actualizarPerfilSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return fail(res, 'Datos inválidos.', 400, { errores: parsed.error.flatten() });
+  }
+
+  const data = parsed.data;
+  const actor = req.user;
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const usuario = await findUserByEmail(actor.correo);
+    if (!usuario) {
+      await connection.rollback();
+      return fail(res, 'Usuario no encontrado.', 404);
+    }
+
+    if (data.contrasenaNueva) {
+      if (!data.contrasenaActual) {
+        await connection.rollback();
+        return fail(res, 'Debe ingresar su contraseña actual para cambiarla.', 400);
+      }
+      const passwordOk = await comparePassword(data.contrasenaActual, usuario.contrasena);
+      if (!passwordOk) {
+        await connection.rollback();
+        return fail(res, 'La contraseña actual es incorrecta.', 400);
+      }
+      if (data.contrasenaNueva.length < 8) {
+        await connection.rollback();
+        return fail(res, 'La nueva contraseña debe tener al menos 8 caracteres.', 400);
+      }
+      if (!/[A-Z]/.test(data.contrasenaNueva)) {
+        await connection.rollback();
+        return fail(res, 'La nueva contraseña debe incluir al menos una mayúscula.', 400);
+      }
+      if (!/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]]/.test(data.contrasenaNueva)) {
+        await connection.rollback();
+        return fail(res, 'La nueva contraseña debe incluir al menos un carácter especial.', 400);
+      }
+      const hashed = await hashPassword(data.contrasenaNueva);
+      await connection.query('UPDATE Usuario SET contrasena = ? WHERE idUsuario = ?', [hashed, usuario.idUsuario]);
+    }
+
+    if (data.correo && data.correo !== usuario.correo) {
+      const [dup] = await connection.query<any[]>(
+        'SELECT idUsuario FROM Usuario WHERE correo = ? AND idUsuario != ? AND estadoA = 1 LIMIT 1',
+        [data.correo, usuario.idUsuario]
+      );
+      if (dup.length > 0) {
+        await connection.rollback();
+        return fail(res, 'El correo ya está en uso.', 409);
+      }
+    }
+
+    if (data.ci && data.ci !== usuario.ci) {
+      const [dup] = await connection.query<any[]>(
+        'SELECT idUsuario FROM Usuario WHERE ci = ? AND idUsuario != ? AND estadoA = 1 LIMIT 1',
+        [data.ci, usuario.idUsuario]
+      );
+      if (dup.length > 0) {
+        await connection.rollback();
+        return fail(res, 'El CI ya está en uso.', 409);
+      }
+    }
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (data.nombre1 !== undefined) { fields.push('nombre1 = ?'); values.push(data.nombre1); }
+    if (data.nombre2 !== undefined) { fields.push('nombre2 = ?'); values.push(data.nombre2 ?? null); }
+    if (data.apellidoP !== undefined) { fields.push('apellidoP = ?'); values.push(data.apellidoP); }
+    if (data.apellidoM !== undefined) { fields.push('apellidoM = ?'); values.push(data.apellidoM ?? null); }
+    if (data.ci !== undefined) { fields.push('ci = ?'); values.push(data.ci); }
+    if (data.correo !== undefined) { fields.push('correo = ?'); values.push(data.correo); }
+    if (data.telefono !== undefined) { fields.push('telefono = ?'); values.push(data.telefono ?? null); }
+    if (data.fechaNacimiento !== undefined) { fields.push('fechaNacimiento = ?'); values.push(data.fechaNacimiento ?? null); }
+    if (data.nit !== undefined) { fields.push('nit = ?'); values.push(data.nit ?? null); }
+    if (data.razonSocial !== undefined) { fields.push('razonSocial = ?'); values.push(data.razonSocial ?? null); }
+
+    if (fields.length > 0) {
+      fields.push('fechaA = CURDATE()');
+      values.push(usuario.idUsuario);
+      await connection.query(`UPDATE Usuario SET ${fields.join(', ')} WHERE idUsuario = ?`, values);
+    }
+
+    await connection.commit();
+
+    const updatedUser = await findUserByEmail(data.correo ?? actor.correo);
+
+    await createAudit({
+      tablaNombre: 'Usuario',
+      registroId: usuario.idUsuario,
+      accion: 'PERFIL_ACTUALIZADO',
+      usuarioA: actor.idUsuario,
+      req,
+      detalles: 'El cliente actualizó su propio perfil.'
+    });
+
+    return ok(res, {
+      mensaje: 'Perfil actualizado correctamente.',
+      usuario: updatedUser ? publicUser(updatedUser) : null
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error(error);
+    return fail(res, 'No se pudo actualizar el perfil.', 500);
   } finally {
     connection.release();
   }

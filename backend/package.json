@@ -1,6 +1,7 @@
 {
   "name": "cine-backend",
   "version": "1.0.0",
+  "type": "module",
   "main": "src/server.ts",
   "scripts": {
     "start": "tsx src/server.ts",

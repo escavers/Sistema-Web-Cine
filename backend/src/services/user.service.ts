@@ -64,9 +64,16 @@ export function publicUser(usuario: UsuarioRow) {
   return {
     idUsuario: usuario.idUsuario,
     nombreCompleto: `${usuario.nombre1} ${usuario.apellidoP}`.trim(),
+    nombre1: usuario.nombre1,
+    nombre2: usuario.nombre2,
+    apellidoP: usuario.apellidoP,
+    apellidoM: usuario.apellidoM,
     correo: usuario.correo,
     idRol: usuario.idRol,
     ci: usuario.ci,
-    telefono: usuario.telefono
+    telefono: usuario.telefono,
+    fechaNacimiento: usuario.fechaNacimiento,
+    nit: usuario.nit,
+    razonSocial: usuario.razonSocial
   };
 }

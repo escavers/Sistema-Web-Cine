@@ -8,7 +8,7 @@ export async function listarFunciones(_req: Request, res: Response) {
             f.idPelicula, f.fecha, f.horaInicio, f.horaFin, f.precioBase, f.promocionActiva,
             p.titulo AS peliculaTitulo, p.director AS peliculaDirector, p.posterUrl AS peliculaPoster,
             p.duracionMinutos AS peliculaDuracion, p.clasificacionEdad AS peliculaClasificacion,
-            p.sinopsis AS peliculaSinopsis
+            p.sinopsis AS peliculaSinopsis, p.fechaEstreno AS peliculaFechaEstreno
      FROM Funcion f
      JOIN Pelicula p ON f.idPelicula = p.idPelicula
      JOIN Sala s ON f.idSala = s.idSala

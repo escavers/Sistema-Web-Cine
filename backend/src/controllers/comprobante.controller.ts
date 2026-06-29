@@ -245,8 +245,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const QRCode = require('qrcode');
+  const QRCode = (await import('qrcode')).default;
 
   const qrImages = await Promise.all(
     boletos.map((b) => QRCode.toDataURL(b.codigoAcceso || String(b.idBoleto)))
@@ -257,8 +256,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   const TICKET_MARGIN = 10;
   const TICKET_CONTENT = ROLL_WIDTH - 2 * TICKET_MARGIN;
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const PDFDocument = require('pdfkit');
+  const PDFDocument = (await import('pdfkit')).default;
   const doc = new PDFDocument({ size: [ROLL_WIDTH, 800], margin: TICKET_MARGIN });
   const chunks: Uint8Array[] = [];
 

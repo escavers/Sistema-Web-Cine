@@ -90,6 +90,8 @@ export const api = {
     request<{ ok: boolean; mensaje: string; cliente: { idUsuario: number; correo: string; ci: string; contrasenaTemporal: string } }>(
       '/auth/registro-presencial', { method: 'POST', body: JSON.stringify(payload) }
     ),
+  actualizarPerfil: (payload: Record<string, unknown>) =>
+    request<{ ok: boolean; mensaje: string; usuario: AuthUser }>('/auth/perfil', { method: 'PUT', body: JSON.stringify(payload) }),
 
   // Usuarios
   listarUsuarios: () => request<{ ok: boolean; usuarios: Usuario[] }>('/usuarios'),
@@ -125,6 +127,8 @@ export const api = {
     request<{ ok: boolean; mensaje: string; idFuncion: number }>('/funciones', { method: 'POST', body: JSON.stringify(payload) }),
   eliminarFuncion: (id: number) =>
     request<{ ok: boolean; mensaje: string }>(`/funciones/${id}`, { method: 'DELETE' }),
+  copiarSemanaFunciones: (payload: { fechaOrigen: string; fechaDestino: string }) =>
+    request<{ ok: boolean; mensaje: string; copiadas: number; conflictos: number }>('/funciones/copiar-semana', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Asientos
   obtenerAsientosPorFuncion: (idFuncion: number) =>

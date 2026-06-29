@@ -1,5 +1,5 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const PDFDocument = require('pdfkit');
+import PDFDocument from 'pdfkit';
+import fs from 'fs';
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -253,7 +253,6 @@ export function sendPdfFile(doc: any, chunks: Uint8Array[], filePath: string) {
     doc.on('end', () => {
       try {
         const buffer = Buffer.concat(chunks);
-        const fs = require('fs');
         fs.writeFileSync(filePath, buffer);
         resolve();
       } catch (err) {

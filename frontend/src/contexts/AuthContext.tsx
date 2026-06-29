@@ -5,6 +5,7 @@ import type { AuthUser } from '../types';
 interface AuthContextType {
   user: AuthUser | null;
   login: (token: string, user: AuthUser) => void;
+  updateUser: (user: AuthUser) => void;
   logout: () => void;
   loading: boolean;
 }
@@ -29,13 +30,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(normalized);
   }
 
+  function updateUser(nextUser: AuthUser) {
+    const normalized = normalizeUser(nextUser);
+    const token = localStorage.getItem('cine_token');
+    if (token) setSession(token, normalized);
+    setUser(normalized);
+  }
+
   function logout() {
     clearSession();
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, updateUser, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

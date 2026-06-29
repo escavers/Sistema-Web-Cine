@@ -87,6 +87,85 @@ export async function crearFuncion(req: Request, res: Response) {
   }, 201);
 }
 
+const copiarSemanaSchema = z.object({
+  fechaOrigen: z.string().min(1),
+  fechaDestino: z.string().min(1),
+});
+
+export async function copiarSemanaFunciones(req: Request, res: Response) {
+  const parsed = copiarSemanaSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return fail(res, 'Datos inválidos.', 400, { errores: parsed.error.flatten() });
+  }
+
+  const { fechaOrigen, fechaDestino } = parsed.data;
+  const actor = req.user!;
+
+  const [funcionesOriginales] = await pool.query<any[]>(
+    `SELECT idSala, idPelicula, horaInicio, horaFin, precioBase
+     FROM Funcion
+     WHERE fecha = ? AND estadoA = 1`,
+    [fechaOrigen]
+  );
+
+  if (funcionesOriginales.length === 0) {
+    return fail(res, 'No se encontraron funciones para la fecha de origen.', 404);
+  }
+
+  let copiadas = 0;
+  let conflictos = 0;
+
+  for (const f of funcionesOriginales) {
+    const [conflicto] = await pool.query<any[]>(
+      `SELECT idFuncion FROM Funcion
+       WHERE idSala = ? AND fecha = ? AND estadoA = 1
+       AND NOT (horaFin <= ? OR horaInicio >= ?)`,
+      [f.idSala, fechaDestino, f.horaInicio, f.horaFin]
+    );
+
+    if (conflicto.length > 0) {
+      conflictos++;
+      continue;
+    }
+
+    const [margen] = await pool.query<any[]>(
+      `SELECT idFuncion FROM Funcion
+       WHERE idSala = ? AND fecha = ? AND estadoA = 1
+       AND (
+         ABS(TIMESTAMPDIFF(MINUTE, horaFin, ?)) < 15
+         OR ABS(TIMESTAMPDIFF(MINUTE, horaInicio, ?)) < 15
+       )`,
+      [f.idSala, fechaDestino, f.horaInicio, f.horaFin]
+    );
+
+    if (margen.length > 0) {
+      conflictos++;
+      continue;
+    }
+
+    await pool.query(
+      `INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase, promocionActiva, estadoA, fechaA, usuarioA)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 1, CURDATE(), ?)`,
+      [f.idSala, f.idPelicula, fechaDestino, f.horaInicio, f.horaFin, f.precioBase, actor.idUsuario]
+    );
+    copiadas++;
+  }
+
+  await createAudit({
+    tablaNombre: 'Funcion',
+    accion: 'COPIA_SEMANAL',
+    usuarioA: actor.idUsuario,
+    req,
+    detalles: `Copia de ${fechaOrigen} a ${fechaDestino}: ${copiadas} copiadas, ${conflictos} conflictos.`
+  });
+
+  return ok(res, {
+    mensaje: `Se copiaron ${copiadas} funciones.${conflictos > 0 ? ` ${conflictos} conflictos omitidos.` : ''}`,
+    copiadas,
+    conflictos,
+  });
+}
+
 export async function eliminarFuncion(req: Request, res: Response) {
   const id = Number(req.params.id);
   const actor = req.user!;

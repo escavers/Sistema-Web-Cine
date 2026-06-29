@@ -1,4 +1,4 @@
-import { pool } from '../config/db';
+import { pool } from '../config/db.js';
 import bcrypt from 'bcryptjs';
 
 async function seed() {
@@ -100,12 +100,12 @@ async function seed() {
 
     // ── 3. SALAS ──
     console.log('Insertando salas...');
-    const salas = [
-      { id: 'SALA-1', tipo: 'Estándar', cap: 80, fil: 8, col: 10 },
-      { id: 'SALA-2', tipo: '3D', cap: 96, fil: 8, col: 12 },
-      { id: 'SALA-3', tipo: 'VIP', cap: 48, fil: 6, col: 8 },
-      { id: 'SALA-4', tipo: 'Estándar', cap: 120, fil: 10, col: 12 },
-    ];
+const salas = [
+  { id: 'SALA-1', tipo: 'Grande', cap: 70, fil: 7, col: 10 },
+  { id: 'SALA-2', tipo: 'Grande', cap: 70, fil: 7, col: 10 },
+  { id: 'SALA-3', tipo: 'Mediana', cap: 50, fil: 5, col: 10 },
+  { id: 'SALA-4', tipo: 'Pequeña', cap: 30, fil: 5, col: 6 },
+];
 
     for (const s of salas) {
       await connection.query(
@@ -179,7 +179,7 @@ async function seed() {
     const [peliculasRows] = await connection.query<any[]>('SELECT idPelicula FROM Pelicula WHERE estadoA = 1');
     const [salasRows] = await connection.query<any[]>('SELECT idSala, tipo, capacidadTotal FROM Sala WHERE estadoA = 1');
 
-    const precios: Record<string, number> = { 'Estándar': 20, '3D': 30, 'VIP': 40 };
+    const precios: Record<string, number> = { 'Grande': 20, 'Mediana': 25, 'Pequeña': 30 };
 
     const hoy = new Date();
     const horas = ['14:00:00', '16:30:00', '19:00:00', '21:30:00'];

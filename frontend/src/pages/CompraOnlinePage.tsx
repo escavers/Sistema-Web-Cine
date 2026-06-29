@@ -285,7 +285,9 @@ export default function CompraOnlinePage() {
     setQrConfirmed(false);
   }
 
-  const precioTotal = selectedFuncion ? Number(selectedFuncion.precioBase) * selectedAsientos.length : 0;
+  const is2x1 = selectedFuncion?.promocionActiva === 1;
+  const seatsToPay = is2x1 ? Math.ceil(selectedAsientos.length / 2) : selectedAsientos.length;
+  const precioTotal = selectedFuncion ? Number(selectedFuncion.precioBase) * seatsToPay : 0;
 
   const pageTitle = step === 2 ? 'Selección de asientos' : step === 2.5 ? 'Confirmar Compra' : 'Cartelera';
 
@@ -325,7 +327,7 @@ export default function CompraOnlinePage() {
                   <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-3xl border border-amber-500/40 bg-gradient-to-b from-amber-500/[0.04] to-transparent shadow-lg shadow-amber-500/10 transition-all duration-500 hover:border-cinema-gold/30 hover:shadow-xl hover:shadow-cinema-gold/5">
                     <div className="relative overflow-hidden aspect-[2/3]">
                       {f.peliculaPoster ? (
-                        <img src={f.peliculaPoster} alt={f.peliculaTitulo} className="w-full h-full object-cover transition duration-700 group-hover:scale-110" />
+                        <img src={f.peliculaPoster} alt={f.peliculaTitulo} referrerPolicy="no-referrer" className="w-full h-full object-cover transition duration-700 group-hover:scale-110" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-white/[0.03]">
                           <span className="text-5xl opacity-20">🎬</span>
@@ -365,6 +367,16 @@ export default function CompraOnlinePage() {
                         <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-gold uppercase tracking-wider border border-white/[0.06]">
                           {f.peliculaClasificacion || 'TP'}
                         </span>
+                        {f.peliculaFechaEstreno && (() => {
+                          const estreno = new Date(f.peliculaFechaEstreno);
+                          const hoy = new Date();
+                          const dias = Math.floor((hoy.getTime() - estreno.getTime()) / (1000 * 60 * 60 * 24));
+                          return dias > 0 ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-gray/60 uppercase tracking-wider border border-white/[0.06]">
+                              {dias} días en cartelera
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -384,7 +396,7 @@ export default function CompraOnlinePage() {
                 <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent transition-all duration-500 hover:border-cinema-gold/30 hover:shadow-xl hover:shadow-cinema-gold/5">
                   <div className="relative overflow-hidden aspect-[2/3]">
                     {f.peliculaPoster ? (
-                      <img src={f.peliculaPoster} alt={f.peliculaTitulo} className="w-full h-full object-cover transition duration-700 group-hover:scale-110" />
+                      <img src={f.peliculaPoster} alt={f.peliculaTitulo} referrerPolicy="no-referrer" className="w-full h-full object-cover transition duration-700 group-hover:scale-110" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-white/[0.03]">
                         <span className="text-5xl opacity-20">🎬</span>
@@ -414,6 +426,16 @@ export default function CompraOnlinePage() {
                       <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-gold uppercase tracking-wider border border-white/[0.06]">
                         {f.peliculaClasificacion || 'TP'}
                       </span>
+                      {f.peliculaFechaEstreno && (() => {
+                        const estreno = new Date(f.peliculaFechaEstreno);
+                        const hoy = new Date();
+                        const dias = Math.floor((hoy.getTime() - estreno.getTime()) / (1000 * 60 * 60 * 24));
+                        return dias > 0 ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-gray/60 uppercase tracking-wider border border-white/[0.06]">
+                            {dias} días en cartelera
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -445,6 +467,14 @@ export default function CompraOnlinePage() {
                       </span>
                     )}
                     <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[11px] font-bold text-cinema-gold">{previewFuncion.peliculaClasificacion || 'TP'}</span>
+                    {previewFuncion.peliculaFechaEstreno && (() => {
+                      const estreno = new Date(previewFuncion.peliculaFechaEstreno);
+                      const hoy = new Date();
+                      const dias = Math.floor((hoy.getTime() - estreno.getTime()) / (1000 * 60 * 60 * 24));
+                      return dias > 0 ? (
+                        <span className="rounded-full bg-white/5 border border-white/[0.06] px-2 py-0.5 text-[11px] font-semibold text-cinema-gray/60">{dias} días en cartelera</span>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
                 <button className="btn-secondary shrink-0" onClick={closePreviewModal}>Cerrar</button>
@@ -454,7 +484,7 @@ export default function CompraOnlinePage() {
                 {/* Poster */}
                 <div className="hidden lg:block">
                   {previewFuncion.peliculaPoster ? (
-                    <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} className="w-full rounded-2xl bg-black object-cover aspect-[2/3]" />
+                    <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} referrerPolicy="no-referrer" className="w-full rounded-2xl bg-black object-cover aspect-[2/3]" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
                   ) : (
                     <div className="w-full aspect-[2/3] rounded-2xl bg-white/[0.03] flex items-center justify-center text-6xl opacity-20">🎬</div>
                   )}

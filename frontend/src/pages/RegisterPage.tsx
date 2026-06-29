@@ -76,8 +76,8 @@ export default function RegisterPage() {
         telefono: form.telefono.trim() || null,
         fechaNacimiento: form.fechaNacimiento || null,
         contrasena: form.contrasena,
-        nit: null,
-        razonSocial: null
+        nit: form.nit.trim() || null,
+        razonSocial: form.razonSocial.trim() || null
       };
 
       const res = await api.registroCliente(payload);
