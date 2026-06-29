@@ -83,7 +83,16 @@ export default function SalasPage() {
     columnas: { valid: false, error: '' },
   });
   const [seatLayout, setSeatLayout] = useState<AsientoPreview[]>([]);
+  const [filterTipo, setFilterTipo] = useState('');
+  const [sortCapacidad, setSortCapacidad] = useState('');
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const salasFiltradas = useMemo(() => {
+    const result = filterTipo ? salas.filter(s => s.tipo === filterTipo) : [...salas];
+    if (sortCapacidad === 'desc') result.sort((a, b) => Number(b.capacidadTotal) - Number(a.capacidadTotal));
+    if (sortCapacidad === 'asc') result.sort((a, b) => Number(a.capacidadTotal) - Number(b.capacidadTotal));
+    return result;
+  }, [salas, filterTipo, sortCapacidad]);
 
   // Funciones de validación
   const validateIdSala = (value: string, existingSalas: any[]): { valid: boolean; error: string } => {
@@ -415,7 +424,7 @@ export default function SalasPage() {
                 <span className="label-cine">Tipo</span>
                 <div className="relative mt-2">
                   <select
-                    className="input-cine border border-white/10 transition focus:border-cinema-gold/50 focus:ring-1 focus:ring-cinema-gold/30"
+                    className="rounded-xl border border-white/10 bg-[#1e1e28] px-4 py-2.5 text-sm text-white outline-none transition focus:border-cinema-gold/50 focus:ring-1 focus:ring-cinema-gold/30"
                     value={form.tipo}
                     onChange={(e) => update('tipo', e.target.value)}
                   >
@@ -514,6 +523,33 @@ export default function SalasPage() {
         <div className="border-b border-white/10 px-6 py-5">
           <h3 className="text-xl font-bold text-white">Salas del cine</h3>
         </div>
+        {/* Filtros */}
+        <div className="flex flex-wrap items-center gap-4 border-b border-white/5 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-cinema-gray">Tipo:</label>
+            <select
+              className="rounded-lg border border-white/[0.08] bg-[#1e1e28] px-3 py-1.5 text-sm text-white outline-none transition focus:border-cinema-gold/40"
+              value={filterTipo}
+              onChange={e => setFilterTipo(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-cinema-gray">Ordenar capacidad:</label>
+            <select
+              className="rounded-lg border border-white/[0.08] bg-[#1e1e28] px-3 py-1.5 text-sm text-white outline-none transition focus:border-cinema-gold/40"
+              value={sortCapacidad}
+              onChange={e => setSortCapacidad(e.target.value)}
+            >
+              <option value="">Normal</option>
+              <option value="desc">Mayor a menor</option>
+              <option value="asc">Menor a mayor</option>
+            </select>
+          </div>
+          <span className="text-xs text-cinema-gray/50">{salasFiltradas.length} sala(s)</span>
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm text-cinema-gray">
             <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
@@ -526,7 +562,7 @@ export default function SalasPage() {
               </tr>
             </thead>
             <tbody>
-              {salas.map(s => (
+              {salasFiltradas.map(s => (
                 <tr key={s.idSala} className="border-t border-white/5">
                   <td className="px-5 py-4 text-white font-medium">{s.idSala}</td>
                   <td className="px-5 py-4">{s.tipo}</td>
@@ -564,8 +600,8 @@ export default function SalasPage() {
                   </td>
                 </tr>
               ))}
-              {salas.length === 0 && (
-                <tr><td className="px-5 py-8 text-center" colSpan={5}>No hay salas registradas.</td></tr>
+              {salasFiltradas.length === 0 && (
+                <tr><td className="px-5 py-8 text-center" colSpan={5}>{salas.length === 0 ? 'No hay salas registradas.' : 'Ninguna sala coincide con los filtros.'}</td></tr>
               )}
             </tbody>
           </table>
