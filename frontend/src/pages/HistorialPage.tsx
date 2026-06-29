@@ -10,6 +10,13 @@ export default function HistorialPage() {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [loadingCancel, setLoadingCancel] = useState<number | null>(null);
 
+  // Filters
+  const [filterPelicula, setFilterPelicula] = useState('');
+  const [filterEstado, setFilterEstado] = useState('');
+  const [filterSalaTipo, setFilterSalaTipo] = useState('');
+  const [filterFechaDesde, setFilterFechaDesde] = useState('');
+  const [filterFechaHasta, setFilterFechaHasta] = useState('');
+
   // Estados para la vista previa del boleto (carrusel de QRs individuales)
   const [showModal, setShowModal] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState<any>(null);
@@ -89,6 +96,23 @@ export default function HistorialPage() {
     }
   };
 
+  const uniqueSalaTipos = [...new Set(historial.map(h => h.salaTipo).filter(Boolean))].sort();
+
+  const historialFiltrado = historial.filter(h => {
+    if (filterPelicula && !h.peliculaTitulo.toLowerCase().includes(filterPelicula.toLowerCase())) return false;
+    if (filterEstado && h.estadoVenta !== filterEstado) return false;
+    if (filterSalaTipo && h.salaTipo !== filterSalaTipo) return false;
+    if (filterFechaDesde) {
+      const d = parseLocalDate(h.fecha);
+      if (d && d < parseLocalDate(filterFechaDesde)!) return false;
+    }
+    if (filterFechaHasta) {
+      const d = parseLocalDate(h.fecha);
+      if (d && d > parseLocalDate(filterFechaHasta)!) return false;
+    }
+    return true;
+  });
+
   const parseLocalDate = (fecha: string | Date | null) => {
     if (!fecha) return null;
     if (fecha instanceof Date) return fecha;
@@ -113,13 +137,84 @@ export default function HistorialPage() {
 
   return (
     <section className="space-y-8">
-      <h2 className="text-2xl font-bold text-white">Mi historial de compras</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-white">Mi historial de compras</h2>
+        <span className="text-xs text-cinema-gray">{historialFiltrado.length} de {historial.length} compra(s)</span>
+      </div>
       {message && <Message type={message.type} text={message.text} />}
+
+      {/* Filters */}
+      <div className="card-cine p-4">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="min-w-[160px] flex-1">
+            <span className="label-cine block mb-1">Película</span>
+            <input
+              type="text"
+              value={filterPelicula}
+              onChange={e => setFilterPelicula(e.target.value)}
+              placeholder="Buscar..."
+              className="input-cine mt-0"
+            />
+          </div>
+          <div className="min-w-[140px] flex-1">
+            <span className="label-cine block mb-1">Estado</span>
+            <select
+              value={filterEstado}
+              onChange={e => setFilterEstado(e.target.value)}
+              className="input-cine mt-0"
+            >
+              <option value="">Todos</option>
+              <option value="COMPLETADA">Completada</option>
+              <option value="CANCELADA">Cancelada</option>
+            </select>
+          </div>
+          <div className="min-w-[140px] flex-1">
+            <span className="label-cine block mb-1">Tipo sala</span>
+            <select
+              value={filterSalaTipo}
+              onChange={e => setFilterSalaTipo(e.target.value)}
+              className="input-cine mt-0"
+            >
+              <option value="">Todas</option>
+              {uniqueSalaTipos.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[130px] flex-1">
+            <span className="label-cine block mb-1">Fecha desde</span>
+            <input
+              type="date"
+              value={filterFechaDesde}
+              onChange={e => setFilterFechaDesde(e.target.value)}
+              className="input-cine mt-0"
+            />
+          </div>
+          <div className="min-w-[130px] flex-1">
+            <span className="label-cine block mb-1">Fecha hasta</span>
+            <input
+              type="date"
+              value={filterFechaHasta}
+              onChange={e => setFilterFechaHasta(e.target.value)}
+              className="input-cine mt-0"
+            />
+          </div>
+          <div className="flex items-center pb-0.5">
+            <button
+              type="button"
+              onClick={() => { setFilterPelicula(''); setFilterEstado(''); setFilterSalaTipo(''); setFilterFechaDesde(''); setFilterFechaHasta(''); }}
+              className="btn-secondary px-3 py-2 text-xs"
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="card-cine overflow-hidden">
         {/* VISTA MÓVIL (Tarjetas) */}
         <div className="md:hidden flex flex-col gap-4 p-4">
-          {historial.map((h, i) => {
+          {historialFiltrado.map((h, i) => {
             const canCancel = h.estadoVenta === 'COMPLETADA' && (() => {
               const fechaFuncion = buildFuncionDateTime(h.fecha, h.horaInicio);
               if (!fechaFuncion) return false;
@@ -203,8 +298,8 @@ export default function HistorialPage() {
               </div>
             );
           })}
-          {historial.length === 0 && (
-            <div className="p-8 text-center text-cinema-gray text-sm">No tienes compras registradas.</div>
+          {historialFiltrado.length === 0 && (
+            <div className="p-8 text-center text-cinema-gray text-sm">{historial.length === 0 ? 'No tienes compras registradas.' : 'No hay resultados con los filtros aplicados.'}</div>
           )}
         </div>
 
@@ -224,7 +319,7 @@ export default function HistorialPage() {
               </tr>
             </thead>
             <tbody>
-              {historial.map((h, i) => {
+              {historialFiltrado.map((h, i) => {
                 const canCancel = h.estadoVenta === 'COMPLETADA' && (() => {
                   const fechaFuncion = buildFuncionDateTime(h.fecha, h.horaInicio);
                   if (!fechaFuncion) return false;
@@ -287,8 +382,8 @@ export default function HistorialPage() {
                   </tr>
                 );
               })}
-              {historial.length === 0 && (
-                <tr><td className="px-3 py-8 text-center" colSpan={8}>No tienes compras registradas.</td></tr>
+              {historialFiltrado.length === 0 && (
+                <tr><td className="px-3 py-8 text-center" colSpan={8}>{historial.length === 0 ? 'No tienes compras registradas.' : 'No hay resultados con los filtros aplicados.'}</td></tr>
               )}
             </tbody>
           </table>
