@@ -50,31 +50,34 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-cinema-black">
-      <header className="border-b border-white/10 bg-gradient-to-r from-[#09090f] via-[#110f1a] to-[#1f160d] shadow-[0_35px_120px_-65px_rgba(255,158,0,0.45)] backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 md:flex-row md:items-center md:justify-between">
-          <Link to="/" className="no-underline">
+      {/* Gold accent bar */}
+      <div className="h-[3px] bg-gradient-to-r from-cinema-gold/20 via-cinema-gold to-cinema-gold/20" />
+
+      <header className="border-b border-white/10 bg-[linear-gradient(90deg,#08080d_0%,#0a0a14_75%,#1f0f00_100%)] shadow-[0_40px_100px_-50px_rgba(245,158,11,0.3)]">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 md:flex-row md:items-center md:justify-between">
+          <Link to="/" className="no-underline group">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center">
-                <img src={logoImg} alt="Cine La Paz Logo" className="w-10 h-10 object-contain brightness-0 invert" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.03] border border-white/[0.06] transition group-hover:border-cinema-gold/30 group-hover:shadow-lg group-hover:shadow-cinema-gold/5">
+                <img src={logoImg} alt="Cine La Paz Logo" className="w-8 h-8 object-contain brightness-0 invert" />
               </div>
               <div>
-                <p className="text-4xl font-semibold uppercase tracking-[0.35em] text-cinema-gold">CINE LA PAZ</p>
+                <p className="text-3xl font-black uppercase tracking-[0.4em] text-cinema-gold drop-shadow-[0_0_12px_rgba(245,158,11,0.2)]">CINE LA PAZ</p>
               </div>
             </div>
           </Link>
 
           {user ? (
-            <div className="flex flex-col items-start gap-3 sm:items-end md:flex-row md:items-center md:gap-6 md:items-center">
+            <div className="flex flex-col items-start gap-3 sm:items-end md:flex-row md:items-center md:gap-5">
               <div className="hidden md:block text-right">
-                <p className="text-sm font-semibold text-white">{user.nombreCompleto}</p>
-                <p className="text-xs text-cinema-gray">{rolesDisplay}</p>
+                <p className="text-sm font-semibold text-white/90">{user.nombreCompleto}</p>
+                <p className="text-[11px] text-cinema-gray/60 uppercase tracking-wider">{rolesDisplay}</p>
               </div>
-              <button className="btn-secondary text-xs" onClick={handleLogout}>
+              <button className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-cinema-gray/80 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white" onClick={handleLogout}>
                 Cerrar sesión
               </button>
             </div>
           ) : (
-            <div className="hidden rounded-full border border-cinema-gold/30 bg-cinema-gold/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-cinema-gold md:block">
+            <div className="hidden rounded-full border border-cinema-gold/20 bg-cinema-gold/[0.06] px-5 py-2 text-xs font-bold uppercase tracking-[0.2em] text-cinema-gold/80 md:block">
               Cine La Paz
             </div>
           )}
@@ -82,16 +85,16 @@ export default function Layout() {
       </header>
 
       {user && (
-        <nav className="border-b border-white/5 bg-white/[0.02]">
-          <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6 py-2">
+        <nav className="border-b border-white/[0.03] bg-white/[0.01]">
+          <div className="mx-auto flex max-w-7xl gap-0.5 overflow-x-auto px-6 py-2">
             {visibleItems.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
-                className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
                   location.pathname === item.to
-                    ? 'bg-cinema-gold text-cinema-black'
-                    : 'text-cinema-gray hover:bg-white/[0.05] hover:text-white'
+                    ? 'bg-cinema-gold/15 text-cinema-gold shadow-sm shadow-cinema-gold/5'
+                    : 'text-cinema-gray/70 hover:bg-white/[0.04] hover:text-white'
                 }`}
               >
                 {item.label}

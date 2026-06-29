@@ -62,9 +62,13 @@ export async function sendComprobanteEmailInternal(idVenta: number, email: strin
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0f;padding:0}
         .c{max-width:560px;margin:0 auto;background:#121218;border:1px solid rgba(255,255,255,.08)}
-        .h{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);padding:32px 24px;text-align:center}
-        .h h1{font-size:22px;color:#0a0a0f;margin:0;font-weight:900;text-transform:uppercase;letter-spacing:2px}
-        .h p{font-size:12px;color:#0a0a0f;margin-top:6px;opacity:.7;letter-spacing:1px}
+        .h{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);padding:40px 24px 32px;text-align:center;position:relative;overflow:hidden}
+        .h::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,rgba(0,0,0,.15) 0,rgba(0,0,0,.15) 8px,transparent 8px,transparent 16px)}
+        .h::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:12px;background:radial-gradient(ellipse at center,rgba(0,0,0,.1) 0,transparent 70%)}
+        .h .icon{font-size:36px;line-height:1;margin-bottom:8px}
+        .h h1{font-size:26px;color:#0a0a0f;margin:0;font-weight:900;text-transform:uppercase;letter-spacing:3px;text-shadow:0 1px 2px rgba(0,0,0,.1)}
+        .h p{font-size:11px;color:#0a0a0f;margin-top:4px;opacity:.6;letter-spacing:2px;font-weight:600}
+        .h .num-badge{display:inline-block;margin-top:12px;background:rgba(10,10,15,.12);backdrop-filter:blur(4px);padding:5px 16px;border-radius:50px;font-size:10px;font-weight:800;color:#0a0a0f;letter-spacing:1.5px;border:1px solid rgba(10,10,15,.08)}
         .b{padding:28px 24px}
         .card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:20px;margin-bottom:16px}
         .l{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;font-weight:600}
@@ -82,9 +86,10 @@ export async function sendComprobanteEmailInternal(idVenta: number, email: strin
       <body>
         <div class="c">
           <div class="h">
+            <div class="icon">🎬</div>
             <h1>Cine La Paz</h1>
             <p>Comprobante de Compra</p>
-            <div style="margin-top:10px;display:inline-block;background:rgba(10,10,15,.15);padding:4px 14px;border-radius:50px;font-size:11px;font-weight:700;color:#0a0a0f;letter-spacing:1px">${comprobante.numero}</div>
+            <div class="num-badge">${comprobante.numero}</div>
           </div>
           <div class="b">
             <div class="card">
@@ -209,9 +214,13 @@ export async function enviarComprobanteEmail(req: Request, res: Response) {
           *{margin:0;padding:0;box-sizing:border-box}
           body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0f;padding:0}
           .c{max-width:560px;margin:0 auto;background:#121218;border:1px solid rgba(255,255,255,.08)}
-          .h{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);padding:32px 24px;text-align:center}
-          .h h1{font-size:22px;color:#0a0a0f;margin:0;font-weight:900;text-transform:uppercase;letter-spacing:2px}
-          .h p{font-size:12px;color:#0a0a0f;margin-top:6px;opacity:.7;letter-spacing:1px}
+          .h{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);padding:40px 24px 32px;text-align:center;position:relative;overflow:hidden}
+          .h::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,rgba(0,0,0,.15) 0,rgba(0,0,0,.15) 8px,transparent 8px,transparent 16px)}
+          .h::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:12px;background:radial-gradient(ellipse at center,rgba(0,0,0,.1) 0,transparent 70%)}
+          .h .icon{font-size:36px;line-height:1;margin-bottom:8px}
+          .h h1{font-size:26px;color:#0a0a0f;margin:0;font-weight:900;text-transform:uppercase;letter-spacing:3px;text-shadow:0 1px 2px rgba(0,0,0,.1)}
+          .h p{font-size:11px;color:#0a0a0f;margin-top:4px;opacity:.6;letter-spacing:2px;font-weight:600}
+          .h .num-badge{display:inline-block;margin-top:12px;background:rgba(10,10,15,.12);backdrop-filter:blur(4px);padding:5px 16px;border-radius:50px;font-size:10px;font-weight:800;color:#0a0a0f;letter-spacing:1.5px;border:1px solid rgba(10,10,15,.08)}
           .b{padding:28px 24px}
           .card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:20px;margin-bottom:16px}
           .l{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;font-weight:600}
@@ -230,9 +239,10 @@ export async function enviarComprobanteEmail(req: Request, res: Response) {
         <body>
           <div class="c">
             <div class="h">
+              <div class="icon">🎬</div>
               <h1>Cine La Paz</h1>
               <p>Comprobante de Compra</p>
-              <div style="margin-top:10px;display:inline-block;background:rgba(10,10,15,.15);padding:4px 14px;border-radius:50px;font-size:11px;font-weight:700;color:#0a0a0f;letter-spacing:1px">${comprobante.numero}</div>
+              <div class="num-badge">${comprobante.numero}</div>
             </div>
             <div class="b">
               <div class="card">
