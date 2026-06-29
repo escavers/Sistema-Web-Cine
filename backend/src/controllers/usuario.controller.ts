@@ -2,20 +2,22 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { pool } from '../config/db.js';
 import { createAudit } from '../services/audit.service.js';
-import { hashPassword } from '../utils/password.js';
+import { generarContrasenaTemporal, hashPassword } from '../utils/password.js';
 import { fail, ok } from '../utils/response.js';
+
+const rolSchema = z.enum(['ADMINISTRADOR', 'BOLETERIA', 'CLIENTE', 'ACCESO']);
 
 const crearUsuarioSchema = z.object({
   nombre1: z.string().min(1),
   nombre2: z.string().optional().nullable(),
   apellidoP: z.string().min(1),
   apellidoM: z.string().optional().nullable(),
-  ci: z.string().optional().nullable(),
+  ci: z.string().min(1),
   correo: z.string().email(),
   telefono: z.string().optional().nullable(),
   fechaNacimiento: z.string().optional().nullable(),
-  contrasena: z.string().min(6),
-  idRol: z.array(z.enum(['ADMINISTRADOR', 'BOLETERIA', 'CLIENTE', 'ACCESO'])).min(1),
+  contrasena: z.string().optional().nullable(),
+  idRol: z.array(rolSchema).min(1).max(1),
   nit: z.string().optional().nullable(),
   razonSocial: z.string().optional().nullable()
 });
@@ -25,8 +27,14 @@ const actualizarUsuarioSchema = z.object({
   nombre2: z.string().optional().nullable(),
   apellidoP: z.string().min(1).optional(),
   apellidoM: z.string().optional().nullable(),
+  ci: z.string().min(1).optional().nullable(),
+  correo: z.string().email().optional(),
   telefono: z.string().optional().nullable(),
-  estado: z.boolean().optional()
+  fechaNacimiento: z.string().optional().nullable(),
+  nit: z.string().optional().nullable(),
+  razonSocial: z.string().optional().nullable(),
+  estado: z.boolean().optional(),
+  idRol: z.array(rolSchema).min(1).max(1).optional()
 });
 
 export async function listarUsuarios(_req: Request, res: Response) {
@@ -67,6 +75,7 @@ export async function listarUsuarios(_req: Request, res: Response) {
 
 export async function crearUsuario(req: Request, res: Response) {
   const parsed = crearUsuarioSchema.safeParse(req.body);
+
   if (!parsed.success) {
     return fail(res, 'Revise los datos del formulario.', 400, { errores: parsed.error.flatten() });
   }
@@ -78,7 +87,17 @@ export async function crearUsuario(req: Request, res: Response) {
   try {
     await connection.beginTransaction();
 
-    const hashedPassword = await hashPassword(data.contrasena);
+    const contrasenaTemporal =
+      data.contrasena && data.contrasena.trim() !== ''
+        ? data.contrasena.trim()
+        : generarContrasenaTemporal(
+            data.ci,
+            data.apellidoP,
+            data.apellidoM || ''
+          );
+
+    const hashedPassword = await hashPassword(contrasenaTemporal);
+    const rolSeleccionado = data.idRol[0];
 
     const [result] = await connection.query<any>(
       `
@@ -107,7 +126,7 @@ export async function crearUsuario(req: Request, res: Response) {
         data.nombre2 ?? null,
         data.apellidoP,
         data.apellidoM ?? null,
-        data.ci ?? null,
+        data.ci,
         data.correo,
         data.telefono ?? null,
         data.fechaNacimiento ?? null,
@@ -120,12 +139,10 @@ export async function crearUsuario(req: Request, res: Response) {
 
     const idUsuario = result.insertId as number;
 
-    for (const rol of data.idRol) {
-      await connection.query(
-        `INSERT INTO Usuario_Rol (idUsuario, idRol) VALUES (?, ?)`,
-        [idUsuario, rol]
-      );
-    }
+    await connection.query(
+      `INSERT INTO Usuario_Rol (idUsuario, idRol) VALUES (?, ?)`,
+      [idUsuario, rolSeleccionado]
+    );
 
     await connection.commit();
 
@@ -135,10 +152,18 @@ export async function crearUsuario(req: Request, res: Response) {
       accion: 'USUARIO_CREADO',
       usuarioA: actor.idUsuario,
       req,
-      detalles: `Usuario creado desde administración con roles [${data.idRol.join(', ')}].`
+      detalles: `Usuario creado desde administración con rol ${rolSeleccionado}.`
     });
 
-    return ok(res, { mensaje: 'Usuario creado correctamente.', idUsuario }, 201);
+    return ok(
+      res,
+      {
+        mensaje: 'Usuario registrado correctamente.',
+        idUsuario,
+        contrasenaTemporal
+      },
+      201
+    );
   } catch (error: any) {
     await connection.rollback();
 
@@ -147,11 +172,11 @@ export async function crearUsuario(req: Request, res: Response) {
     }
 
     if (error?.code === 'ER_NO_REFERENCED_ROW_2') {
-      return fail(res, `Falta uno de los roles en la tabla Rol. Ejecute el script SQL de roles mínimos.`, 500);
+      return fail(res, 'Falta el rol seleccionado en la tabla Rol.', 500);
     }
 
     console.error(error);
-    return fail(res, 'No se pudo crear el usuario.', 500);
+    return fail(res, 'No se pudo registrar el usuario.', 500);
   } finally {
     connection.release();
   }
@@ -167,57 +192,134 @@ export async function actualizarUsuario(req: Request, res: Response) {
 
   const data = parsed.data;
   const actor = req.user!;
+  const connection = await pool.getConnection();
 
-  const [actualRows] = await pool.query<any[]>(
-    `SELECT * FROM Usuario WHERE idUsuario = ? LIMIT 1`,
-    [idUsuario]
-  );
+  try {
+    await connection.beginTransaction();
 
-  const actual = actualRows[0];
-  if (!actual) return fail(res, 'Usuario no encontrado.', 404);
+    const [actualRows] = await connection.query<any[]>(
+      `SELECT * FROM Usuario WHERE idUsuario = ? LIMIT 1`,
+      [idUsuario]
+    );
 
-  const camposPermitidos = ['nombre1', 'nombre2', 'apellidoP', 'apellidoM', 'telefono', 'estado'];
-  const updates: string[] = [];
-  const values: unknown[] = [];
+    const actual = actualRows[0];
 
-  for (const campo of camposPermitidos) {
-    if (Object.prototype.hasOwnProperty.call(data, campo)) {
-      updates.push(`${campo} = ?`);
-      values.push((data as any)[campo]);
+    if (!actual) {
+      await connection.rollback();
+      return fail(res, 'Usuario no encontrado.', 404);
     }
-  }
 
-  if (updates.length === 0) {
-    return fail(res, 'No hay campos para actualizar.', 400);
-  }
+    const [rolActualRows] = await connection.query<any[]>(
+      `SELECT idRol FROM Usuario_Rol WHERE idUsuario = ? LIMIT 1`,
+      [idUsuario]
+    );
 
-  updates.push('fechaA = CURDATE()');
-  updates.push('usuarioA = ?');
-  values.push(actor.idUsuario);
-  values.push(idUsuario);
+    const rolAnterior = rolActualRows[0]?.idRol ?? null;
 
-  await pool.query(
-    `UPDATE Usuario SET ${updates.join(', ')} WHERE idUsuario = ?`,
-    values
-  );
+    const camposPermitidos = [
+      'nombre1',
+      'nombre2',
+      'apellidoP',
+      'apellidoM',
+      'ci',
+      'correo',
+      'telefono',
+      'fechaNacimiento',
+      'nit',
+      'razonSocial',
+      'estado'
+    ];
 
-  for (const campo of camposPermitidos) {
-    if (Object.prototype.hasOwnProperty.call(data, campo)) {
+    const updates: string[] = [];
+    const values: unknown[] = [];
+
+    for (const campo of camposPermitidos) {
+      if (Object.prototype.hasOwnProperty.call(data, campo)) {
+        updates.push(`${campo} = ?`);
+        values.push((data as any)[campo]);
+      }
+    }
+
+    if (updates.length > 0) {
+      updates.push('fechaA = CURDATE()');
+      updates.push('usuarioA = ?');
+      values.push(actor.idUsuario);
+      values.push(idUsuario);
+
+      await connection.query(
+        `UPDATE Usuario SET ${updates.join(', ')} WHERE idUsuario = ?`,
+        values
+      );
+    }
+
+    if (data.idRol && data.idRol.length > 0) {
+      const rolSeleccionado = data.idRol[0];
+
+      await connection.query(
+        `DELETE FROM Usuario_Rol WHERE idUsuario = ?`,
+        [idUsuario]
+      );
+
+      await connection.query(
+        `INSERT INTO Usuario_Rol (idUsuario, idRol) VALUES (?, ?)`,
+        [idUsuario, rolSeleccionado]
+      );
+    }
+
+    if (updates.length === 0 && !data.idRol) {
+      await connection.rollback();
+      return fail(res, 'No hay campos para actualizar.', 400);
+    }
+
+    await connection.commit();
+
+    for (const campo of camposPermitidos) {
+      if (Object.prototype.hasOwnProperty.call(data, campo)) {
+        await createAudit({
+          tablaNombre: 'Usuario',
+          registroId: idUsuario,
+          accion: 'USUARIO_MODIFICADO',
+          campo,
+          valorAnterior: actual[campo],
+          valorNuevo: (data as any)[campo],
+          usuarioA: actor.idUsuario,
+          req,
+          detalles: `Campo ${campo} actualizado desde administración.`
+        });
+      }
+    }
+
+    if (data.idRol && data.idRol[0] !== rolAnterior) {
       await createAudit({
-        tablaNombre: 'Usuario',
+        tablaNombre: 'Usuario_Rol',
         registroId: idUsuario,
-        accion: 'USUARIO_MODIFICADO',
-        campo,
-        valorAnterior: actual[campo],
-        valorNuevo: (data as any)[campo],
+        accion: 'ROL_USUARIO_MODIFICADO',
+        campo: 'idRol',
+        valorAnterior: rolAnterior,
+        valorNuevo: data.idRol[0],
         usuarioA: actor.idUsuario,
         req,
-        detalles: `Campo ${campo} modificado desde administración.`
+        detalles: 'Rol de usuario actualizado desde administración.'
       });
     }
-  }
 
-  return ok(res, { mensaje: 'Usuario actualizado correctamente.' });
+    return ok(res, { mensaje: 'Usuario actualizado correctamente.' });
+  } catch (error: any) {
+    await connection.rollback();
+
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return fail(res, 'El correo o CI ya está registrado.', 409);
+    }
+
+    if (error?.code === 'ER_NO_REFERENCED_ROW_2') {
+      return fail(res, 'El rol seleccionado no existe.', 500);
+    }
+
+    console.error(error);
+    return fail(res, 'No se pudo actualizar el usuario.', 500);
+  } finally {
+    connection.release();
+  }
 }
 
 export async function darBajaUsuario(req: Request, res: Response) {
