@@ -17,6 +17,9 @@ export default function HistorialPage() {
   const [filterFechaDesde, setFilterFechaDesde] = useState('');
   const [filterFechaHasta, setFilterFechaHasta] = useState('');
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
   // Estados para la vista previa del boleto (carrusel de QRs individuales)
   const [showModal, setShowModal] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState<any>(null);
@@ -41,6 +44,10 @@ export default function HistorialPage() {
   useEffect(() => {
     fetchHistorial();
   }, [user]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterPelicula, filterEstado, filterSalaTipo, filterFechaDesde, filterFechaHasta]);
 
   const handleDescargarPdf = async (numero: string) => {
     try {
@@ -113,6 +120,9 @@ export default function HistorialPage() {
     return true;
   });
 
+  const totalPages = Math.ceil(historialFiltrado.length / ITEMS_PER_PAGE) || 1;
+  const paginatedData = historialFiltrado.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   const parseLocalDate = (fecha: string | Date | null) => {
     if (!fecha) return null;
     if (fecha instanceof Date) return fecha;
@@ -139,7 +149,7 @@ export default function HistorialPage() {
     <section className="space-y-8">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Mi historial de compras</h2>
-        <span className="text-xs text-cinema-gray">{historialFiltrado.length} de {historial.length} compra(s)</span>
+        <span className="text-xs text-cinema-gray">{historialFiltrado.length} de {historial.length} compra(s) · Pág. {currentPage} de {totalPages}</span>
       </div>
       {message && <Message type={message.type} text={message.text} />}
 
@@ -214,7 +224,7 @@ export default function HistorialPage() {
       <div className="card-cine overflow-hidden">
         {/* VISTA MÓVIL (Tarjetas) */}
         <div className="md:hidden flex flex-col gap-4 p-4">
-          {historialFiltrado.map((h, i) => {
+          {paginatedData.map((h, i) => {
             const canCancel = h.estadoVenta === 'COMPLETADA' && (() => {
               const fechaFuncion = buildFuncionDateTime(h.fecha, h.horaInicio);
               if (!fechaFuncion) return false;
@@ -319,7 +329,7 @@ export default function HistorialPage() {
               </tr>
             </thead>
             <tbody>
-              {historialFiltrado.map((h, i) => {
+              {paginatedData.map((h, i) => {
                 const canCancel = h.estadoVenta === 'COMPLETADA' && (() => {
                   const fechaFuncion = buildFuncionDateTime(h.fecha, h.horaInicio);
                   if (!fechaFuncion) return false;
@@ -389,6 +399,42 @@ export default function HistorialPage() {
           </table>
         </div>
       </div>
+
+      {/* Paginacion */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage(p => p - 1)}
+            className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-bold text-cinema-gray/70 transition hover:border-white/20 hover:text-white disabled:opacity-30 disabled:pointer-events-none"
+          >
+            Anterior
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setCurrentPage(p)}
+              className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
+                p === currentPage
+                  ? 'bg-cinema-gold/15 text-cinema-gold shadow-sm shadow-cinema-gold/5'
+                  : 'text-cinema-gray/60 hover:bg-white/[0.04] hover:text-white'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage(p => p + 1)}
+            className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-bold text-cinema-gray/70 transition hover:border-white/20 hover:text-white disabled:opacity-30 disabled:pointer-events-none"
+          >
+            Siguiente
+          </button>
+        </div>
+      )}
 
       {/* VENTANA EMERGENTE (MODAL) CON VISTA PREVIA Y ACCIONES DE BOLETOS INDIVIDUALES */}
       {showModal && selectedVenta && (

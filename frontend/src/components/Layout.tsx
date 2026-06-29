@@ -107,6 +107,24 @@ export default function Layout() {
       <main className="relative z-10 mx-auto max-w-7xl overflow-x-hidden px-6 py-8">
         <Outlet />
       </main>
+
+      {user && roles.includes('CLIENTE') && (
+        <footer className="border-t border-white/[0.04] bg-white/[0.01]">
+          <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 px-6 py-8 sm:flex-row sm:justify-between">
+            <div className="flex items-center gap-3">
+              <img src={logoImg} alt="Cine La Paz" className="h-6 w-6 object-contain brightness-0 invert opacity-40" />
+              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-cinema-gold/60">Cine La Paz</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-4 text-[11px] text-cinema-gray/40">
+              <span>&copy; {new Date().getFullYear()} Cine La Paz</span>
+              <span className="hidden sm:inline">·</span>
+              <Link to="/compra" className="transition hover:text-cinema-gold/60">Comprar boletos</Link>
+              <span className="hidden sm:inline">·</span>
+              <Link to="/historial" className="transition hover:text-cinema-gold/60">Mi historial</Link>
+            </div>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

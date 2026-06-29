@@ -164,6 +164,13 @@ export default function CompraOnlinePage() {
     f.peliculaTitulo?.toLowerCase().includes(busqueda.toLowerCase())
   );
 
+  const peliculasPromo = peliculasBuscadas.filter(f =>
+    funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1)
+  );
+  const peliculasNormales = peliculasBuscadas.filter(f =>
+    !funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1)
+  );
+
   const modalFuncionesFiltradas = modalSelectedDate
     ? modalFunciones.filter(fn => fn.fecha === modalSelectedDate)
     : modalFunciones;
@@ -303,12 +310,78 @@ export default function CompraOnlinePage() {
               />
             </div>
           </div>
-          <div className="grid gap-6 lg:grid-cols-3">
-            {peliculasBuscadas.map(f => {
-              const hasPromo = funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1);
-              return (
-                <div key={f.idPelicula ?? f.peliculaTitulo} className={`group relative overflow-hidden rounded-3xl border bg-gradient-to-b from-white/[0.03] to-transparent transition-all duration-500 hover:shadow-xl hover:shadow-cinema-gold/5 ${hasPromo ? 'border-amber-500/40 shadow-lg shadow-amber-500/10' : 'border-white/[0.06]'} hover:border-cinema-gold/30`}>
-                  {/* Poster */}
+          {/* Seccion Promocion 2x1 */}
+          {peliculasPromo.length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500/20 to-amber-600/10 border border-amber-500/30 px-4 py-2">
+                  <svg className="h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                  <span className="text-sm font-black uppercase tracking-wider text-amber-400">Promocion 2x1</span>
+                </div>
+                <span className="text-xs text-cinema-gray/50">{peliculasPromo.length} pelicula(s)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3 mb-10">
+                {peliculasPromo.map(f => (
+                  <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-3xl border border-amber-500/40 bg-gradient-to-b from-amber-500/[0.04] to-transparent shadow-lg shadow-amber-500/10 transition-all duration-500 hover:border-cinema-gold/30 hover:shadow-xl hover:shadow-cinema-gold/5">
+                    <div className="relative overflow-hidden aspect-[2/3]">
+                      {f.peliculaPoster ? (
+                        <img src={f.peliculaPoster} alt={f.peliculaTitulo} className="w-full h-full object-cover transition duration-700 group-hover:scale-110" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-white/[0.03]">
+                          <span className="text-5xl opacity-20">🎬</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#08080d] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-black shadow-lg shadow-amber-500/40 animate-pulse">
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                        ¡2x1!
+                      </span>
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500">
+                        <button
+                          type="button"
+                          className="rounded-full bg-cinema-gold px-6 py-3 text-sm font-bold text-cinema-black shadow-2xl shadow-black/40 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 hover:bg-cinema-goldLight active:scale-95"
+                          onClick={() => openMovieModal(f)}
+                        >
+                          Comprar boletos
+                        </button>
+                      </div>
+                    </div>
+                    <div className="p-5 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="text-lg font-bold text-white leading-tight flex-1">{f.peliculaTitulo}</h4>
+                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-1 text-[11px] font-black text-black uppercase tracking-wider shadow-lg shadow-amber-500/30">
+                          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                          2x1
+                        </span>
+                      </div>
+                      {f.peliculaSinopsis && (
+                        <p className="text-sm leading-6 text-cinema-gray/80 line-clamp-3 hidden sm:block">{f.peliculaSinopsis}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2 pt-2">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-cream/80 uppercase tracking-wider border border-white/[0.06]">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          {f.peliculaDuracion ? formatDuration(f.peliculaDuracion) : '—'}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-gold uppercase tracking-wider border border-white/[0.06]">
+                          {f.peliculaClasificacion || 'TP'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Cartelera regular */}
+          <div>
+            <div className="flex items-center gap-3 mb-5">
+              <h3 className="text-lg font-bold text-white uppercase tracking-wider">Cartelera</h3>
+              <span className="text-xs text-cinema-gray/50">{peliculasNormales.length} pelicula(s)</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
+              {peliculasNormales.map(f => (
+                <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent transition-all duration-500 hover:border-cinema-gold/30 hover:shadow-xl hover:shadow-cinema-gold/5">
                   <div className="relative overflow-hidden aspect-[2/3]">
                     {f.peliculaPoster ? (
                       <img src={f.peliculaPoster} alt={f.peliculaTitulo} className="w-full h-full object-cover transition duration-700 group-hover:scale-110" />
@@ -317,16 +390,7 @@ export default function CompraOnlinePage() {
                         <span className="text-5xl opacity-20">🎬</span>
                       </div>
                     )}
-                    {/* Gradient overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-[#08080d] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    {/* Promo badge */}
-                    {hasPromo && (
-                      <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-black shadow-lg shadow-amber-500/40 animate-pulse">
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
-                        ¡2x1!
-                      </span>
-                    )}
-                    {/* Hover CTA */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500">
                       <button
                         type="button"
@@ -337,19 +401,10 @@ export default function CompraOnlinePage() {
                       </button>
                     </div>
                   </div>
-                  {/* Info */}
                   <div className="p-5 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-lg font-bold text-white leading-tight flex-1">{f.peliculaTitulo}</h4>
-                      {hasPromo && (
-                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-1 text-[11px] font-black text-black uppercase tracking-wider shadow-lg shadow-amber-500/30">
-                          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
-                          2x1
-                        </span>
-                      )}
-                    </div>
+                    <h4 className="text-lg font-bold text-white leading-tight">{f.peliculaTitulo}</h4>
                     {f.peliculaSinopsis && (
-                      <p className="text-sm leading-6 text-cinema-gray/80 line-clamp-3">{f.peliculaSinopsis}</p>
+                      <p className="text-sm leading-6 text-cinema-gray/80 line-clamp-3 hidden sm:block">{f.peliculaSinopsis}</p>
                     )}
                     <div className="flex flex-wrap items-center gap-2 pt-2">
                       <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-cream/80 uppercase tracking-wider border border-white/[0.06]">
@@ -362,13 +417,13 @@ export default function CompraOnlinePage() {
                     </div>
                   </div>
                 </div>
-              );
-            })}
-            {peliculasBuscadas.length === 0 && (
-              <p className="text-cinema-gray col-span-full text-center py-8">
-                {busqueda ? `No hay películas que coincidan con "${busqueda}".` : 'No hay películas disponibles en este momento.'}
-              </p>
-            )}
+              ))}
+              {peliculasNormales.length === 0 && peliculasPromo.length === 0 && (
+                <p className="text-cinema-gray col-span-full text-center py-8">
+                  {busqueda ? `No hay películas que coincidan con "${busqueda}".` : 'No hay películas disponibles en este momento.'}
+                </p>
+              )}
+            </div>
           </div>
         </>
       )}
