@@ -267,6 +267,10 @@ export function sendPdfFile(doc: any, chunks: Uint8Array[], filePath: string) {
 // ── Utility ─────────────────────────────────────────────────
 
 export function formatDateEs(date: string | Date): string {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [y, m, d] = date.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-BO');
+  }
   return new Date(date).toLocaleDateString('es-BO');
 }
 
