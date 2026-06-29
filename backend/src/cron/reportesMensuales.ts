@@ -15,8 +15,8 @@ function getMesAnterior(): { fechaInicio: string; fechaFin: string; etiqueta: st
   const primerDiaMesAnterior = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1);
   const ultimoDiaMesAnterior = new Date(ahora.getFullYear(), ahora.getMonth(), 0);
 
-  const fi = primerDiaMesAnterior.toISOString().split('T')[0];
-  const ff = ultimoDiaMesAnterior.toISOString().split('T')[0];
+  const fi = `${primerDiaMesAnterior.getFullYear()}-${String(primerDiaMesAnterior.getMonth() + 1).padStart(2, '0')}-${String(primerDiaMesAnterior.getDate()).padStart(2, '0')}`;
+  const ff = `${ultimoDiaMesAnterior.getFullYear()}-${String(ultimoDiaMesAnterior.getMonth() + 1).padStart(2, '0')}-${String(ultimoDiaMesAnterior.getDate()).padStart(2, '0')}`;
 
   const meses = [
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',

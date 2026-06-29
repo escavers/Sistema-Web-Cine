@@ -40,7 +40,7 @@ export async function obtenerAsientosPorFuncion(req: Request<{ id: string }>, re
              AND b.idAsiento = a.idAsiento
              AND b.estadoA = 1
          ) THEN 0
-         ELSE a.estado
+         ELSE 1
        END AS estado
      FROM Asiento a
      JOIN Funcion f ON a.idSala = f.idSala

@@ -42,6 +42,21 @@ interface MovieWithFunciones {
   funciones: FuncionItem[];
 }
 
+const parseLocalDate = (dateStr: string) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+const formatDateLocal = (dateStr: string) => {
+  if (!dateStr) return '';
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-BO');
+  } catch {
+    return dateStr;
+  }
+};
+
 export default function FuncionesPage() {
   const [funciones, setFunciones] = useState<any[]>([]);
   const [peliculas, setPeliculas] = useState<any[]>([]);
@@ -99,7 +114,7 @@ export default function FuncionesPage() {
 
   const validateFecha = (value: string): { valid: boolean; error: string } => {
     if (!value) return { valid: false, error: 'La fecha es obligatoria' };
-    const fecha = new Date(value);
+    const fecha = parseLocalDate(value);
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     if (fecha < hoy) return { valid: false, error: 'No puedes programar fechas pasadas' };
@@ -182,7 +197,7 @@ export default function FuncionesPage() {
       if (conflictingDate) {
         return {
           ...validations,
-          horaInicio: { valid: false, error: `⚠ Conflicto en programación masiva: la sala ya tiene una función el ${new Date(conflictingDate).toLocaleDateString('es-BO')}` },
+          horaInicio: { valid: false, error: `⚠ Conflicto en programación masiva: la sala ya tiene una función el ${formatDateLocal(conflictingDate)}` },
         };
       }
     }
@@ -292,12 +307,15 @@ export default function FuncionesPage() {
 
   const generarFechasEnRango = (inicio: string, fin: string, dias: number[]): string[] => {
     const resultado: string[] = [];
-    const fechaInicio = new Date(inicio);
-    const fechaFin = new Date(fin);
+    const fechaInicio = parseLocalDate(inicio);
+    const fechaFin = parseLocalDate(fin);
 
     for (let d = new Date(fechaInicio); d <= fechaFin; d.setDate(d.getDate() + 1)) {
       if (dias.includes(d.getDay())) {
-        resultado.push(d.toISOString().split('T')[0]);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        resultado.push(`${y}-${m}-${day}`);
       }
     }
 
@@ -331,8 +349,9 @@ export default function FuncionesPage() {
         precioBase: Number(form.precioBase),
       };
 
-      await api.crearFuncion(payload);
-      setMessage({ type: 'ok', text: 'Función creada correctamente.' });
+      const res = await api.crearFuncion(payload);
+      const promoMsg = res.promocionActivada ? ' ¡2x1 activado!' : '';
+      setMessage({ type: 'ok', text: 'Función creada correctamente.' + promoMsg });
       setForm(initial);
       setValidations({
         idSala: { valid: false, error: '' },
@@ -377,6 +396,7 @@ export default function FuncionesPage() {
 
       let exitosas = 0;
       let conflictos = 0;
+      let promocionActivadaCount = 0;
 
       for (const fecha of fechas) {
         if (hasScheduleConflict(form.idSala, fecha, form.horaInicio, duracion)) {
@@ -392,13 +412,15 @@ export default function FuncionesPage() {
           horaFin: horaFin + ':00',
           precioBase: Number(form.precioBase),
         };
-        await api.crearFuncion(payload);
+        const res = await api.crearFuncion(payload);
+        if (res.promocionActivada) promocionActivadaCount++;
         exitosas++;
       }
 
+      const promoMsg = promocionActivadaCount > 0 ? ` (${promocionActivadaCount} con 2x1 activado)` : '';
       setMessage({
         type: 'ok',
-        text: `${exitosas} función(es) creada(s). ${conflictos > 0 ? `${conflictos} con conflictos de horario.` : ''}`,
+        text: `${exitosas} función(es) creada(s).${promoMsg} ${conflictos > 0 ? `${conflictos} con conflictos de horario.` : ''}`,
       });
 
       setForm(initial);
@@ -449,7 +471,7 @@ export default function FuncionesPage() {
       if (!masivaDatos.fechaInicio) return '❌ Ingresa la fecha de inicio';
       if (!masivaDatos.fechaFin) return '❌ Ingresa la fecha de fin';
       if (masivaDatos.diasSeleccionados.length === 0) return '❌ Selecciona al menos un día de la semana';
-      if (new Date(masivaDatos.fechaInicio) > new Date(masivaDatos.fechaFin)) return '❌ La fecha de fin debe ser posterior a la fecha de inicio';
+      if (parseLocalDate(masivaDatos.fechaInicio) > parseLocalDate(masivaDatos.fechaFin)) return '❌ La fecha de fin debe ser posterior a la fecha de inicio';
     } else {
       if (!validations.fecha.valid) return '❌ Selecciona una fecha válida';
     }
@@ -652,7 +674,7 @@ export default function FuncionesPage() {
                 <div className="space-y-2 text-sm">
                   {form.idPelicula && <div className="flex justify-between"><span className="text-cinema-gray">Película:</span><span className="text-cinema-cream font-semibold">{peliculaSeleccionada?.titulo}</span></div>}
                   {form.idSala && <div className="flex justify-between"><span className="text-cinema-gray">Sala:</span><span className="text-cinema-cream font-semibold">{form.idSala}</span></div>}
-                  {!programacionMasiva && form.fecha && <div className="flex justify-between"><span className="text-cinema-gray">Fecha:</span><span className="text-cinema-cream">{new Date(form.fecha).toLocaleDateString('es-BO')}</span></div>}
+                  {!programacionMasiva && form.fecha && <div className="flex justify-between"><span className="text-cinema-gray">Fecha:</span><span className="text-cinema-cream">{formatDateLocal(form.fecha)}</span></div>}
                   {form.horaInicio && <div className="flex justify-between"><span className="text-cinema-gray">Inicio:</span><span className="text-cinema-cream">{form.horaInicio}</span></div>}
                   {form.horaInicio && <div className="flex justify-between"><span className="text-cinema-gray">Fin:</span><span className="text-cinema-gold font-semibold">{horaFinalCalculada}</span></div>}
                   {form.precioBase && <div className="flex justify-between border-t border-white/10 pt-2 mt-2"><span className="text-cinema-gray">Precio:</span><span className="text-green-400 font-semibold">Bs. {Number(form.precioBase).toFixed(2)}</span></div>}
@@ -663,7 +685,7 @@ export default function FuncionesPage() {
             {/* Agenda de la sala */}
             {form.idSala && form.fecha && funcionesSalaSeleccionada.length > 0 && (
               <div className="soft-card border-white/10 space-y-2">
-                <h4 className="text-xs font-bold text-cinema-cream uppercase tracking-wider">📅 Agenda {form.idSala} - {new Date(form.fecha).toLocaleDateString('es-BO')}</h4>
+                <h4 className="text-xs font-bold text-cinema-cream uppercase tracking-wider">📅 Agenda {form.idSala} - {formatDateLocal(form.fecha)}</h4>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {funcionesSalaSeleccionada.map(f => (
                     <div key={f.idFuncion} className="text-xs bg-white/[0.05] p-2 rounded border border-white/10">
@@ -727,7 +749,7 @@ export default function FuncionesPage() {
                       </div>
                       <div className="text-xs text-cinema-gray space-y-1">
                         <p>Sala(s): <span className="text-white">{rooms.join(', ')}</span></p>
-                        <p>Última fecha: <span className="text-white">{ultimaFecha ? new Date(ultimaFecha).toLocaleDateString('es-BO') : '---'}</span></p>
+                        <p>Última fecha: <span className="text-white">{ultimaFecha ? formatDateLocal(ultimaFecha) : '---'}</span></p>
                       </div>
                       <button
                         type="button"
@@ -779,7 +801,7 @@ export default function FuncionesPage() {
                   <div key={fecha} className="space-y-3">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="text-sm font-semibold text-cinema-cream">{new Date(fecha).toLocaleDateString('es-BO')}</p>
+                        <p className="text-sm font-semibold text-cinema-cream">{formatDateLocal(fecha)}</p>
                         <p className="text-xs text-cinema-gray">{funcs.length} función(es)</p>
                       </div>
                       <button

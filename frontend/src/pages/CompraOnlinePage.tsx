@@ -292,11 +292,6 @@ export default function CompraOnlinePage() {
               <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] transition hover:border-cinema-gold/30">
                 {f.peliculaPoster && (
                   <div className="relative overflow-hidden">
-                    {funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1) && (
-                      <span className="absolute left-4 top-4 z-10 rounded-full bg-cinema-gold px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-cinema-black shadow-md shadow-black/50">
-                        🔥 ¡2x1 Activo!
-                      </span>
-                    )}
                     <img src={f.peliculaPoster} alt={f.peliculaTitulo} className="w-full object-contain max-h-[36rem] mx-auto transition duration-500 group-hover:scale-105" />
                     <div className="pointer-events-none absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/20" />
                     <button
@@ -309,7 +304,14 @@ export default function CompraOnlinePage() {
                   </div>
                 )}
                 <div className="space-y-3 p-5">
-                  <h4 className="text-lg font-bold text-white">{f.peliculaTitulo}</h4>
+                  <h4 className="text-lg font-bold text-white">
+                    {f.peliculaTitulo}
+                    {funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1) && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-cinema-gold to-cinema-goldLight px-3 py-1 text-xs font-black uppercase tracking-wider text-cinema-black shadow-lg shadow-cinema-gold/25 align-middle">
+                        🔥 2x1
+                      </span>
+                    )}
+                  </h4>
                   {f.peliculaSinopsis && (
                     <p className="text-sm leading-6 text-cinema-gray line-clamp-4">{f.peliculaSinopsis}</p>
                   )}

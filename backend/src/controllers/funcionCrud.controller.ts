@@ -55,9 +55,36 @@ export async function crearFuncion(req: Request, res: Response) {
     [d.idSala, d.idPelicula, d.fecha, d.horaInicio, d.horaFin, d.precioBase, actor.idUsuario]
   );
 
+  let promocionActivada = false;
+  const [peliculaRows] = await pool.query<any[]>(
+    `SELECT fechaEstreno FROM Pelicula WHERE idPelicula = ? AND estadoA = 1`,
+    [d.idPelicula]
+  );
+
+  if (peliculaRows.length > 0) {
+    const fechaEstreno = peliculaRows[0].fechaEstreno;
+    if (fechaEstreno) {
+      const [checkRows] = await pool.query<any[]>(
+        `SELECT ? <= DATE_SUB(CURDATE(), INTERVAL 30 DAY) as elegible`,
+        [fechaEstreno instanceof Date ? fechaEstreno.toISOString().split('T')[0] : String(fechaEstreno).split('T')[0]]
+      );
+      if (checkRows[0]?.elegible === 1) {
+        await pool.query(
+          'UPDATE Funcion SET promocionActiva = 1, fechaA = CURDATE(), usuarioA = ? WHERE idFuncion = ?',
+          [actor.idUsuario, result.insertId]
+        );
+        promocionActivada = true;
+      }
+    }
+  }
+
   await createAudit({ tablaNombre: 'Funcion', registroId: result.insertId, accion: 'FUNCION_CREADA', usuarioA: actor.idUsuario, req });
 
-  return ok(res, { mensaje: 'Función creada correctamente.', idFuncion: result.insertId }, 201);
+  return ok(res, {
+    mensaje: 'Función creada correctamente.',
+    idFuncion: result.insertId,
+    promocionActivada,
+  }, 201);
 }
 
 export async function eliminarFuncion(req: Request, res: Response) {

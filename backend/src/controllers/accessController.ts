@@ -258,7 +258,8 @@ async function _processValidatedBoleto(connection: any, boleto: any, idEncargado
 
   const funcion = funciones[0];
 
-  const today = new Date().toLocaleDateString('sv-SE');
+  const [dateRows] = await connection.query('SELECT CURDATE() as today');
+  const today = dateRows[0]?.today;
   if (funcion.fecha !== today) {
     return { valido: false, motivo: 'FECHA_INCORRECTA', mensaje: `Esta entrada es para la fecha ${funcion.fecha}. Fecha actual del sistema: ${today}.` };
   }

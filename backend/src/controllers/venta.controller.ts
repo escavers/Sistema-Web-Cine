@@ -83,15 +83,8 @@ export async function crearVenta(req: Request, res: Response) {
     const idVenta = ventaResult.insertId as number;
 
     for (const idAsiento of data.asientos) {
-      const codigoAcceso = generateAccessCode();
-      await connection.query(
-        `INSERT INTO Boleto (idAsiento, idVenta, precioPagado, codigoAcceso, estadoA, fechaA, usuarioA)
-         VALUES (?, ?, ?, ?, 1, NOW(), ?)`,
-        [idAsiento, idVenta, montoTotal / data.asientos.length, codigoAcceso, data.usuarioA]
-      );
-
       const [seatRows] = await connection.query<any[]>(
-        'SELECT estado FROM Asiento WHERE idAsiento = ? FOR UPDATE',
+        'SELECT idAsiento FROM Asiento WHERE idAsiento = ? FOR UPDATE',
         [idAsiento]
       );
 
@@ -100,14 +93,24 @@ export async function crearVenta(req: Request, res: Response) {
         return fail(res, `Asiento no encontrado: ${idAsiento}`, 404);
       }
 
-      if (!seatRows[0].estado) {
+      const [existingBoleto] = await connection.query<any[]>(
+        `SELECT 1 FROM Boleto b
+         JOIN Venta v ON b.idVenta = v.idVenta
+         WHERE v.idFuncion = ? AND b.idAsiento = ? AND b.estadoA = 1
+         LIMIT 1`,
+        [data.idFuncion, idAsiento]
+      );
+
+      if (existingBoleto.length > 0) {
         await connection.rollback();
-        return fail(res, `Asiento ocupado: ${idAsiento}`, 409);
+        return fail(res, `Asiento ya vendido: ${idAsiento}`, 409);
       }
 
+      const codigoAcceso = generateAccessCode();
       await connection.query(
-        'UPDATE Asiento SET estado = 0, usuarioA = ? WHERE idAsiento = ?',
-        [data.usuarioA, idAsiento]
+        `INSERT INTO Boleto (idAsiento, idVenta, precioPagado, codigoAcceso, estadoA, fechaA, usuarioA)
+         VALUES (?, ?, ?, ?, 1, NOW(), ?)`,
+        [idAsiento, idVenta, montoTotal / data.asientos.length, codigoAcceso, data.usuarioA]
       );
     }
 

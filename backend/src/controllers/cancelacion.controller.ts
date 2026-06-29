@@ -72,13 +72,6 @@ export async function cancelarVenta(req: Request, res: Response) {
       [idVenta, actor.idUsuario]
     );
 
-    for (const { idAsiento } of boletosRows) {
-      await connection.query(
-        'UPDATE Asiento SET estado = 1, usuarioA = ? WHERE idAsiento = ?',
-        [actor.idUsuario, idAsiento]
-      );
-    }
-
     await connection.query(
       'UPDATE Boleto SET estadoA = 0, fechaA = NOW(), usuarioA = ? WHERE idVenta = ?',
       [actor.idUsuario, idVenta]

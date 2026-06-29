@@ -188,7 +188,7 @@ async function seed() {
     for (let dia = 0; dia < 7; dia++) {
       const fecha = new Date(hoy);
       fecha.setDate(hoy.getDate() + dia);
-      const fechaStr = fecha.toISOString().split('T')[0];
+      const fechaStr = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
 
       for (const sala of salasRows) {
         const precio = precios[sala.tipo] || 20;

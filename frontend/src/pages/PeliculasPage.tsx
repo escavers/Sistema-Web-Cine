@@ -110,6 +110,23 @@ interface Validations {
   clasificacionEdad: { valid: boolean; error: string };
 }
 
+const PAGE_SIZE = 10;
+
+const parseLocalDate = (dateStr: string) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+const formatDateLocal = (dateStr: string) => {
+  if (!dateStr) return '';
+  try {
+    const [y, m, d] = dateStr.split('T')[0].split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-BO');
+  } catch {
+    return dateStr;
+  }
+};
+
 export default function PeliculasPage() {
   const [peliculas, setPeliculas] = useState<any[]>([]);
   const [form, setForm] = useState(initial);
@@ -128,6 +145,10 @@ export default function PeliculasPage() {
     clasificacionEdad: { valid: true, error: '' },
   });
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Funciones de validación
   const validateTitulo = (value: string): { valid: boolean; error: string } => {
@@ -299,6 +320,19 @@ export default function PeliculasPage() {
   }
 
   const allValidationsValid = Object.values(validations).every(v => v.valid);
+
+  const filtered = peliculas.filter(p => {
+    const matchName = p.titulo.toLowerCase().includes(searchText.toLowerCase());
+    const estreno = p.fechaEstreno ? p.fechaEstreno.split('T')[0] : '';
+    const matchDate = (!filterDateFrom || estreno >= filterDateFrom) && (!filterDateTo || estreno <= filterDateTo);
+    return matchName && matchDate;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  useEffect(() => { setCurrentPage(1); }, [searchText, filterDateFrom, filterDateTo]);
 
   const SummaryCard = () => {
     if (!form.titulo && !form.posterUrl) return null;
@@ -495,7 +529,32 @@ export default function PeliculasPage() {
       {/* Tabla de películas */}
       <div className="card-cine overflow-hidden">
         <div className="border-b border-white/10 px-6 py-5">
-          <h3 className="text-xl font-bold text-white">Películas en cartelera</h3>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <h3 className="text-xl font-bold text-white">Películas en cartelera</h3>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Buscar por nombre..."
+                className="input-cine w-full sm:w-56 border border-white/10 bg-slate-950 text-sm text-white placeholder:text-cinema-gray"
+              />
+              <input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="input-cine w-full sm:w-40 border border-white/10 bg-slate-950 text-sm text-white"
+                title="Fecha estreno desde"
+              />
+              <input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                className="input-cine w-full sm:w-40 border border-white/10 bg-slate-950 text-sm text-white"
+                title="Fecha estreno hasta"
+              />
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm text-cinema-gray">
@@ -510,13 +569,13 @@ export default function PeliculasPage() {
               </tr>
             </thead>
             <tbody>
-              {peliculas.map(p => (
+              {paginated.map(p => (
                 <tr key={p.idPelicula} className="border-t border-white/5">
                   <td className="px-5 py-4 text-white font-medium">{p.titulo}</td>
                   <td className="px-5 py-4">{p.director || '—'}</td>
                   <td className="px-5 py-4">{p.duracionMinutos ? `${p.duracionMinutos} min` : '—'}</td>
                   <td className="px-5 py-4">{p.clasificacionEdad}</td>
-                  <td className="px-5 py-4">{p.fechaEstreno ? new Date(p.fechaEstreno).toLocaleDateString('es-BO') : '—'}</td>
+                  <td className="px-5 py-4">{p.fechaEstreno ? formatDateLocal(p.fechaEstreno) : '—'}</td>
                   <td className="px-5 py-4">
                     <div className="flex gap-2">
                       <button className="btn-secondary px-3 py-1" onClick={() => edit(p)}>Editar</button>
@@ -525,12 +584,39 @@ export default function PeliculasPage() {
                   </td>
                 </tr>
               ))}
-              {peliculas.length === 0 && (
+              {filtered.length === 0 && (
                 <tr><td className="px-5 py-8 text-center" colSpan={6}>No hay películas registradas.</td></tr>
               )}
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 border-t border-white/10 px-6 py-4">
+            <button
+              className="btn-secondary px-3 py-1 text-xs"
+              disabled={safePage <= 1}
+              onClick={() => setCurrentPage(safePage - 1)}
+            >
+              Anterior
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button
+                key={p}
+                className={`px-3 py-1 text-xs rounded-lg border transition ${p === safePage ? 'bg-cinema-gold text-cinema-black border-cinema-gold font-bold' : 'border-white/10 text-cinema-gray hover:border-white/20'}`}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              className="btn-secondary px-3 py-1 text-xs"
+              disabled={safePage >= totalPages}
+              onClick={() => setCurrentPage(safePage + 1)}
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -4,34 +4,36 @@
 
 body {
   margin: 0;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: Sora, system-ui, sans-serif;
   background-color: #0a0a0f;
   color: #e2e8f0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ── Card principal cine ── */
 .card-cine {
-  @apply rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur;
+  @apply rounded-3xl border border-white/[0.07] bg-white/[0.03] backdrop-blur shadow-lg shadow-black/20;
 }
 
 /* ── Card suave ── */
 .soft-card {
-  @apply rounded-2xl border border-white/5 bg-white/[0.03] p-5;
+  @apply rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5;
 }
 
 /* ── Botón primario (dorado) ── */
 .btn-primary {
-  @apply rounded-xl bg-cinema-gold px-5 py-2.5 text-sm font-semibold text-cinema-black transition hover:bg-cinema-goldLight active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed;
+  @apply rounded-xl bg-cinema-gold px-5 py-2.5 text-sm font-semibold text-cinema-black transition-all duration-200 hover:bg-cinema-goldLight hover:shadow-lg hover:shadow-cinema-gold/20 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none;
 }
 
 /* ── Botón secundario (outline) ── */
 .btn-secondary {
-  @apply rounded-xl border border-white/15 bg-white/[0.05] px-5 py-2.5 text-sm font-semibold text-cinema-cream transition hover:bg-white/[0.1] active:scale-[0.97];
+  @apply rounded-xl border border-white/[0.12] bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-cinema-cream transition-all duration-200 hover:bg-white/[0.1] hover:border-white/20 active:scale-[0.97];
 }
 
 /* ── Input de formulario ── */
 .input-cine {
-  @apply mt-2 w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder-cinema-gray/50 outline-none transition focus:border-cinema-gold/50 focus:ring-1 focus:ring-cinema-gold/30;
+  @apply mt-2 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 py-2.5 text-sm text-white placeholder-cinema-gray/50 outline-none transition-all duration-200 focus:border-cinema-gold/60 focus:bg-white/[0.08] focus:ring-1 focus:ring-cinema-gold/20;
 }
 
 select.input-cine {
@@ -42,6 +44,10 @@ select.input-cine {
   background-size: 14px 10px;
   padding-right: 3rem;
   color: white;
+}
+
+select.input-cine:focus {
+  background-image: url("data:image/svg+xml,%3Csvg width='14' height='10' viewBox='0 0 14 10' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L7 7L13 1' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 select.input-cine option {
@@ -65,6 +71,16 @@ select.input-cine option {
 /* ── Label de formulario ── */
 .label-cine {
   @apply block text-xs font-semibold uppercase tracking-[0.15em] text-cinema-cream/70;
+}
+
+/* ── Animación de entrada ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+section {
+  animation: fade-up 0.3s ease-out;
 }
 
 /* ── Scrollbar personalizado ── */
