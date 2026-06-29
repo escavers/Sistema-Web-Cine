@@ -9,10 +9,8 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware);
-
-router.get('/:numero', requireRoles('ADMINISTRADOR', 'BOLETERIA', 'CLIENTE'), obtenerComprobantePorNumero);
-router.get('/:numero/pdf', requireRoles('ADMINISTRADOR', 'BOLETERIA', 'CLIENTE'), descargarComprobantePdf);
-router.get('/:numero/ticket', requireRoles('ADMINISTRADOR', 'BOLETERIA', 'CLIENTE'), descargarComprobanteTicketPdf);
+router.get('/:numero', authMiddleware, requireRoles('ADMINISTRADOR', 'BOLETERIA', 'CLIENTE'), obtenerComprobantePorNumero);
+router.get('/:numero/pdf', descargarComprobantePdf);
+router.get('/:numero/ticket', authMiddleware, requireRoles('ADMINISTRADOR', 'BOLETERIA'), descargarComprobanteTicketPdf);
 
 export default router;

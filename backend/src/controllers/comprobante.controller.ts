@@ -29,7 +29,8 @@ const comprobanteQuery = `
     pel.titulo AS peliculaTitulo,
     pel.posterUrl AS peliculaPoster,
     pel.clasificacionEdad AS peliculaClasificacion,
-    GROUP_CONCAT(CONCAT(a.fila, a.columna) ORDER BY a.fila, a.columna SEPARATOR ', ') AS asientos
+    GROUP_CONCAT(CONCAT(a.fila, a.columna) ORDER BY a.fila, a.columna SEPARATOR ', ') AS asientos,
+    u.ci AS clienteCi
   FROM Comprobante c
   JOIN Venta v ON c.idVenta = v.idVenta
   JOIN Funcion f ON v.idFuncion = f.idFuncion
@@ -37,12 +38,14 @@ const comprobanteQuery = `
   LEFT JOIN Asiento a ON b.idAsiento = a.idAsiento
   LEFT JOIN Sala s ON f.idSala = s.idSala
   LEFT JOIN Pelicula pel ON f.idPelicula = pel.idPelicula
+  LEFT JOIN Usuario u ON v.idCliente = u.idUsuario
 `;
 
 const comprobanteGroupBy = `
   GROUP BY c.idComprobante, c.numero, c.fechaEmision, c.nitCliente, c.razonSocialCliente,
     v.idVenta, v.fechaCompra, v.tipo, v.montoTotal, v.metodoPago, v.codigoTransaccion,
-    f.idFuncion, f.fecha, f.horaInicio, f.horaFin, f.idSala, s.tipo, pel.titulo, pel.posterUrl, pel.clasificacionEdad
+    f.idFuncion, f.fecha, f.horaInicio, f.horaFin, f.idSala, s.tipo, pel.titulo, pel.posterUrl, pel.clasificacionEdad,
+    u.ci
 `;
 
 async function getBoletos(idVenta: number): Promise<{ idBoleto: number; idAsiento: string; codigoAcceso: string | null }[]> {
@@ -99,7 +102,7 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   const MARGIN = 40;
   const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
 
-  // ÔöÇÔöÇÔöÇ Encabezado ÔöÇÔöÇÔöÇ
+  // ── Encabezado ──
   doc.fontSize(24).font('Helvetica-Bold').fillColor('#1a1a1a');
   doc.text('COMPROBANTE DE COMPRA', { align: 'center' });
   doc.fontSize(10).font('Helvetica').fillColor('#666666');
@@ -108,33 +111,33 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).stroke('#cccccc');
   doc.moveDown(0.5);
 
-  // ÔöÇÔöÇÔöÇ Datos del comprobante ÔöÇÔöÇÔöÇ
+  // ── Datos del comprobante ──
   doc.fontSize(10).font('Helvetica').fillColor('#333333');
-  doc.text(`Comprobante Nº: ${comprobante.numero}`);
-  doc.text(`Fecha de emisión: ${new Date(comprobante.fechaEmision).toLocaleString('es-BO')}`);
+  doc.text(`Comprobante N°: ${comprobante.numero}`);
+  doc.text(`Fecha de emision: ${new Date(comprobante.fechaEmision).toLocaleString('es-BO')}`);
   doc.text(`Fecha de compra: ${new Date(comprobante.fechaCompra).toLocaleString('es-BO')}`);
-  doc.text(`Canal: ${comprobante.canal === 'ONLINE' ? 'Compra en línea' : 'Venta presencial'}`);
-  doc.text(`Método de pago: ${comprobante.metodoPago === 'QR' ? 'Código QR' : comprobante.metodoPago}`);
+  doc.text(`Canal: ${comprobante.canal === 'ONLINE' ? 'Compra en linea' : 'Venta presencial'}`);
+  doc.text(`Metodo de pago: ${comprobante.metodoPago === 'QR' ? 'Codigo QR' : comprobante.metodoPago}`);
   doc.moveDown(0.6);
 
-  // ─── Sección de película ───
-  drawSectionTitle(doc, 'PELÍCULA', MARGIN, PAGE_WIDTH);
+  // ─── Seccion de pelicula ───
+  drawSectionTitle(doc, 'PELICULA', MARGIN, PAGE_WIDTH);
   doc.fontSize(10).font('Helvetica').fillColor('#333333');
-  doc.text(`Título: ${comprobante.peliculaTitulo}`, MARGIN + 5);
+  doc.text(`Titulo: ${comprobante.peliculaTitulo}`, MARGIN + 5);
   doc.text(`Sala: ${comprobante.salaTipo} (${comprobante.idSala})`, MARGIN + 5);
   doc.text(`Fecha: ${formatDateEs(comprobante.fecha)}`, MARGIN + 5);
   doc.text(`Hora: ${comprobante.horaInicio} - ${comprobante.horaFin}`, MARGIN + 5);
   doc.text(`Asientos: ${comprobante.asientos}`, MARGIN + 5);
   doc.moveDown(0.6);
 
-  // ─── Sección de cliente ───
+  // ─── Seccion de cliente ───
   drawSectionTitle(doc, 'DATOS DEL CLIENTE', MARGIN, PAGE_WIDTH);
   doc.fontSize(10).font('Helvetica').fillColor('#333333');
-  doc.text(`Razón social: ${comprobante.razonSocialCliente || 'Consumidor Final'}`, MARGIN + 5);
-  doc.text(`NIT/CI: ${comprobante.nitCliente || 'N/A'}`, MARGIN + 5);
+  doc.text(`Nombre: ${comprobante.razonSocialCliente || 'Consumidor Final'}`, MARGIN + 5);
+  doc.text(`CI / NIT: ${comprobante.nitCliente || comprobante.clienteCi || 'N/A'}`, MARGIN + 5);
   doc.moveDown(0.6);
 
-  // ÔöÇÔöÇÔöÇ Resumen de pago (tabla) ÔöÇÔöÇÔöÇ
+  // ── Resumen de pago (tabla) ──
   drawSectionTitle(doc, 'RESUMEN DE PAGO', MARGIN, PAGE_WIDTH);
 
   const columns: TableColumn[] = [
@@ -171,7 +174,7 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   doc.moveDown(0.3);
   doc.fontSize(9).font('Helvetica').fillColor('#999999');
   doc.text('Gracias por comprar en Cine La Paz', { align: 'center' });
-  doc.text('El pase de entrada con código QR se descarga por separado', { align: 'center' });
+  doc.text('Los pases de entrada con codigo QR se descargan por separado.', { align: 'center' });
 
   addPageFooters(doc);
   await sendPdf(res, doc, chunks, comprobante.numero);

@@ -116,14 +116,18 @@ export async function crearVenta(req: Request, res: Response) {
 
     let nitToUse = data.nitCliente || null;
     let razonToUse = data.razonSocialCliente || null;
-    if ((!nitToUse || !razonToUse) && data.idCliente) {
+    if (data.idCliente) {
       const [clienteRows] = await connection.query<any[]>(
-        'SELECT nit, razonSocial FROM Usuario WHERE idUsuario = ?',
+        'SELECT ci, nit, razonSocial, nombre1, nombre2, apellidoP, apellidoM FROM Usuario WHERE idUsuario = ?',
         [data.idCliente]
       );
       if (clienteRows.length) {
-        nitToUse = nitToUse || clienteRows[0].nit;
-        razonToUse = razonToUse || clienteRows[0].razonSocial;
+        const u = clienteRows[0];
+        nitToUse = nitToUse || u.nit || u.ci || null;
+        if (!razonToUse) {
+          const nombreCompleto = [u.nombre1, u.nombre2, u.apellidoP, u.apellidoM].filter(Boolean).join(' ');
+          razonToUse = u.razonSocial || nombreCompleto || null;
+        }
       }
     }
 

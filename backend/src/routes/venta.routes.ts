@@ -13,7 +13,6 @@ const router = Router();
 router.get('/funciones', listarFunciones);
 router.get('/funciones/:id/asientos', obtenerAsientosPorFuncion);
 router.get('/comprobantes/:numero', obtenerComprobantePorNumero);
-router.get('/comprobantes/:numero/pdf', descargarComprobantePdf);
 router.get('/comprobantes/:numero/ticket', authMiddleware, requireRoles('BOLETERIA', 'ADMINISTRADOR'), descargarComprobanteTicketPdf);
 
 router.post('/ventas', authMiddleware, requireRoles('CLIENTE', 'BOLETERIA', 'ADMINISTRADOR'), crearVenta);

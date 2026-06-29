@@ -58,40 +58,79 @@ export async function sendComprobanteEmailInternal(idVenta: number, email: strin
       const html = `
       <!DOCTYPE html>
       <html>
-      <head><meta charset="UTF-8"><style>
-        body{font-family:Arial,sans-serif;background:#f8fafc;margin:0;padding:20px}
-        .c{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);overflow:hidden}
-        .h{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#0a0a0f;padding:30px;text-align:center}
-        .ct{padding:30px}.s{margin-bottom:20px;border-bottom:1px solid #e2e8f0;padding-bottom:20px}
-        .l{font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
-        .v{font-size:16px;font-weight:600;color:#1e293b}
-        .qr{text-align:center;margin:20px 0}
-        .f{background:#f1f5f9;padding:20px;text-align:center;font-size:12px;color:#64748b}
+      <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0f;padding:0}
+        .c{max-width:560px;margin:0 auto;background:#121218;border:1px solid rgba(255,255,255,.08)}
+        .h{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);padding:32px 24px;text-align:center}
+        .h h1{font-size:22px;color:#0a0a0f;margin:0;font-weight:900;text-transform:uppercase;letter-spacing:2px}
+        .h p{font-size:12px;color:#0a0a0f;margin-top:6px;opacity:.7;letter-spacing:1px}
+        .b{padding:28px 24px}
+        .card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:20px;margin-bottom:16px}
+        .l{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;font-weight:600}
+        .v{font-size:15px;color:#e2e8f0;font-weight:600}
+        .sep{border:0;height:1px;background:rgba(255,255,255,.06);margin:12px 0}
+        .tot{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);border-radius:12px;padding:16px 20px;text-align:center;margin-bottom:16px}
+        .tot .l{color:#f59e0b;font-size:10px}
+        .tot .v{font-size:28px;color:#f59e0b;font-weight:900}
+        .qr{text-align:center;margin:16px 0}
+        .qr img{border-radius:8px;border:2px solid rgba(255,255,255,.06)}
+        .btn{display:inline-block;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;padding:14px 32px;text-decoration:none;border-radius:50px;font-weight:800;font-size:13px;letter-spacing:.5px;text-transform:uppercase;box-shadow:0 4px 20px rgba(245,158,11,.3)}
+        .f{background:rgba(255,255,255,.02);padding:20px;text-align:center;font-size:11px;color:#94a3b8;letter-spacing:.5px}
+        .badge{display:inline-block;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.2);padding:5px 14px;border-radius:50px;font-size:10px;color:#f59e0b;font-weight:700;text-transform:uppercase;letter-spacing:1px}
       </style></head>
-      <body><div class="c">
-        <div class="h"><h2>Cine La Paz - Comprobante</h2><p>${comprobante.numero}</p></div>
-        <div class="ct">
-          <div class="s"><div class="l">Cliente</div><div class="v">${comprobante.razonSocialCliente || 'Cliente'}</div>
-          <div class="l" style="margin-top:10px">NIT/CI</div><div class="v">${comprobante.nitCliente || '—'}</div></div>
-          <div class="s"><div class="l">Película</div><div class="v">${comprobante.peliculaTitulo}</div>
-          <div class="l" style="margin-top:10px">Fecha y Hora</div><div class="v">${comprobante.fecha} • ${comprobante.horaInicio}</div>
-          <div class="l" style="margin-top:10px">Sala</div><div class="v">${comprobante.salaTipo || comprobante.idSala}</div>
-          <div class="l" style="margin-top:10px">Asientos</div><div class="v">${comprobante.asientos}</div></div>
-          <div class="s"><div class="l">Método de Pago</div><div class="v">${comprobante.metodoPago}</div>
-          <div class="l" style="margin-top:10px">Total</div>
-          <div style="font-size:24px;font-weight:bold;color:#d97706">Bs. ${Number(comprobante.montoTotal).toFixed(2)}</div></div>
-          <div class="qr"><div class="l">Escanea para verificar</div>
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" alt="QR" style="max-width:200px"/></div>
-          
-          <div style="text-align:center; margin-top:30px; margin-bottom:20px;">
-            <a href="${process.env.API_URL || ('http://localhost:' + env.port + '/api')}/comprobantes/${encodeURIComponent(comprobante.numero)}/pdf" 
-               style="background-color: #d97706; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 14px;">
-              Descargar Comprobante PDF
-            </a>
+      <body>
+        <div class="c">
+          <div class="h">
+            <h1>Cine La Paz</h1>
+            <p>Comprobante de Compra</p>
+            <div style="margin-top:10px;display:inline-block;background:rgba(10,10,15,.15);padding:4px 14px;border-radius:50px;font-size:11px;font-weight:700;color:#0a0a0f;letter-spacing:1px">${comprobante.numero}</div>
+          </div>
+          <div class="b">
+            <div class="card">
+              <div class="l">Cliente</div>
+              <div class="v">${comprobante.razonSocialCliente || 'Consumidor Final'}</div>
+              <hr class="sep">
+              <div class="l">CI / NIT</div>
+              <div class="v">${comprobante.nitCliente || '—'}</div>
+            </div>
+            <div class="card">
+              <div class="l">Pelicula</div>
+              <div class="v">${comprobante.peliculaTitulo}</div>
+              <hr class="sep">
+              <div class="l">Fecha y Hora</div>
+              <div class="v">${comprobante.fecha} • ${comprobante.horaInicio}</div>
+              <hr class="sep">
+              <div class="l">Sala</div>
+              <div class="v">${comprobante.salaTipo || comprobante.idSala}</div>
+              <hr class="sep">
+              <div class="l">Asientos</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+                ${comprobante.asientos?.split(', ').map((a: string) => `<span style="display:inline-block;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:4px 12px;border-radius:6px;font-size:12px;color:#e2e8f0;font-weight:600">${a}</span>`).join('') || '<span class="v">—</span>'}
+              </div>
+            </div>
+            <div class="card">
+              <div class="l">Metodo de Pago</div>
+              <div class="v">${comprobante.metodoPago === 'QR' ? 'Codigo QR' : comprobante.metodoPago}</div>
+            </div>
+            <div class="tot">
+              <div class="l">Total pagado</div>
+              <div class="v">Bs. ${Number(comprobante.montoTotal).toFixed(2)}</div>
+            </div>
+            <div class="qr">
+              <div class="l" style="margin-bottom:8px">Escanea para verificar tu compra</div>
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}" alt="QR" style="max-width:180px"/>
+            </div>
+            <div style="text-align:center;margin:20px 0 8px">
+              <a href="${process.env.API_URL || ('http://localhost:' + env.port + '/api')}/comprobantes/${encodeURIComponent(comprobante.numero)}/pdf" class="btn">Descargar PDF</a>
+            </div>
+          </div>
+          <div class="f">
+            <p style="margin-bottom:2px">Comprobante generado el ${new Date().toLocaleString('es-BO')}</p>
+            <p>Cine La Paz &copy; ${new Date().getFullYear()}</p>
           </div>
         </div>
-        <div class="f"><p>Comprobante generado el ${new Date().toLocaleString('es-BO')}</p><p>Cine La Paz</p></div>
-      </div></body></html>`;
+      </body></html>`;
 
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
@@ -166,41 +205,83 @@ export async function enviarComprobanteEmail(req: Request, res: Response) {
         const html = `
         <!DOCTYPE html>
         <html>
-        <head><meta charset="UTF-8"><style>
-          body{font-family:Arial,sans-serif;background:#f8fafc;margin:0;padding:20px}
-          .c{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);overflow:hidden}
-          .h{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#0a0a0f;padding:30px;text-align:center}
-          .ct{padding:30px}.s{margin-bottom:20px;border-bottom:1px solid #e2e8f0;padding-bottom:20px}
-          .l{font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
-          .v{font-size:16px;font-weight:600;color:#1e293b}
-          .qr{text-align:center;margin:20px 0}
-          .f{background:#f1f5f9;padding:20px;text-align:center;font-size:12px;color:#64748b}
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+          *{margin:0;padding:0;box-sizing:border-box}
+          body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0a0f;padding:0}
+          .c{max-width:560px;margin:0 auto;background:#121218;border:1px solid rgba(255,255,255,.08)}
+          .h{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);padding:32px 24px;text-align:center}
+          .h h1{font-size:22px;color:#0a0a0f;margin:0;font-weight:900;text-transform:uppercase;letter-spacing:2px}
+          .h p{font-size:12px;color:#0a0a0f;margin-top:6px;opacity:.7;letter-spacing:1px}
+          .b{padding:28px 24px}
+          .card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:20px;margin-bottom:16px}
+          .l{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;font-weight:600}
+          .v{font-size:15px;color:#e2e8f0;font-weight:600}
+          .sep{border:0;height:1px;background:rgba(255,255,255,.06);margin:12px 0}
+          .tot{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);border-radius:12px;padding:16px 20px;text-align:center;margin-bottom:16px}
+          .tot .l{color:#f59e0b;font-size:10px}
+          .tot .v{font-size:28px;color:#f59e0b;font-weight:900}
+          .qr-container{text-align:center;margin:16px 0}
+          .qr-container img{border-radius:8px;border:2px solid rgba(255,255,255,.06)}
+          .f{background:rgba(255,255,255,.02);padding:20px;text-align:center;font-size:11px;color:#94a3b8;letter-spacing:.5px}
+          .ticket-card{display:inline-block;margin:8px;border:1px dashed rgba(255,255,255,.12);padding:16px;border-radius:12px;background:rgba(255,255,255,.02)}
+          .ticket-card .seat{font-size:18px;color:#e2e8f0;font-weight:800;margin-top:8px}
+          .ticket-card .hint{font-size:9px;color:#64748b;margin-top:4px}
         </style></head>
-        <body><div class="c">
-          <div class="h"><h2>Cine La Paz - Comprobante</h2><p>${comprobante.numero}</p></div>
-          <div class="ct">
-            <div class="s"><div class="l">Cliente</div><div class="v">${comprobante.razonSocialCliente || 'Cliente'}</div>
-            <div class="l" style="margin-top:10px">NIT/CI</div><div class="v">${comprobante.nitCliente || '—'}</div></div>
-            <div class="s"><div class="l">Película</div><div class="v">${comprobante.peliculaTitulo}</div>
-            <div class="l" style="margin-top:10px">Fecha y Hora</div><div class="v">${comprobante.fecha} • ${comprobante.horaInicio}</div>
-            <div class="l" style="margin-top:10px">Sala</div><div class="v">${comprobante.salaTipo || comprobante.idSala}</div>
-            <div class="l" style="margin-top:10px">Asientos</div><div class="v">${comprobante.asientos}</div></div>
-            <div class="s"><div class="l">Método de Pago</div><div class="v">${comprobante.metodoPago}</div>
-            <div class="l" style="margin-top:10px">Total</div>
-            <div style="font-size:24px;font-weight:bold;color:#d97706">Bs. ${Number(comprobante.montoTotal).toFixed(2)}</div></div>
-            <div class="qr-container" style="text-align:center;margin:20px 0;">
-              <div class="l" style="margin-bottom:15px;font-size:14px;"><strong>Tus Boletos de Acceso:</strong></div>
-              ${comprobante.asientos.split(', ').map((asiento: string) => `
-                <div style="display:inline-block; margin: 10px; border: 1px dashed #cbd5e1; padding: 15px; border-radius: 8px;">
-                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(asiento)}" alt="QR Boleto ${asiento}" style="max-width:150px; display:block; margin: 0 auto;"/>
-                  <div style="margin-top:10px; font-weight:bold; color:#1e293b; font-size:16px;">${asiento}</div>
-                  <div style="font-size:10px; color:#94a3b8; margin-top:3px;">Código manual</div>
+        <body>
+          <div class="c">
+            <div class="h">
+              <h1>Cine La Paz</h1>
+              <p>Comprobante de Compra</p>
+              <div style="margin-top:10px;display:inline-block;background:rgba(10,10,15,.15);padding:4px 14px;border-radius:50px;font-size:11px;font-weight:700;color:#0a0a0f;letter-spacing:1px">${comprobante.numero}</div>
+            </div>
+            <div class="b">
+              <div class="card">
+                <div class="l">Cliente</div>
+                <div class="v">${comprobante.razonSocialCliente || 'Consumidor Final'}</div>
+                <hr class="sep">
+                <div class="l">CI / NIT</div>
+                <div class="v">${comprobante.nitCliente || '—'}</div>
+              </div>
+              <div class="card">
+                <div class="l">Pelicula</div>
+                <div class="v">${comprobante.peliculaTitulo}</div>
+                <hr class="sep">
+                <div class="l">Fecha y Hora</div>
+                <div class="v">${comprobante.fecha} • ${comprobante.horaInicio}</div>
+                <hr class="sep">
+                <div class="l">Sala</div>
+                <div class="v">${comprobante.salaTipo || comprobante.idSala}</div>
+                <hr class="sep">
+                <div class="l">Asientos</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+                  ${comprobante.asientos?.split(', ').map((a: string) => `<span style="display:inline-block;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:4px 12px;border-radius:6px;font-size:12px;color:#e2e8f0;font-weight:600">${a}</span>`).join('') || '<span class="v">—</span>'}
                 </div>
-              `).join('')}
+              </div>
+              <div class="card">
+                <div class="l">Metodo de Pago</div>
+                <div class="v">${comprobante.metodoPago === 'QR' ? 'Codigo QR' : comprobante.metodoPago}</div>
+              </div>
+              <div class="tot">
+                <div class="l">Total pagado</div>
+                <div class="v">Bs. ${Number(comprobante.montoTotal).toFixed(2)}</div>
+              </div>
+              <div class="qr-container">
+                <div class="l" style="margin-bottom:12px;font-size:12px;color:#e2e8f0;letter-spacing:1px;font-weight:700">Tus Boletos de Acceso</div>
+                ${comprobante.asientos.split(', ').map((asiento: string) => `
+                  <div class="ticket-card">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(asiento)}" alt="QR Boleto ${asiento}" style="max-width:140px;display:block;margin:0 auto"/>
+                    <div class="seat">${asiento}</div>
+                    <div class="hint">Codigo manual: ${asiento}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="f">
+              <p style="margin-bottom:2px">Comprobante generado el ${new Date().toLocaleString('es-BO')}</p>
+              <p>Cine La Paz &copy; ${new Date().getFullYear()}</p>
             </div>
           </div>
-          <div class="f"><p>Comprobante generado el ${new Date().toLocaleString('es-BO')}</p><p>Cine La Paz</p></div>
-        </div></body></html>`;
+        </body></html>`;
 
         await transporter.sendMail({
           from: process.env.EMAIL_USER,
