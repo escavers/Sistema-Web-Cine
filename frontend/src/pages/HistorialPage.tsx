@@ -210,18 +210,17 @@ export default function HistorialPage() {
 
         {/* VISTA DESKTOP (Tabla) */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full text-sm text-cinema-gray whitespace-nowrap">
+          <table className="w-full text-sm text-cinema-gray">
             <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
               <tr>
-                <th className="px-5 py-4">Película</th>
-                <th className="px-5 py-4">Fecha función</th>
-                <th className="px-5 py-4">Horario</th>
-                <th className="px-5 py-4">Sala</th>
-                <th className="px-5 py-4">Asientos</th>
-                <th className="px-5 py-4">Total</th>
-                <th className="px-5 py-4">Estado</th>
-                <th className="px-5 py-4">Tickets</th>
-                <th className="px-5 py-4">Acción</th>
+                <th className="px-3 py-3 w-[22%]">Película</th>
+                <th className="px-3 py-3 w-[12%]">Fecha</th>
+                <th className="px-3 py-3 w-[8%]">Hora</th>
+                <th className="px-3 py-3 w-[10%]">Sala</th>
+                <th className="px-3 py-3 w-[10%]">Asientos</th>
+                <th className="px-3 py-3 w-[10%]">Total</th>
+                <th className="px-3 py-3 w-[10%]">Estado</th>
+                <th className="px-3 py-3 w-[18%]">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -236,14 +235,14 @@ export default function HistorialPage() {
 
                 return (
                   <tr key={i} className="border-t border-white/5">
-                    <td className="px-5 py-4">{h.peliculaTitulo}</td>
-                     <td className="px-5 py-4">{h.fecha ? parseLocalDate(h.fecha)?.toLocaleDateString('es-BO') : '—'}</td>
-                    <td className="px-5 py-4">{h.horaInicio?.substring(0, 5)}</td>
-                    <td className="px-5 py-4">Sala {h.idSala ? h.idSala.replace('SALA-', '') : ''} {h.salaTipo ? `(${h.salaTipo})` : ''}</td>
-                    <td className="px-5 py-4">{h.asientos}</td>
-                    <td className="px-5 py-4 text-cinema-gold font-semibold">Bs. {Number(h.montoTotal).toFixed(2)}</td>
-                    <td className="px-5 py-4">
-                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                    <td className="px-3 py-3 truncate max-w-0" title={h.peliculaTitulo}>{h.peliculaTitulo}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">{h.fecha ? parseLocalDate(h.fecha)?.toLocaleDateString('es-BO') : '—'}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">{h.horaInicio?.substring(0, 5)}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">Sala {h.idSala ? h.idSala.replace('SALA-', '') : ''} {h.salaTipo ? `(${h.salaTipo})` : ''}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">{h.asientos}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-cinema-gold font-semibold">Bs. {Number(h.montoTotal).toFixed(2)}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                         h.estadoVenta === 'COMPLETADA' ? 'bg-emerald-500/20 text-emerald-300' :
                         h.estadoVenta === 'CANCELADA' ? 'bg-red-500/20 text-red-300' :
                         'bg-cinema-gold/20 text-cinema-gold'
@@ -251,46 +250,45 @@ export default function HistorialPage() {
                         {h.estadoVenta || '—'}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
-                      {h.estadoVenta === 'COMPLETADA' ? (
-                        <div className="flex gap-1.5">
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        {h.estadoVenta === 'COMPLETADA' && (
+                          <>
+                            <button
+                              type="button"
+                              className="rounded-lg bg-cinema-gold hover:bg-cinema-gold/80 text-cinema-black px-2 py-1 text-[11px] font-bold transition"
+                              onClick={() => handleVerTickets(h)}
+                            >
+                              Tickets
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white px-2 py-1 text-[11px] font-bold transition"
+                              onClick={() => handleDescargarPdf(h.numero)}
+                            >
+                              PDF
+                            </button>
+                          </>
+                        )}
+                        {canCancel && (
                           <button
-                            type="button"
-                            className="rounded-lg bg-cinema-gold hover:bg-cinema-gold/80 text-cinema-black px-2.5 py-1.5 text-xs font-bold transition flex items-center gap-1"
-                            onClick={() => handleVerTickets(h)}
+                            className="rounded-lg bg-red-600/90 px-2 py-1 text-[11px] font-semibold text-white hover:bg-red-500 disabled:opacity-50 transition whitespace-nowrap"
+                            disabled={loadingCancel === h.idVenta}
+                            onClick={() => handleCancel(h.idVenta)}
                           >
-                            🔍 Ver
+                            {loadingCancel === h.idVenta ? '...' : 'Cancelar'}
                           </button>
-                          <button
-                            type="button"
-                            className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white px-2.5 py-1.5 text-xs font-bold transition flex items-center gap-1"
-                            onClick={() => handleDescargarPdf(h.numero)}
-                          >
-                            📥 PDF
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-cinema-gray">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      {canCancel ? (
-                        <button
-                          className="rounded bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50"
-                          disabled={loadingCancel === h.idVenta}
-                          onClick={() => handleCancel(h.idVenta)}
-                        >
-                          {loadingCancel === h.idVenta ? 'Cancelando...' : 'Cancelar'}
-                        </button>
-                      ) : (
-                        <span className="text-xs text-cinema-cream">No cancelable</span>
-                      )}
+                        )}
+                        {h.estadoVenta !== 'COMPLETADA' && !canCancel && (
+                          <span className="text-[11px] text-cinema-gray">{h.estadoVenta === 'CANCELADA' ? '—' : '—'}</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
               })}
               {historial.length === 0 && (
-                <tr><td className="px-5 py-8 text-center" colSpan={10}>No tienes compras registradas.</td></tr>
+                <tr><td className="px-3 py-8 text-center" colSpan={8}>No tienes compras registradas.</td></tr>
               )}
             </tbody>
           </table>
