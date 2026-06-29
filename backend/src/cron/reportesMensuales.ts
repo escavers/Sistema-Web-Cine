@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { pool } from '../config/db.js';
 import {
-  createPdfDoc, buildPdfTitle, drawPdfTable,
+  createPdfDoc, buildPdfTitle, buildPdfBottomInfo, drawPdfTable,
   addPageFooters, sendPdfFile, formatDateEs, formatMoney,
   type TableColumn,
 } from '../utils/pdfHelpers.js';
@@ -65,6 +65,7 @@ async function generarReporteOcupacion(fi: string, ff: string, nombreArchivo: st
   doc.fontSize(10).font('Helvetica-Bold').fillColor('#333333');
   doc.text(`Total registros: ${data.length}`, 40);
 
+  buildPdfBottomInfo(doc, 'Sistema Automático');
   addPageFooters(doc);
   await sendPdfFile(doc, chunks, path.join(REPORT_DIR, `reporte-ocupacion-${nombreArchivo}.pdf`));
 }
@@ -100,6 +101,7 @@ async function generarReporteMasVistas(fi: string, ff: string, nombreArchivo: st
   doc.fontSize(10).font('Helvetica-Bold').fillColor('#333333');
   doc.text(`Total películas: ${data.length}`, 40);
 
+  buildPdfBottomInfo(doc, 'Sistema Automático');
   addPageFooters(doc);
   await sendPdfFile(doc, chunks, path.join(REPORT_DIR, `reporte-mas-vistas-${nombreArchivo}.pdf`));
 }
@@ -136,6 +138,7 @@ async function generarReporteVentas(fi: string, ff: string, nombreArchivo: strin
   doc.fontSize(10).font('Helvetica-Bold').fillColor('#333333');
   doc.text(`Total ventas: ${data.length}`, 40);
 
+  buildPdfBottomInfo(doc, 'Sistema Automático');
   addPageFooters(doc);
   await sendPdfFile(doc, chunks, path.join(REPORT_DIR, `reporte-ventas-${nombreArchivo}.pdf`));
 }

@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { pool } from '../config/db.js';
 import { fail, ok } from '../utils/response.js';
 import {
-  createPdfDoc, buildPdfTitle, drawPdfTable,
+  createPdfDoc, buildPdfTitle, buildPdfBottomInfo, drawPdfTable,
   addPageFooters, sendPdf, formatDateEs, formatMoney,
   type TableColumn,
 } from '../utils/pdfHelpers.js';
@@ -97,17 +97,31 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
 
   const comprobante = (rows as any[])[0];
 
+  // Obtener nombre del usuario autenticado
+  let nombreUsuario = 'Desconocido';
+  if (req.user) {
+    const [userRows] = await pool.query(
+      'SELECT nombre1, apellidoP FROM Usuario WHERE idUsuario = ?',
+      [req.user.idUsuario]
+    );
+    if ((userRows as any[]).length) {
+      const u = (userRows as any[])[0];
+      nombreUsuario = `${u.nombre1} ${u.apellidoP}`.trim();
+    }
+  }
+
   const { doc, chunks } = createPdfDoc();
   const PAGE_WIDTH = 595.28;
   const MARGIN = 40;
   const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
 
-  // ── Encabezado ──
+  // ─── Encabezado ───
   doc.fontSize(24).font('Helvetica-Bold').fillColor('#1a1a1a');
-  doc.text('COMPROBANTE DE COMPRA', { align: 'center' });
-  doc.fontSize(10).font('Helvetica').fillColor('#666666');
-  doc.text('Cine La Paz', { align: 'center' });
+  doc.text('Cine La Paz', MARGIN, doc.y, { align: 'left' });
   doc.moveDown(0.3);
+  doc.fontSize(14).font('Helvetica-Bold').fillColor('#333333');
+  doc.text('COMPROBANTE DE COMPRA', MARGIN, doc.y, { align: 'left' });
+  doc.moveDown(0.2);
   doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).stroke('#cccccc');
   doc.moveDown(0.5);
 
@@ -169,6 +183,8 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
   doc.moveDown(1);
 
   // ─── Footer ───
+  buildPdfBottomInfo(doc, nombreUsuario);
+
   if (doc.y + 40 > 760) doc.addPage();
   doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).stroke('#cccccc');
   doc.moveDown(0.3);
@@ -210,6 +226,19 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   const comprobante = (rows as any[])[0];
   const boletos = await getBoletos(comprobante.idVenta);
 
+  // Obtener nombre del usuario autenticado
+  let nombreUsuario = 'Desconocido';
+  if (req.user) {
+    const [userRows] = await pool.query(
+      'SELECT nombre1, apellidoP FROM Usuario WHERE idUsuario = ?',
+      [req.user.idUsuario]
+    );
+    if ((userRows as any[]).length) {
+      const u = (userRows as any[])[0];
+      nombreUsuario = `${u.nombre1} ${u.apellidoP}`.trim();
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const QRCode = require('qrcode');
 
@@ -235,11 +264,11 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
     res.send(buffer);
   });
 
-  // ÔöÇÔöÇÔöÇ Header ÔöÇÔöÇÔöÇ
-  doc.fontSize(14).font('Helvetica-Bold').fillColor('#1a1a1a');
-  doc.text('CINE LA PAZ', { align: 'center' });
+  // ─── Header ───
+  doc.fontSize(16).font('Helvetica-Bold').fillColor('#1a1a1a');
+  doc.text('Cine La Paz', TICKET_MARGIN, doc.y, { align: 'left', width: TICKET_CONTENT });
   doc.fontSize(9).font('Helvetica').fillColor('#666666');
-  doc.text('Ticket de Venta', { align: 'center' });
+  doc.text('Ticket de Venta', { align: 'left' });
   doc.moveDown(0.3);
   doc.fontSize(8).fillColor('#cccccc');
   doc.text('- '.repeat(20), { align: 'center' });
@@ -331,6 +360,17 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.fontSize(7).font('Helvetica').fillColor('#999999');
   doc.text('Gracias por su preferencia.', { align: 'center' });
   doc.text('Conserve este ticket.', { align: 'center' });
+
+  // Info de generación
+  doc.moveDown(0.3);
+  doc.fontSize(6).fillColor('#999999');
+  const now = new Date();
+  const fechaHora = now.toLocaleString('es-BO', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+  doc.text(`Gen: ${fechaHora}`, { align: 'center' });
+  doc.text(`Usu: ${nombreUsuario}`, { align: 'center' });
 
   doc.end();
 }

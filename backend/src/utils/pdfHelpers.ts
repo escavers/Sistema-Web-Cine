@@ -46,18 +46,50 @@ export function buildPdfTitle(
 ) {
   checkPageSpace(doc, 100);
 
-  doc.fontSize(20).font('Helvetica-Bold').text(titulo, { align: 'center' });
-  doc.fontSize(10).font('Helvetica').text('Cine La Paz', { align: 'center' });
+  // Nombre del cine grande en la esquina superior izquierda
+  doc.fontSize(24).font('Helvetica-Bold').fillColor('#1a1a1a');
+  doc.text('Cine La Paz', PAGE_MARGIN, doc.y, { align: 'left' });
   doc.moveDown(0.3);
 
+  // Título del reporte debajo
+  doc.fontSize(14).font('Helvetica-Bold').fillColor('#333333');
+  doc.text(titulo, PAGE_MARGIN, doc.y, { align: 'left' });
+  doc.moveDown(0.2);
+
+  // Rango de fechas
   const rango = [fechaInicio, fechaFin].filter(Boolean).join(' al ') || 'Sin filtro de fechas';
-  doc.fontSize(9).text(`Rango: ${rango}`, { align: 'center' });
-  doc.text(`Generado: ${new Date().toLocaleDateString('es-BO')}`, { align: 'center' });
+  doc.fontSize(9).font('Helvetica').fillColor('#666666');
+  doc.text(`Rango: ${rango}`, PAGE_MARGIN, doc.y, { align: 'left' });
   doc.moveDown(0.3);
 
   // Línea separadora
   doc.moveTo(PAGE_MARGIN, doc.y).lineTo(PAGE_WIDTH - PAGE_MARGIN, doc.y).stroke();
   doc.moveDown(0.5);
+}
+
+// ── Bottom Info (fecha/hora + usuario) ──────────────────────
+
+export function buildPdfBottomInfo(doc: any, usuario?: string) {
+  checkPageSpace(doc, 40);
+
+  doc.moveDown(0.5);
+  doc.moveTo(PAGE_MARGIN, doc.y).lineTo(PAGE_WIDTH - PAGE_MARGIN, doc.y).stroke('#cccccc');
+  doc.moveDown(0.3);
+
+  const now = new Date();
+  const fechaHora = now.toLocaleString('es-BO', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+
+  doc.fontSize(8).font('Helvetica').fillColor('#666666');
+  doc.text(
+    `Generado: ${fechaHora}${usuario ? ` | Usuario: ${usuario}` : ''}`,
+    PAGE_MARGIN,
+    doc.y,
+    { width: CONTENT_WIDTH, align: 'left' },
+  );
+  doc.moveDown(0.3);
 }
 
 // ── Table Drawing ───────────────────────────────────────────

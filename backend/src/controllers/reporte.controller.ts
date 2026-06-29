@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { pool } from '../config/db.js';
 import { ok, fail } from '../utils/response.js';
 import {
-  createPdfDoc, buildPdfTitle, drawPdfTable,
+  createPdfDoc, buildPdfTitle, buildPdfBottomInfo, drawPdfTable,
   addPageFooters, sendPdf, formatDateEs, formatMoney,
   type TableColumn,
 } from '../utils/pdfHelpers.js';
@@ -21,6 +21,18 @@ function parseId(v: unknown): number | null {
 function parseStr(v: unknown): string | null {
   if (!v || typeof v !== 'string') return null;
   return v.trim() || null;
+}
+
+async function getNombreUsuario(idUsuario: number): Promise<string> {
+  const [rows] = await pool.query(
+    'SELECT nombre1, apellidoP FROM Usuario WHERE idUsuario = ?',
+    [idUsuario]
+  );
+  if ((rows as any[]).length) {
+    const u = (rows as any[])[0];
+    return `${u.nombre1} ${u.apellidoP}`.trim();
+  }
+  return 'Desconocido';
 }
 
 // ── JSON endpoints ──────────────────────────────────────────
@@ -96,6 +108,8 @@ export async function reporteOcupacionPdf(req: Request, res: Response) {
     const [rows] = await pool.query('CALL sp_reporte_ocupacion(?, ?, ?, ?)', [fi, ff, idPel, idSala]);
     const data = (rows as any[])[0];
 
+    const nombreUsuario = req.user ? await getNombreUsuario(req.user.idUsuario) : 'Desconocido';
+
     const { doc, chunks } = createPdfDoc();
     buildPdfTitle(doc, 'REPORTE DE OCUPACIÓN', fi, ff);
 
@@ -130,6 +144,7 @@ export async function reporteOcupacionPdf(req: Request, res: Response) {
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#333333');
     doc.text(`Total registros: ${data.length}`, 40);
 
+    buildPdfBottomInfo(doc, nombreUsuario);
     addPageFooters(doc);
     await sendPdf(res, doc, chunks, 'reporte-ocupacion');
   } catch (error) {
@@ -145,6 +160,8 @@ export async function reporteMasVistasPdf(req: Request, res: Response) {
     const orden = req.query.orden === 'ASC' ? 'ASC' : 'DESC';
     const [rows] = await pool.query('CALL sp_reporte_mas_vistas(?, ?, ?)', [fi, ff, orden]);
     const data = (rows as any[])[0];
+
+    const nombreUsuario = req.user ? await getNombreUsuario(req.user.idUsuario) : 'Desconocido';
 
     const { doc, chunks } = createPdfDoc();
     buildPdfTitle(doc, 'PELÍCULAS MÁS VISTAS', fi, ff);
@@ -178,6 +195,7 @@ export async function reporteMasVistasPdf(req: Request, res: Response) {
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#333333');
     doc.text(`Total películas: ${data.length}`, 40);
 
+    buildPdfBottomInfo(doc, nombreUsuario);
     addPageFooters(doc);
     await sendPdf(res, doc, chunks, 'reporte-mas-vistas');
   } catch (error) {
@@ -192,6 +210,8 @@ export async function reporteVentasPdf(req: Request, res: Response) {
     const ff = parseFecha(req.query.fechaFin);
     const [rows] = await pool.query('CALL sp_reporte_ventas(?, ?)', [fi, ff]);
     const data = (rows as any[])[0];
+
+    const nombreUsuario = req.user ? await getNombreUsuario(req.user.idUsuario) : 'Desconocido';
 
     const { doc, chunks } = createPdfDoc();
     buildPdfTitle(doc, 'REPORTE DE VENTAS', fi, ff);
@@ -227,6 +247,7 @@ export async function reporteVentasPdf(req: Request, res: Response) {
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#333333');
     doc.text(`Total ventas: ${data.length}`, 40);
 
+    buildPdfBottomInfo(doc, nombreUsuario);
     addPageFooters(doc);
     await sendPdf(res, doc, chunks, 'reporte-ventas');
   } catch (error) {
