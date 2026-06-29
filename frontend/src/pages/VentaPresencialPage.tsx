@@ -457,6 +457,18 @@ export default function VentaPresencialPage() {
               <span className="text-cinema-gray">Asientos seleccionados:</span>
               <span className="text-white font-semibold">{selectedAsientos.length}</span>
             </div>
+            {selectedAsientos.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedAsientos.map(id => {
+                  const a = asientos.find(s => s.idAsiento === id);
+                  return a ? (
+                    <span key={id} className="inline-flex items-center rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-[11px] font-semibold text-cinema-gold/90 font-mono tracking-wide">
+                      {a.fila}{a.columna}
+                    </span>
+                  ) : null;
+                })}
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-cinema-gray">Precio por boleto:</span>
               <span className="text-white">Bs. {Number(selectedFuncion.precioBase).toFixed(2)}</span>

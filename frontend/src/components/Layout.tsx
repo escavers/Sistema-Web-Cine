@@ -49,7 +49,7 @@ export default function Layout() {
   const rolesDisplay = roles.map(r => roleLabels[r]).join(', ') || '';
 
   return (
-    <div className="min-h-screen bg-cinema-black">
+    <div className="flex min-h-screen flex-col bg-cinema-black">
       {/* Gold accent bar */}
       <div className="h-[3px] bg-gradient-to-r from-cinema-gold/20 via-cinema-gold to-cinema-gold/20" />
 
@@ -104,7 +104,7 @@ export default function Layout() {
         </nav>
       )}
 
-      <main className="relative z-10 mx-auto max-w-7xl overflow-x-hidden px-6 py-8">
+      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 overflow-x-hidden px-6 py-8">
         <Outlet />
       </main>
 
