@@ -239,7 +239,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.text('Ticket de Venta', { align: 'center' });
   doc.moveDown(0.3);
   doc.fontSize(8).fillColor('#cccccc');
-  doc.text('─'.repeat(30), { align: 'center' });
+  doc.text('- '.repeat(20), { align: 'center' });
 
   // ─── Datos ───
   doc.fontSize(8).font('Helvetica').fillColor('#333333');
@@ -247,7 +247,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.text(`Fecha: ${new Date(comprobante.fechaEmision).toLocaleString('es-BO')}`);
   doc.text(`Cajero: Boletería`);
   doc.fontSize(8).fillColor('#cccccc');
-  doc.text('─'.repeat(30), { align: 'center' });
+  doc.text('- '.repeat(20), { align: 'center' });
   doc.moveDown(0.3);
 
   // ─── Película ───
@@ -269,7 +269,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.moveDown(0.3);
 
   doc.fillColor('#cccccc');
-  doc.text('─'.repeat(30), { align: 'center' });
+  doc.text('- '.repeat(20), { align: 'center' });
 
   // ─── Cliente ───
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
@@ -279,7 +279,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.moveDown(0.3);
 
   doc.fillColor('#cccccc');
-  doc.text('─'.repeat(30), { align: 'center' });
+  doc.text('- '.repeat(20), { align: 'center' });
 
   // ─── Total ───
   const cantidad = boletos.length || 1;
@@ -289,7 +289,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.moveDown(0.3);
 
   doc.fontSize(8).fillColor('#cccccc');
-  doc.text('─'.repeat(30), { align: 'center' });
+  doc.text('- '.repeat(20), { align: 'center' });
   doc.moveDown(0.3);
 
   // ─── QR por asiento ───

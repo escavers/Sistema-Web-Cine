@@ -24,9 +24,125 @@ export default function VentaPresencialPage() {
   const [modalQrUrls, setModalQrUrls] = useState<string[]>([]);
   const [currentTicketIndex, setCurrentTicketIndex] = useState(0);
 
+  const [previewFuncion, setPreviewFuncion] = useState<any>(null);
+  const [modalFunciones, setModalFunciones] = useState<any[]>([]);
+  const [modalSelectedDate, setModalSelectedDate] = useState('');
+  const [modalAvailableDates, setModalAvailableDates] = useState<string[]>([]);
+  const [selectedModalFuncion, setSelectedModalFuncion] = useState<any>(null);
+  const [selectedModalIsPast, setSelectedModalIsPast] = useState(false);
+
   useEffect(() => {
     api.listarFunciones().then(res => setFunciones(res.funciones)).catch(() => {});
   }, []);
+
+  function formatDuration(minutes?: number | null) {
+    if (minutes === null || minutes === undefined) return '—';
+    const m = Number(minutes) || 0;
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    return h > 0 ? `${h}h ${mm}m` : `${mm}m`;
+  }
+
+  // Construye un Date en hora local a partir de fecha 'YYYY-MM-DD' y hora 'HH:MM'
+  function buildLocalDateTime(fecha?: string | Date | null, hora?: string | null) {
+    if (!fecha) return null;
+    let fechaStr = '';
+    if (fecha instanceof Date) {
+      fechaStr = fecha.toISOString().slice(0, 10);
+    } else {
+      const s = String(fecha);
+      const match = s.match(/\d{4}-\d{2}-\d{2}/);
+      if (!match) return null;
+      fechaStr = match[0];
+    }
+
+    const [yStr, mStr, dStr] = fechaStr.slice(0, 10).split('-');
+    const y = Number(yStr), m = Number(mStr), d = Number(dStr);
+    if ([y, m, d].some(v => Number.isNaN(v))) return null;
+    const dt = new Date(y, m - 1, d, 0, 0, 0, 0);
+    let horaToUse: string | null = hora || null;
+    if (!horaToUse && typeof fecha === 'string') {
+      const s = fecha as string;
+      const timeMatch = s.match(/\d{2}:\d{2}(:\d{2})?/);
+      if (timeMatch) horaToUse = timeMatch[0];
+    }
+    if (horaToUse) {
+      const [hhStr, mmStr] = horaToUse.split(':');
+      const hh = Number(hhStr || 0);
+      const mm = Number(mmStr || 0);
+      if (!Number.isNaN(hh)) dt.setHours(hh, Number.isNaN(mm) ? 0 : mm, 0, 0);
+    }
+    return dt;
+  }
+
+  const parseLocalDate = (fecha: string | Date | null) => {
+    if (!fecha) return null;
+    if (fecha instanceof Date) return fecha;
+    const match = fecha.match(/\d{4}-\d{2}-\d{2}/);
+    if (!match) return new Date(fecha); // Fallback
+    const [y, m, d] = match[0].split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  useEffect(() => {
+    if (selectedModalFuncion) {
+      const todayStr = new Date().toLocaleDateString('en-CA'); // Local date in YYYY-MM-DD
+      const isToday = selectedModalFuncion.fecha === todayStr;
+      const fechaHora = buildLocalDateTime(selectedModalFuncion.fecha, selectedModalFuncion.horaInicio || '00:00');
+      const isPast = selectedModalFuncion.horaInicio
+        ? (fechaHora ? fechaHora.getTime() <= Date.now() : true)
+        : true;
+      setSelectedModalIsPast(isPast);
+    } else {
+      setSelectedModalIsPast(false);
+    }
+  }, [selectedModalFuncion]);
+
+  useEffect(() => {
+    document.body.style.overflow = previewFuncion && step === 1 ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [previewFuncion, step]);
+
+  function openMovieModal(f: any) {
+    const funcionesPorPelicula = funciones.filter(fn => fn.peliculaTitulo === f.peliculaTitulo);
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`; // Local date in YYYY-MM-DD
+    const fechasSet = new Set<string>(funcionesPorPelicula.map(fn => fn.fecha));
+    fechasSet.add(todayStr);
+    const fechas = Array.from(fechasSet).sort().filter(d => d >= todayStr);
+    const selected = fechas[0] || '';
+
+    setModalFunciones(funcionesPorPelicula);
+    setModalAvailableDates(fechas);
+    setModalSelectedDate(selected);
+    setSelectedModalFuncion(null);
+    setPreviewFuncion(f);
+  }
+
+  function closePreviewModal() {
+    setPreviewFuncion(null);
+    setModalFunciones([]);
+    setSelectedModalFuncion(null);
+    setModalAvailableDates([]);
+    setModalSelectedDate('');
+  }
+
+  const peliculasFiltradas = Array.from(
+    new Map(funciones.map(funcion => [funcion.idPelicula ?? funcion.peliculaTitulo, funcion])).values()
+  );
+
+  const modalFuncionesFiltradas = modalSelectedDate
+    ? modalFunciones.filter(fn => fn.fecha === modalSelectedDate)
+    : modalFunciones;
+
+  const funcionesPorSala = modalFuncionesFiltradas.reduce<Record<string, any[]>>((acc, fn) => {
+    const sala = fn.salaTipo || 'GENERAL';
+    if (!acc[sala]) acc[sala] = [];
+    acc[sala].push(fn);
+    return acc;
+  }, {});
 
   const getCleanSalaCode = (idSala?: string) => {
     if (!idSala) return '';
@@ -111,7 +227,7 @@ export default function VentaPresencialPage() {
   async function printTicket() {
     if (!resultado?.numeroComprobante) return;
     try {
-      const blob = await api.descargarComprobantePdf(resultado.numeroComprobante);
+      const blob = await api.descargarComprobanteTicketPdf(resultado.numeroComprobante);
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
     } catch (error) {
@@ -154,53 +270,176 @@ export default function VentaPresencialPage() {
       {message && <Message type={message.type} text={message.text} />}
 
       {step === 1 && (
-        <div className="card-cine overflow-hidden">
-          <div className="border-b border-white/10 px-6 py-5">
-            <h3 className="text-lg font-bold text-white">Seleccionar función</h3>
+        <>
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {peliculasFiltradas.map(f => (
+              <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] transition hover:border-cinema-gold/30">
+                {f.peliculaPoster && (
+                  <div className="relative overflow-hidden">
+                    {funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1) && (
+                      <span className="absolute left-4 top-4 z-10 rounded-full bg-cinema-gold px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-cinema-black shadow-md shadow-black/50">
+                        🔥 ¡2x1 Activo!
+                      </span>
+                    )}
+                    <img src={f.peliculaPoster} alt={f.peliculaTitulo} className="w-full object-contain max-h-[30rem] mx-auto transition duration-500 group-hover:scale-105" />
+                    <div className="pointer-events-none absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/20" />
+                    <button
+                      type="button"
+                      className="absolute left-1/2 bottom-4 z-10 -translate-x-1/2 rounded-full bg-cinema-gold px-5 py-3 text-sm font-semibold text-cinema-black shadow-lg shadow-black/20 opacity-0 transition duration-300 group-hover:opacity-100 whitespace-nowrap"
+                      onClick={() => openMovieModal(f)}
+                    >
+                      Vender boletos
+                    </button>
+                  </div>
+                )}
+                <div className="space-y-3 p-5">
+                  <h4 className="text-lg font-bold text-white leading-snug">{f.peliculaTitulo}</h4>
+                  <div className="flex flex-wrap gap-2 pt-2 text-xs uppercase tracking-[0.2em] text-cinema-cream">
+                    <span className="rounded-full bg-white/5 px-3 py-1">{f.peliculaDuracion ? formatDuration(f.peliculaDuracion) : '—'}</span>
+                    <span className="rounded-full bg-white/5 px-3 py-1">{f.peliculaClasificacion || 'TP'}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {peliculasFiltradas.length === 0 && (
+              <p className="text-cinema-gray col-span-full text-center py-8">No hay películas disponibles en este momento.</p>
+            )}
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-cinema-gray">
-              <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
-                <tr>
-                  <th className="px-5 py-4">Película</th>
-                  <th className="px-5 py-4">Sala</th>
-                  <th className="px-5 py-4">Fecha</th>
-                  <th className="px-5 py-4">Horario</th>
-                  <th className="px-5 py-4">Precio</th>
-                  <th className="px-5 py-4">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {funciones.map(f => (
-                  <tr key={f.idFuncion} className="border-t border-white/5">
-                    <td className="px-5 py-4 text-white font-medium">{f.peliculaTitulo}</td>
-                    <td className="px-5 py-4">{f.idSala} ({f.salaTipo})</td>
-                    <td className="px-5 py-4">{new Date(f.fecha).toLocaleDateString('es-BO')}</td>
-                    <td className="px-5 py-4">{f.horaInicio?.substring(0, 5)}</td>
-                    <td className="px-5 py-4">
-                      Bs. {Number(f.precioBase).toFixed(2)}
-                      {f.promocionActiva === 1 && (
-                        <span className="ml-2 rounded bg-cinema-gold/20 px-2 py-0.5 text-xs font-bold text-cinema-gold">
-                          2x1
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      <button className="btn-primary px-3 py-1" onClick={() => selectFuncion(f)}>Seleccionar</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+
+          {previewFuncion && (
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 md:items-center">
+              <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] shadow-2xl my-8 md:my-0">
+                <div className="flex flex-col gap-6 p-6 lg:p-8">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-3xl font-bold text-white">{previewFuncion.peliculaTitulo}</h3>
+                      <p className="text-sm text-cinema-gray mt-2">
+                        {previewFuncion.peliculaDirector ? `Director: ${previewFuncion.peliculaDirector}` : ''}
+                        {previewFuncion.peliculaDuracion ? ` · ${previewFuncion.peliculaDuracion} min` : ''}
+                        {previewFuncion.peliculaClasificacion ? ` · ${previewFuncion.peliculaClasificacion}` : ''}
+                      </p>
+                    </div>
+                    <button className="btn-secondary" onClick={closePreviewModal}>Cerrar</button>
+                  </div>
+
+                  <div className="grid gap-6 lg:grid-cols-[350px_minmax(0,1fr)]">
+                    {previewFuncion.peliculaPoster && (
+                      <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} className="max-h-[80vh] w-full rounded-3xl bg-black object-contain" />
+                    )}
+                    <div className="space-y-4">
+                      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                        <h4 className="text-white font-semibold mb-3">Sinopsis</h4>
+                        <p className="text-sm leading-7 text-cinema-gray">{previewFuncion.peliculaSinopsis}</p>
+                      </div>
+
+                      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.25em] text-cinema-cream/70">Información</p>
+                          {selectedModalFuncion ? (
+                            <>
+                              <p className="mt-3 text-sm text-cinema-gray">Sala: <span className="text-white">{selectedModalFuncion.idSala} ({selectedModalFuncion.salaTipo})</span></p>
+                              <p className="mt-1 text-sm text-cinema-gray">Precio: <span className="text-white">Bs. {Number(selectedModalFuncion.precioBase).toFixed(2)}</span></p>
+                              {selectedModalFuncion.promocionActiva === 1 && (
+                                <div className="mt-2 inline-block rounded-full bg-cinema-gold/20 border border-cinema-gold/30 px-3 py-1 text-xs font-bold text-cinema-gold">
+                                  🔥 ¡Promoción 2x1 Activa!
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <p className="mt-3 text-sm text-cinema-gray">Seleccione una función para ver los detalles.</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.25em] text-cinema-cream/70">Selecciona fecha</p>
+                          <div className="grid grid-cols-2 gap-3 mt-4 sm:grid-cols-3 lg:grid-cols-4">
+                            {modalAvailableDates.map((date) => {
+                              const fechaObj = buildLocalDateTime(date) || new Date();
+                              const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
+                              const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
+                              const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
+                              const active = modalSelectedDate === date;
+                              return (
+                                <button
+                                  key={date}
+                                  type="button"
+                                  className={`group flex flex-col items-center justify-center gap-1 rounded-[2rem] border px-3 py-4 text-center transition ${active ? 'border-cinema-gold bg-cinema-gold text-cinema-black' : 'border-white/10 bg-white/[0.05] text-cinema-gray hover:border-white/20 hover:bg-white/[0.1]'}`}
+                                  onClick={() => setModalSelectedDate(date)}
+                                >
+                                  <span className="text-[10px] uppercase tracking-[0.25em] text-cinema-cream/80">{weekday}</span>
+                                  <span className="text-2xl font-bold leading-none">{day}</span>
+                                  <span className="text-xs uppercase tracking-[0.2em] text-cinema-cream/80">{month}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.25em] text-cinema-cream/70">Funciones por sala</p>
+                          <div className="space-y-5 mt-3">
+                            {Object.entries(funcionesPorSala).map(([salaTipo, funciones]) => (
+                              <div key={salaTipo} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+                                <h4 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-white">{salaTipo}</h4>
+                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                  {funciones.map(func => {
+                                    const time = func.horaInicio?.substring(0, 5) ?? '—';
+                                    const fechaHora = buildLocalDateTime(func.fecha, func.horaInicio || '00:00');
+                                    const isPast = func.horaInicio ? (fechaHora ? fechaHora.getTime() <= Date.now() : true) : true;
+                                    const active = selectedModalFuncion?.idFuncion === func.idFuncion;
+                                    return (
+                                      <button
+                                        key={func.idFuncion}
+                                        type="button"
+                                        disabled={isPast}
+                                        className={`group rounded-3xl border px-4 py-3 text-left transition ${active ? 'border-cinema-gold bg-cinema-gold/10 text-white' : isPast ? 'border-white/10 bg-white/[0.02] text-cinema-gray opacity-60 cursor-not-allowed' : 'border-white/10 bg-white/[0.03] text-cinema-gray hover:border-white/20'}`}
+                                        onClick={() => { if (!isPast) setSelectedModalFuncion(func); }}
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <span className="block rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.2em] bg-black/70 text-white">
+                                            Español
+                                          </span>
+                                          <span className="mt-3 block text-lg font-semibold text-white">
+                                            {time}{isPast && <span className="text-sm text-red-400 ml-1">(Cerrada)</span>}
+                                          </span>
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                            {funcionesPorSala && Object.keys(funcionesPorSala).length === 0 && (
+                              <p className="text-sm text-cinema-gray">No hay funciones para la fecha seleccionada.</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <button
+                      className="btn-primary"
+                      disabled={!selectedModalFuncion || selectedModalIsPast}
+                      onClick={() => { if (selectedModalFuncion && !selectedModalIsPast) { selectFuncion(selectedModalFuncion); closePreviewModal(); } }}
+                    >
+                      {selectedModalFuncion ? (selectedModalIsPast ? 'Función cerrada' : 'Seleccionar asientos') : 'Seleccione una función'}
+                    </button>
+                    <button className="btn-secondary" onClick={closePreviewModal}>Cancelar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {step === 2 && selectedFuncion && (
         <div className="space-y-6">
-          <div className="card-cine p-5">
+           <div className="card-cine p-5">
             <p className="text-sm text-cinema-gray">
-              <span className="font-semibold text-white">{selectedFuncion.peliculaTitulo}</span> — {selectedFuncion.idSala} ({selectedFuncion.salaTipo}) — {new Date(selectedFuncion.fecha).toLocaleDateString('es-BO')} {selectedFuncion.horaInicio?.substring(0, 5)}
+              <span className="font-semibold text-white">{selectedFuncion.peliculaTitulo}</span> — {selectedFuncion.idSala} ({selectedFuncion.salaTipo}) — {(parseLocalDate(selectedFuncion.fecha) || new Date()).toLocaleDateString('es-BO')} {selectedFuncion.horaInicio?.substring(0, 5)}
             </p>
             {selectedFuncion.promocionActiva === 1 && (
               <span className="mt-2 inline-block rounded-full bg-cinema-gold/20 border border-cinema-gold/30 px-3 py-1 text-xs font-bold text-cinema-gold">
@@ -320,7 +559,7 @@ export default function VentaPresencialPage() {
                       </div>
                       <div>
                         <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Fecha</p>
-                        <p className="font-medium text-white">{selectedFuncion?.fecha ? new Date(selectedFuncion.fecha).toLocaleDateString('es-BO') : ''}</p>
+                        <p className="font-medium text-white">{selectedFuncion?.fecha ? (parseLocalDate(selectedFuncion.fecha) || new Date()).toLocaleDateString('es-BO') : ''}</p>
                       </div>
                       <div>
                         <p className="text-cinema-gray uppercase text-[8px] tracking-wider font-bold">Horario</p>
