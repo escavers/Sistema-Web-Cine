@@ -80,127 +80,133 @@ export async function obtenerComprobantePorNumero(req: Request, res: Response) {
 // ÔöÇÔöÇ A4 Comprobante PDF ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 export async function descargarComprobantePdf(req: Request, res: Response) {
-  const { numero } = req.params;
+  try {
+    const { numero } = req.params;
 
-  if (!numero) {
-    return fail(res, 'Número de comprobante requerido.', 400);
-  }
-
-  const [rows] = await pool.query(
-    `${comprobanteQuery} WHERE c.numero = ? ${comprobanteGroupBy}`,
-    [numero]
-  );
-
-  if (!(rows as any[]).length) {
-    return fail(res, `Comprobante no encontrado: ${numero}`, 404);
-  }
-
-  const comprobante = (rows as any[])[0];
-
-  // Obtener nombre del usuario autenticado
-  let nombreUsuario = 'Desconocido';
-  if (req.user) {
-    const [userRows] = await pool.query(
-      'SELECT nombre1, apellidoP FROM Usuario WHERE idUsuario = ?',
-      [req.user.idUsuario]
-    );
-    if ((userRows as any[]).length) {
-      const u = (userRows as any[])[0];
-      nombreUsuario = `${u.nombre1} ${u.apellidoP}`.trim();
+    if (!numero) {
+      return fail(res, 'Número de comprobante requerido.', 400);
     }
+
+    const [rows] = await pool.query(
+      `${comprobanteQuery} WHERE c.numero = ? ${comprobanteGroupBy}`,
+      [numero]
+    );
+
+    if (!(rows as any[]).length) {
+      return fail(res, `Comprobante no encontrado: ${numero}`, 404);
+    }
+
+    const comprobante = (rows as any[])[0];
+
+    // Obtener nombre del usuario autenticado
+    let nombreUsuario = 'Desconocido';
+    if (req.user) {
+      const [userRows] = await pool.query(
+        'SELECT nombre1, apellidoP FROM Usuario WHERE idUsuario = ?',
+        [req.user.idUsuario]
+      );
+      if ((userRows as any[]).length) {
+        const u = (userRows as any[])[0];
+        nombreUsuario = `${u.nombre1} ${u.apellidoP}`.trim();
+      }
+    }
+
+    const { doc, chunks } = createPdfDoc();
+    const PAGE_WIDTH = 595.28;
+    const MARGIN = 40;
+    const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
+
+    // ─── Encabezado ───
+    doc.fontSize(24).font('Helvetica-Bold').fillColor('#1a1a1a');
+    doc.text('Cine La Paz', MARGIN, doc.y, { align: 'left' });
+    doc.moveDown(0.3);
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#333333');
+    doc.text('COMPROBANTE DE COMPRA', MARGIN, doc.y, { align: 'left' });
+    doc.moveDown(0.2);
+    doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).stroke('#cccccc');
+    doc.moveDown(0.5);
+
+    // ── Datos del comprobante ──
+    doc.fontSize(10).font('Helvetica').fillColor('#333333');
+    doc.text(`Comprobante N°: ${comprobante.numero}`);
+    doc.text(`Fecha de emision: ${new Date(comprobante.fechaEmision).toLocaleString('es-BO')}`);
+    doc.text(`Fecha de compra: ${new Date(comprobante.fechaCompra).toLocaleString('es-BO')}`);
+    doc.text(`Canal: ${comprobante.canal === 'ONLINE' ? 'Compra en linea' : 'Venta presencial'}`);
+    doc.text(`Metodo de pago: ${comprobante.metodoPago === 'QR' ? 'Codigo QR' : comprobante.metodoPago}`);
+    doc.moveDown(0.6);
+
+    // ─── Seccion de pelicula ───
+    drawSectionTitle(doc, 'PELICULA', MARGIN, PAGE_WIDTH);
+    doc.fontSize(10).font('Helvetica').fillColor('#333333');
+    doc.text(`Titulo: ${comprobante.peliculaTitulo}`, MARGIN + 5);
+    doc.text(`Sala: ${comprobante.salaTipo} (${comprobante.idSala})`, MARGIN + 5);
+    doc.text(`Fecha: ${formatDateEs(comprobante.fecha)}`, MARGIN + 5);
+    doc.text(`Hora: ${comprobante.horaInicio} - ${comprobante.horaFin}`, MARGIN + 5);
+    doc.text(`Asientos: ${comprobante.asientos}`, MARGIN + 5);
+    doc.moveDown(0.6);
+
+    // ─── Seccion de cliente ───
+    drawSectionTitle(doc, 'DATOS DEL CLIENTE', MARGIN, PAGE_WIDTH);
+    doc.fontSize(10).font('Helvetica').fillColor('#333333');
+    doc.text(`Nombre: ${comprobante.razonSocialCliente || 'Consumidor Final'}`, MARGIN + 5);
+    doc.text(`CI / NIT: ${comprobante.nitCliente || comprobante.clienteCi || 'N/A'}`, MARGIN + 5);
+    doc.moveDown(0.6);
+
+    // ── Resumen de pago (tabla) ──
+    drawSectionTitle(doc, 'RESUMEN DE PAGO', MARGIN, PAGE_WIDTH);
+
+    const columns: TableColumn[] = [
+      { header: 'Cant.', key: 'cant', width: 50, align: 'center' },
+      { header: 'Concepto', key: 'concepto', width: 200 },
+      { header: 'P. Unitario', key: 'pu', width: 100, align: 'right' },
+      { header: 'Subtotal', key: 'sub', width: 100, align: 'right' },
+    ];
+
+    const cantidad = comprobante.asientos ? comprobante.asientos.split(', ').length : 1;
+    const precioUnitario = Number(comprobante.montoTotal) / cantidad;
+
+    const tableRows = [[
+      String(cantidad),
+      'Boletos',
+      formatMoney(precioUnitario),
+      formatMoney(Number(comprobante.montoTotal)),
+    ]];
+
+    drawPdfTable(doc, columns, tableRows, { zebra: false });
+
+    // Total
+    doc.moveDown(0.3);
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#1a1a1a');
+    doc.text(`TOTAL: ${formatMoney(Number(comprobante.montoTotal))}`, MARGIN, doc.y, {
+      width: CONTENT_WIDTH,
+      align: 'right',
+    });
+    doc.moveDown(1);
+
+    // ─── Footer ───
+    buildPdfBottomInfo(doc, nombreUsuario);
+
+    if (doc.y + 40 > 760) doc.addPage();
+    doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).stroke('#cccccc');
+    doc.moveDown(0.3);
+    doc.fontSize(9).font('Helvetica').fillColor('#999999');
+    doc.text('Gracias por comprar en Cine La Paz', { align: 'center' });
+    doc.text('Los pases de entrada con codigo QR se descargan por separado.', { align: 'center' });
+
+    addPageFooters(doc);
+    await sendPdf(res, doc, chunks, comprobante.numero);
+  } catch (error) {
+    console.error(error);
+    return fail(res, 'Error al generar PDF del comprobante.', 500);
   }
-
-  const { doc, chunks } = createPdfDoc();
-  const PAGE_WIDTH = 595.28;
-  const MARGIN = 40;
-  const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
-
-  // ─── Encabezado ───
-  doc.fontSize(24).font('Helvetica-Bold').fillColor('#1a1a1a');
-  doc.text('Cine La Paz', MARGIN, doc.y, { align: 'left' });
-  doc.moveDown(0.3);
-  doc.fontSize(14).font('Helvetica-Bold').fillColor('#333333');
-  doc.text('COMPROBANTE DE COMPRA', MARGIN, doc.y, { align: 'left' });
-  doc.moveDown(0.2);
-  doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).stroke('#cccccc');
-  doc.moveDown(0.5);
-
-  // ── Datos del comprobante ──
-  doc.fontSize(10).font('Helvetica').fillColor('#333333');
-  doc.text(`Comprobante N°: ${comprobante.numero}`);
-  doc.text(`Fecha de emision: ${new Date(comprobante.fechaEmision).toLocaleString('es-BO')}`);
-  doc.text(`Fecha de compra: ${new Date(comprobante.fechaCompra).toLocaleString('es-BO')}`);
-  doc.text(`Canal: ${comprobante.canal === 'ONLINE' ? 'Compra en linea' : 'Venta presencial'}`);
-  doc.text(`Metodo de pago: ${comprobante.metodoPago === 'QR' ? 'Codigo QR' : comprobante.metodoPago}`);
-  doc.moveDown(0.6);
-
-  // ─── Seccion de pelicula ───
-  drawSectionTitle(doc, 'PELICULA', MARGIN, PAGE_WIDTH);
-  doc.fontSize(10).font('Helvetica').fillColor('#333333');
-  doc.text(`Titulo: ${comprobante.peliculaTitulo}`, MARGIN + 5);
-  doc.text(`Sala: ${comprobante.salaTipo} (${comprobante.idSala})`, MARGIN + 5);
-  doc.text(`Fecha: ${formatDateEs(comprobante.fecha)}`, MARGIN + 5);
-  doc.text(`Hora: ${comprobante.horaInicio} - ${comprobante.horaFin}`, MARGIN + 5);
-  doc.text(`Asientos: ${comprobante.asientos}`, MARGIN + 5);
-  doc.moveDown(0.6);
-
-  // ─── Seccion de cliente ───
-  drawSectionTitle(doc, 'DATOS DEL CLIENTE', MARGIN, PAGE_WIDTH);
-  doc.fontSize(10).font('Helvetica').fillColor('#333333');
-  doc.text(`Nombre: ${comprobante.razonSocialCliente || 'Consumidor Final'}`, MARGIN + 5);
-  doc.text(`CI / NIT: ${comprobante.nitCliente || comprobante.clienteCi || 'N/A'}`, MARGIN + 5);
-  doc.moveDown(0.6);
-
-  // ── Resumen de pago (tabla) ──
-  drawSectionTitle(doc, 'RESUMEN DE PAGO', MARGIN, PAGE_WIDTH);
-
-  const columns: TableColumn[] = [
-    { header: 'Cant.', key: 'cant', width: 50, align: 'center' },
-    { header: 'Concepto', key: 'concepto', width: 200 },
-    { header: 'P. Unitario', key: 'pu', width: 100, align: 'right' },
-    { header: 'Subtotal', key: 'sub', width: 100, align: 'right' },
-  ];
-
-  const cantidad = comprobante.asientos ? comprobante.asientos.split(', ').length : 1;
-  const precioUnitario = Number(comprobante.montoTotal) / cantidad;
-
-  const tableRows = [[
-    String(cantidad),
-    'Boletos',
-    formatMoney(precioUnitario),
-    formatMoney(Number(comprobante.montoTotal)),
-  ]];
-
-  drawPdfTable(doc, columns, tableRows, { zebra: false });
-
-  // Total
-  doc.moveDown(0.3);
-  doc.fontSize(12).font('Helvetica-Bold').fillColor('#1a1a1a');
-  doc.text(`TOTAL: ${formatMoney(Number(comprobante.montoTotal))}`, MARGIN, doc.y, {
-    width: CONTENT_WIDTH,
-    align: 'right',
-  });
-  doc.moveDown(1);
-
-  // ─── Footer ───
-  buildPdfBottomInfo(doc, nombreUsuario);
-
-  if (doc.y + 40 > 760) doc.addPage();
-  doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).stroke('#cccccc');
-  doc.moveDown(0.3);
-  doc.fontSize(9).font('Helvetica').fillColor('#999999');
-  doc.text('Gracias por comprar en Cine La Paz', { align: 'center' });
-  doc.text('Los pases de entrada con codigo QR se descargan por separado.', { align: 'center' });
-
-  addPageFooters(doc);
-  await sendPdf(res, doc, chunks, comprobante.numero);
 }
 
 // ÔöÇÔöÇ Ticket PDF (80mm rollo) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 export async function descargarComprobanteTicketPdf(req: Request, res: Response) {
-  const { numero } = req.params;
-  const [rows] = await pool.query(
+  try {
+    const { numero } = req.params;
+    const [rows] = await pool.query(
     `SELECT
       c.numero, c.nitCliente, c.razonSocialCliente, c.fechaEmision,
       v.idVenta, v.montoTotal, v.fechaCompra, v.metodoPago, v.tipo AS canal,
@@ -373,6 +379,10 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   doc.text(`Usu: ${nombreUsuario}`, { align: 'center' });
 
   doc.end();
+  } catch (error) {
+    console.error(error);
+    return fail(res, 'Error al generar PDF del ticket.', 500);
+  }
 }
 
 // ÔöÇÔöÇ Helpers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
