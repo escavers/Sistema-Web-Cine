@@ -28,6 +28,7 @@ const navItems: NavItem[] = [
   { to: '/compra', label: 'Comprar boletos', roles: ['CLIENTE'] },
   { to: '/historial', label: 'Mi historial', roles: ['CLIENTE'] },
   { to: '/reportes', label: 'Reportes', roles: ['ADMINISTRADOR'] },
+  { to: '/promociones', label: 'Promociones', roles: ['ADMINISTRADOR'] },
 ];
 
 export default function Layout() {

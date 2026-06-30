@@ -541,8 +541,8 @@ export default function VentaPresencialPage() {
 
           {/* VENTANA EMERGENTE (MODAL) CON VISTA PREVIA Y ACCIONES */}
           {showModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-              <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl space-y-5">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={() => setShowModal(false)}>
+              <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 {/* Header del Modal */}
                 <div className="flex justify-between items-center border-b border-white/10 pb-2">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-cinema-gold">Vista Previa de Boleto</h4>

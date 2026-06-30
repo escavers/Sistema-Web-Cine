@@ -290,8 +290,9 @@ export default function HistorialPage() {
                             <button type="button" className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white px-2 py-1 text-[11px] font-bold transition" onClick={() => handleDescargarPdf(h.numero)}>
                               PDF
                             </button>
-                            <button type="button" className="rounded-lg border border-cinema-gold/30 bg-cinema-gold/10 hover:bg-cinema-gold/20 text-cinema-gold px-2 py-1 text-[11px] font-bold transition" onClick={() => handleDescargarTicket(h.numero)} title="Ticket térmico">
-                              🎟️
+                            <button type="button" className="rounded-lg border border-cinema-gold/30 bg-cinema-gold/10 hover:bg-cinema-gold/20 text-cinema-gold px-2.5 py-1 text-[11px] font-bold transition flex items-center gap-1.5" onClick={() => handleDescargarTicket(h.numero)} title="Ticket térmico">
+                              <span>🎟️</span>
+                              <span>Térmico</span>
                             </button>
                           </>
                         )}

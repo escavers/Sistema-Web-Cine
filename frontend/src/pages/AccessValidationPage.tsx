@@ -182,7 +182,7 @@ export default function AccessValidationPage() {
         </div>
         <h2 className="text-3xl font-black text-white">Validación de Pases QR</h2>
         <p className="text-sm text-cinema-gray">
-          Vista móvil del Encargado de Acceso para validar boletos en tiempo real (HU-16).
+          Vista móvil del Encargado de Acceso para validar boletos en tiempo real.
         </p>
       </div>
 

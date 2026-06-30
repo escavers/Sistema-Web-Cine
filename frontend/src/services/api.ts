@@ -192,4 +192,6 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ qrCode })
     }),
+  obtenerFuncionesPromocion: () =>
+    request<{ ok: boolean; funciones: any[]; reglas: any }>('/promociones/funciones'),
 };

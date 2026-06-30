@@ -15,6 +15,7 @@ import CompraOnlinePage from './pages/CompraOnlinePage';
 import HistorialPage from './pages/HistorialPage';
 import ReportesPage from './pages/ReportesPage';
 import AccessValidationPage from './pages/AccessValidationPage';
+import PromocionesPage from './pages/PromocionesPage';
 import PerfilPage from './pages/PerfilPage';
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -92,6 +93,12 @@ export default function App() {
             <Route path="/acceso/validar" element={
               <ProtectedRoute roles={['ACCESO', 'ADMINISTRADOR']}>
                 <AccessValidationPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/promociones" element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <PromocionesPage />
               </ProtectedRoute>
             } />
 

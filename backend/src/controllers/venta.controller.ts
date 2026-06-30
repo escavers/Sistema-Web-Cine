@@ -5,6 +5,7 @@ import { fail, ok } from '../utils/response.js';
 import { createAudit } from '../services/audit.service.js';
 import { sendComprobanteEmailInternal } from './email.controller.js';
 import { randomBytes } from 'crypto';
+import { evaluarPromocionFuncion } from '../services/promotionSchedulerService.js';
 
 /**
  * Genera un código de acceso aleatorio seguro en formato XXXX-XXXX.
@@ -140,6 +141,13 @@ export async function crearVenta(req: Request, res: Response) {
 
     await connection.commit();
 
+    // Recalcular la ocupación y actualizar el estado de la promoción en tiempo real (HU-11 Escenario 3)
+    try {
+      await evaluarPromocionFuncion(data.idFuncion, pool);
+    } catch (promoErr) {
+      console.error(`Error al evaluar/actualizar la promoción para la función ${data.idFuncion}:`, promoErr);
+    }
+
     await createAudit({
       tablaNombre: 'Venta',
       registroId: idVenta,
@@ -181,9 +189,42 @@ export async function crearVenta(req: Request, res: Response) {
 export async function obtenerBoletosPorVenta(req: Request, res: Response) {
   const idVenta = Number(req.params.id);
   if (isNaN(idVenta)) return fail(res, 'ID de venta invalido.', 400);
-  const [rows] = await pool.query<any[]>(
-    'SELECT idBoleto, idAsiento, codigoAcceso, precioPagado FROM Boleto WHERE idVenta = ? ORDER BY idAsiento',
-    [idVenta]
-  );
-  return ok(res, { boletos: rows });
+
+  const usuario = req.user;
+  if (!usuario) {
+    return fail(res, 'Debe iniciar sesión para continuar.', 401);
+  }
+
+  try {
+    // 1. Obtener la venta para verificar propiedad (Mitigación IDOR / BOLA)
+    const [ventaRows] = await pool.query<any[]>(
+      'SELECT idCliente, idEncargado FROM Venta WHERE idVenta = ? AND estadoA = 1',
+      [idVenta]
+    );
+
+    if (!ventaRows.length) {
+      return fail(res, 'Venta no encontrada.', 404);
+    }
+
+    const venta = ventaRows[0];
+
+    // 2. Control de Acceso: si es un CLIENTE, debe ser dueño de la venta.
+    // Los roles ADMINISTRADOR, BOLETERIA y ACCESO pueden ver cualquier boleto.
+    const esCliente = usuario.idRol.includes('CLIENTE');
+    const esDuenio = venta.idCliente === usuario.idUsuario;
+    const esPersonalAutorizado = usuario.idRol.some(r => ['ADMINISTRADOR', 'BOLETERIA', 'ACCESO'].includes(r));
+
+    if (esCliente && !esDuenio && !esPersonalAutorizado) {
+      return fail(res, 'No tiene permisos para ver los boletos de esta venta.', 403);
+    }
+
+    const [rows] = await pool.query<any[]>(
+      'SELECT idBoleto, idAsiento, codigoAcceso, precioPagado FROM Boleto WHERE idVenta = ? ORDER BY idAsiento',
+      [idVenta]
+    );
+    return ok(res, { boletos: rows });
+  } catch (error) {
+    console.error('Error en obtenerBoletosPorVenta:', error);
+    return fail(res, 'Error al obtener los boletos de la venta.', 500);
+  }
 }

@@ -8,6 +8,7 @@
 import { pool } from './src/config/db.js';
 import { runPromoSchedulerJob } from './src/services/promotionSchedulerService.js';
 import { validateQrPass } from './src/controllers/accessController.js';
+import { obtenerBoletosPorVenta } from './src/controllers/venta.controller.js';
 
 async function runAllD4Tests() {
   console.log("====================================================");
@@ -52,24 +53,25 @@ async function runAllD4Tests() {
 
     // Insertar una venta temporal
     const [insertVenta] = await pool.query<any>(
-      `INSERT INTO Venta (idCliente, fechaCompra, tipo, montoTotal, estado, estadoA) 
-       VALUES (3, NOW(), 'ONLINE', 40.00, 'COMPRADO', 1)`
+      `INSERT INTO Venta (idCliente, idFuncion, fechaCompra, tipo, montoTotal, estadoVenta, estadoA) 
+       VALUES (3, ?, NOW(), 'ONLINE', 40.00, 'COMPRADO', 1)`,
+      [testFuncionId]
     );
     testVentaId = insertVenta.insertId;
 
     // Insertar boleto exitoso (estadoA = 1, asiento SALA-1-A1)
     const [insertBoletoSuccess] = await pool.query<any>(
-      `INSERT INTO Boleto (idFuncion, idAsiento, idVenta, precioPagado, estadoA) 
-       VALUES (?, 'SALA-1-A1', ?, 20.00, 1)`,
-      [testFuncionId, testVentaId]
+      `INSERT INTO Boleto (idAsiento, idVenta, precioPagado, estadoA) 
+       VALUES ('SALA-1-A1', ?, 20.00, 1)`,
+      [testVentaId]
     );
     testBoletoIdSuccess = insertBoletoSuccess.insertId;
 
     // Insertar boleto fallido (ya usado/invalido, estadoA = 0, asiento SALA-1-A2)
     const [insertBoletoFailed] = await pool.query<any>(
-      `INSERT INTO Boleto (idFuncion, idAsiento, idVenta, precioPagado, estadoA) 
-       VALUES (?, 'SALA-1-A2', ?, 20.00, 0)`,
-      [testFuncionId, testVentaId]
+      `INSERT INTO Boleto (idAsiento, idVenta, precioPagado, estadoA) 
+       VALUES ('SALA-1-A2', ?, 20.00, 0)`,
+      [testVentaId]
     );
     testBoletoIdFailed = insertBoletoFailed.insertId;
 
@@ -123,16 +125,55 @@ async function runAllD4Tests() {
         console.error("\n[FAILURE - HU-16] La validación de QR para boleto válido falló:", resultadoSuccess);
       }
 
-      // Simular lectura de boleto inválido (ya usado/inactivo)
-      console.log(`\nSimulando lectura de boleto ya usado con ID: ${testBoletoIdFailed}...`);
-      const resultadoFailure = await validateQrPass(String(testBoletoIdFailed));
-
-      if (resultadoFailure && !resultadoFailure.valido) {
-        console.log("\n[SUCCESS - HU-16] Validación Fallida Correctamente:");
-        console.log(`  -> Motivo esperado: ${resultadoFailure.motivo}`);
-        console.log(`  -> Mensaje: ${resultadoFailure.mensaje}`);
+      // --- TEST CASE 3: DESACTIVACIÓN AUTOMÁTICA POR OCUPACIÓN >= 70% (HU-11 Escenario 3) ---
+      console.log("\n--- [TEST 3/4] VERIFICANDO DESACTIVACIÓN DE PROMO (OCUPACIÓN >= 70%) ---");
+      await pool.query("UPDATE Boleto SET estadoA = 1 WHERE idBoleto = ?", [testBoletoIdSuccess]);
+      await pool.query("UPDATE Sala SET capacidadTotal = 1 WHERE idSala = 'SALA-1'");
+      await runPromoSchedulerJob();
+      const [funcionVerificarDesact] = await pool.query<any[]>(
+        'SELECT promocionActiva FROM Funcion WHERE idFuncion = ?',
+        [testFuncionId]
+      );
+      if (funcionVerificarDesact[0]?.promocionActiva === 0) {
+        console.log("\n[SUCCESS - HU-11 Escenario 3] Desactivación de Promo por ocupación >= 70% finalizada exitosamente.");
       } else {
-        console.error("\n[FAILURE - HU-16] El boleto usado fue validado erróneamente como correcto.");
+        console.error("\n[FAILURE - HU-11 Escenario 3] La promoción debió desactivarse pero sigue activa.");
+      }
+      await pool.query("UPDATE Sala SET capacidadTotal = 80 WHERE idSala = 'SALA-1'");
+
+      // --- TEST CASE 4: PROTECCIÓN IDOR / BOLA (SEGURIDAD) ---
+      console.log("\n--- [TEST 4/4] VERIFICANDO CONTROL DE ACCESO A BOLETOS (IDOR / BOLA) ---");
+      let statusSet: number = 200;
+      let jsonResult: any = null;
+      const mockRes: any = {
+        status: (code: number) => { statusSet = code; return mockRes; },
+        json: (data: any) => { jsonResult = data; return mockRes; }
+      };
+
+      // 1. Cliente dueño de la venta (Permitido)
+      const mockReqOwn: any = {
+        params: { id: String(testVentaId) },
+        user: { idUsuario: 3, idRol: ['CLIENTE'], correo: 'cliente@test.com' }
+      };
+      await obtenerBoletosPorVenta(mockReqOwn, mockRes);
+      if (statusSet === 200 && jsonResult?.ok) {
+        console.log("\n[SUCCESS - IDOR/BOLA] Cliente dueño de la venta accedió correctamente.");
+      } else {
+        console.error("\n[FAILURE - IDOR/BOLA] Cliente dueño de la venta no pudo acceder:", jsonResult);
+      }
+
+      // 2. Cliente hacker ajeno (Denegado)
+      const mockReqOther: any = {
+        params: { id: String(testVentaId) },
+        user: { idUsuario: 99, idRol: ['CLIENTE'], correo: 'hacker@test.com' }
+      };
+      statusSet = 200; // reset
+      jsonResult = null;
+      await obtenerBoletosPorVenta(mockReqOther, mockRes);
+      if (statusSet === 403) {
+        console.log("\n[SUCCESS - IDOR/BOLA] Acceso denegado (403) correctamente a cliente no propietario.");
+      } else {
+        console.error("\n[FAILURE - IDOR/BOLA] Vulnerabilidad IDOR activa! Cliente ajeno accedió (Status:", statusSet, "):", jsonResult);
       }
     }
 

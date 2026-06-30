@@ -1,58 +1,74 @@
-# Informe Tecnico de Actualizaciones y Ajustes de Seguridad (Desarrollador 4)
+# Informe Técnico de Actualizaciones y Ajustes de Seguridad (Desarrollador 4)
 
-**Fecha:** 28 de junio de 2026  
+**Fecha:** 30 de junio de 2026  
 **Autor:** Desarrollador 4 (D4)  
-**Modulo:** Seguridad, Autenticacion y Validacion de Boletos  
+**Módulo:** Seguridad, Autenticación, Promociones y Validación de Boletos  
 
 ---
 
 ## 1. Resumen Ejecutivo
-El presente informe documenta las modificaciones arquitectonicas, de base de datos y de logica de negocio implementadas en la ultima iteracion del proyecto **Sistema Web Cine**. El proposito principal de estos ajustes ha sido cerrar una vulnerabilidad critica de diseno en la validacion de boletos y alinear la experiencia de usuario (UX) del control de accesos con los estandares industriales del mundo real.
+El presente informe documenta las modificaciones arquitectónicas, de base de datos y de interfaz de usuario implementadas por el **Desarrollador 4** para resolver de forma definitiva las observaciones de Control de Calidad (QA). Los ajustes se centran en:
+1. Asegurar la lógica automática del 2x1 (Historias HU-11, cubriendo su activación y su desactivación por capacidad límite).
+2. Cerrar vulnerabilidades críticas de control de acceso a información de boletos de terceros (BOLA / IDOR).
+3. Resolver inconsistencias visuales y problemas de responsividad del frontend en la visualización de boletos QR y pases manuales (HU-16).
 
-## 2. Vulnerabilidad Identificada (Contexto)
-Durante el ciclo de desarrollo anterior, el identificador empleado para los codigos QR y la validacion manual de entradas consistia en una concatenacion determinista: `[ID_Boleto]-[ID_Sala]-[Asiento]` (Ejemplo: `15-S1-A1`). 
-Esta decision tecnica presentaba dos riesgos graves:
-1. **Predictibilidad:** Un usuario malintencionado podria adivinar facilmente la sintaxis y fabricar codigos QR falsificados para ingresar a otras funciones o asientos que no compro.
-2. **Friccion Operativa:** El encargado de acceso (`Rol: ACCESO`) debia ingresar manualmente cuatro datos por separado en la interfaz grafica si el escaner fallaba, lo cual enlentecia inaceptablemente la fila de entrada.
+---
 
-## 3. Resolucion y Justificacion Tecnica
+## 2. Lógica Automática 2x1 (HU-11) y Correcciones Realizadas
 
-Para subsanar las observaciones, se implemento el **Sistema Seguro de Validacion Criptografica (Tokens XXXX-XXXX)**. A continuacion, se detallan y justifican los ajustes realizados en cada capa del sistema:
+### 2.1. Lógica Automática de Desactivación (Escenario 3)
+*   **Problema reportado:** El job automático no cubría el escenario donde la ocupación de la función alcanza o supera el 70%, manteniendo la promoción activa incorrectamente.
+*   **Corrección en Backend:**
+    *   Se creó y exportó la función modular `evaluarPromocionFuncion` en [promotionSchedulerService.ts](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/backend/src/services/promotionSchedulerService.ts).
+    *   Esta función recalcula y actualiza la columna `promocionActiva` basándose en:
+        1. La antigüedad de la película (debe ser mayor a 30 días desde la fecha de estreno).
+        2. La ocupación de asientos activos (debe ser estrictamente menor al 70%).
+    *   Si se supera el 70% de ocupación o no se cumple la fecha de cartelera, la promoción se cambia inmediatamente a `0` (desactivada).
+    *   Se integró este recálculo en tiempo real en [venta.controller.ts](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/backend/src/controllers/venta.controller.ts) (`crearVenta`), por lo que tan pronto una compra cruza el umbral del 70%, la promoción queda desactivada de inmediato para el siguiente comprador.
 
-### 3.1. Capa de Datos (Base de Datos)
-*   **Ajuste:** Se introdujo la columna `codigoAcceso (VARCHAR 20, UNIQUE)` a la tabla transaccional `Boleto`.
-*   **Ajuste:** Se ejecuto un script de migracion para poblar retroactivamente un codigo a todos los boletos historicos.
-*   **Justificacion:** Era imperativo desvincular el ID auto-incremental de la base de datos de la credencial de acceso del cliente. La migracion retroactiva fue necesaria para garantizar que ningun cliente que haya comprado una entrada en el pasado pierda el acceso a su pelicula (Principio de Compatibilidad Hacia Atras).
+### 2.2. Panel Informativo de Promociones (Lectura Única)
+*   **Problema reportado:** *"No existe ningún apartado de promociones, el caso de 2x1 es automático, tanto que no sé cómo funciona"*.
+*   **Corrección en Frontend:**
+    *   Se creó una nueva página administrativa [PromocionesPage.tsx](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/frontend/src/pages/PromocionesPage.tsx) bajo `/promociones` para los administradores.
+    *   Esta interfaz es **de lectura y carácter estrictamente informativo**. En ella se explican de forma interactiva las dos reglas del 2x1 automático, y se lista en tiempo real el catálogo de funciones con un indicador de ocupación visual y un badge dinámico (`🔥 2x1 Activo`, `🆕 Estreno (<30d)`, `👥 Alta Ocupación (>=70%)`).
 
-### 3.2. Capa de Negocio (Backend)
-*   **Ajuste en `venta.controller.ts`:** Se introdujo un algoritmo generador apoyado en `crypto.randomBytes`, utilizando un alfabeto estricto (excluyendo vocales prestadas y numeros ambiguos como `0` y `O`, `1` y `I`) para generar tokens del tipo `A8B9-C3D2`.
-*   **Ajuste en `accessController.ts`:** Se refactorizo la logica central del escaner. 
-*   **Justificacion:** El generador criptografico garantiza colisiones estadisticamente nulas y anula los ataques de fuerza bruta por adivinacion. El `accessController` fue rescrito bajo un patron de "Resolucion por Estrategia": Si el codigo entrante es de 8 o 9 caracteres (con o sin guion), se busca por token seguro; de lo contrario, aplica la busqueda por ID clasico (Retrocompatibilidad).
-*   **Nuevo Endpoint (`/ventas/:id/boletos`):** Se creo para exponer esta data al frontend de manera atomica, sin requerir reconstruir la logica de visualizacion del comprobante madre.
+---
 
-### 3.3. Capa de Presentacion (Frontend)
-*   **Interfaz de Validacion (`AccessValidationPage.tsx`):**
-    *   *Ajuste:* Se elimino la matriz de inputs multiples. Se introdujo una caja de texto gigante, unica y con *auto-focus*.
-    *   *Justificacion:* El hardware de escaner laser emula pulsaciones de teclado ultrarrapidas y culmina con un "ENTER". La interfaz antigua era incompatible con este hardware. La nueva interfaz permite que el laser arroje la cadena completa instantaneamente o que el operador tipee el codigo corto sin desglose manual, acelerando el flujo a niveles de produccion.
-*   **Unificacion de Modales al Cliente (`Historial`, `CompraOnline`, `VentaPresencial`):**
-    *   *Ajuste:* Se re-enruto la generacion de los QR para consumir el endpoint nuevo y renderizar la cadena `XXXX-XXXX`.
-    *   *Justificacion:* El usuario final (Cliente) y el usuario de Boleteria requerian uniformidad. Ahora, el codigo que ven en pantalla, el que imprimen en el PDF y el que leen los acomodadores es visualmente el mismo, disipando la confusion del cliente sobre su identificador de entrada.
+## 3. Seguridad - Mitigación de Vulnerabilidad IDOR / BOLA
+*   **Problema reportado:** El endpoint `GET /api/ventas/:id/boletos` carecía de verificación de propiedad, permitiendo a cualquier cliente autenticado ver los boletos y códigos de acceso (`codigoAcceso`) de otros usuarios cambiando el ID en la URL.
+*   **Corrección en Backend:**
+    *   Refactorizamos `obtenerBoletosPorVenta` en [venta.controller.ts](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/backend/src/controllers/venta.controller.ts).
+    *   Ahora se recupera la venta de la base de datos y se verifica si el `idCliente` de la misma coincide con el `idUsuario` del cliente que realiza la petición (del token JWT).
+    *   Solo se permite el acceso a la información si es el propietario de la compra, o bien si el usuario posee roles de gestión (`ADMINISTRADOR`, `BOLETERIA` o `ACCESO`). Caso contrario, se responde con un código **403 Forbidden**.
 
-## 4. Impacto en el Sistema
-*   **Seguridad:** Vulnerabilidad de falsificacion (Forgery) **mitigada**.
-*   **UX del Empleado:** Tiempo de validacion manual reducido en un 80% gracias al input unificado.
-*   **Estabilidad:** **0 Regresiones**. Todo el codigo historico de comprobantes sigue operando gracias a los _fallbacks_ de compatibilidad incluidos en el controlador de acceso.
+---
 
-## 5. Conclusion
-Las modificaciones cumplen y superan los requerimientos de la observacion tecnica inicial. El sistema no solo es ahora resistente contra ataques basicos de alteracion de boletos, sino que su interfaz de hardware esta preparada para operar eficazmente en las instalaciones ruidosas y de ritmo rapido que caracterizan a los cines reales. Todo el trabajo fue acoplado de forma aislada a los componentes de venta, sin perturbar los endpoints que competen al manejo de peliculas o salas elaborados por otros desarrolladores.
+## 4. Mejoras Visuales, Responsividad y Corrección de Formatos
 
-## 6. Pruebas de QA Automatizadas (Checklist)
-Como medida extra de aseguramiento de calidad, se elaboro un script automatizado en Node (`qa_test.mjs`) que ejecuto simulaciones de red en tiempo real contra los endpoints protegidos. Los resultados certifican la robustez del sistema:
+### 4.1. Remoción de Tags de Desarrollo (HU-16)
+*   **Problema reportado:** El identificador del requerimiento `(HU-16)` se renderizaba explícitamente en el subtítulo del control de acceso.
+*   **Corrección:** Se editó [AccessValidationPage.tsx](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/frontend/src/pages/AccessValidationPage.tsx) para retirar la etiqueta del texto final que ve el usuario.
 
-*   [Login Cliente] Autenticacion correcta y expedicion de tokens JWT.
-*   [Seguridad Roles] Intento de acceso prohibido (403) manejado exitosamente cuando un cliente intento listar usuarios del sistema.
-*   [Login Acceso] Autenticacion correcta para el rol del escaner.
-*   [SQL Injection] Inyeccion maliciosa (`' OR '1'='1`) en el validador detenida exitosamente; el servidor no se cayo y manejo la inyeccion como un codigo erroneo estandar.
-*   [Edge Case] Codigo inexistente pero con sintaxis correcta (`A1B2-C3D4`) rechazado con gracia.
+### 4.2. Responsividad del Modal de QR y Botón de Volver
+*   **Problema reportado:** En resoluciones de baja altura o dispositivos móviles, la vista emergente del boleto se recortaba, impidiendo visualizar el botón "Volver" para salir de ella.
+*   **Corrección:** 
+    *   Se agregó la propiedad `max-h-[90vh] overflow-y-auto` a los modales en [CompraOnlinePage.tsx](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/frontend/src/pages/CompraOnlinePage.tsx) y [VentaPresencialPage.tsx](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/frontend/src/pages/VentaPresencialPage.tsx).
+    *   Se programó el cierre automático del modal al hacer clic fuera del boleto (sobre el fondo oscuro), mejorando significativamente la usabilidad y responsividad.
 
-Estos tests fueron ejecutados tras reiniciar la base de datos limpia, garantizando que el entorno esta calificado para pasar a Produccion.
+### 4.3. Claridad del Botón de Ticket Térmico
+*   **Problema reportado:** El botón representado por un simple emoji `🎟️` resultaba confuso y difícil de interpretar.
+*   **Corrección:** Se modificó en [HistorialPage.tsx](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/frontend/src/pages/HistorialPage.tsx) para desplegar un botón visible y etiquetado como `🎟️ Térmico`.
+
+---
+
+## 5. Pruebas de QA Automatizadas (Checklist)
+Hemos robustecido el archivo de pruebas `test_runner_d4.ts` agregando verificaciones explícitas para las nuevas reglas implementadas:
+
+*   **[SUCCESS - HU-11]**: El scheduler evalúa y activa la promoción para funciones de estreno antiguo y baja ocupación.
+*   **[SUCCESS - HU-16]**: La simulación de lectura de un QR válido concede acceso, actualiza el estado del boleto en la base de datos a usado (`estadoA = 0`) y audita el escaneo.
+*   **[SUCCESS - HU-11 Escenario 3]**: Al simular una sala con ocupación al 100% (superando el límite del 70%), el scheduler desactiva automáticamente la promoción 2x1 (`promocionActiva = 0`).
+*   **[SUCCESS - IDOR/BOLA]**: 
+    *   El cliente dueño legítimo de la venta puede acceder a sus boletos de forma segura.
+    *   Cualquier petición de un cliente ajeno sobre esa misma venta es interceptada y rechazada con un código HTTP **403**.
+
+Todo el set de pruebas se ejecuta de forma exitosa sin regresiones en la base de datos o en la API.
