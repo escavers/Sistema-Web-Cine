@@ -23,6 +23,7 @@ interface ValidationFieldProps {
   onChange: (name: string, value: string) => void;
   validation?: ValidationItem;
   optional?: boolean;
+  showError?: boolean;
 }
 
 const ValidationField = memo(function ValidationField({
@@ -36,11 +37,13 @@ const ValidationField = memo(function ValidationField({
   onChange,
   validation,
   optional = false,
+  showError = false,
 }: ValidationFieldProps) {
   const isValid = validation?.valid;
   const error = validation?.error;
-  const borderClass = !value && !optional ? 'border-white/10' : isValid ? 'border-green-500/50' : value && error ? 'border-red-500/50' : 'border-white/10';
-  const focusBorderClass = isValid ? 'focus:border-green-500/70' : value && error ? 'focus:border-red-500/70' : 'focus:border-cinema-gold/50';
+  const hasError = showError && !isValid;
+  const borderClass = hasError ? 'border-red-500/50' : !value && !optional ? 'border-white/10' : isValid ? 'border-green-500/50' : value && error ? 'border-red-500/50' : 'border-white/10';
+  const focusBorderClass = hasError ? 'focus:border-red-500/70' : isValid ? 'focus:border-green-500/70' : value && error ? 'focus:border-red-500/70' : 'focus:border-cinema-gold/50';
 
   return (
     <label className="block">
@@ -50,7 +53,7 @@ const ValidationField = memo(function ValidationField({
       </div>
       <div className="relative mt-2">
         <input
-          className={`w-full rounded-xl border ${borderClass} ${focusBorderClass} bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder-cinema-gray/50 outline-none transition focus:ring-1 ${isValid ? 'focus:ring-green-500/30' : value && error ? 'focus:ring-red-500/30' : 'focus:ring-cinema-gold/30'}`}
+          className={`w-full rounded-xl border ${borderClass} ${focusBorderClass} bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder-cinema-gray/50 outline-none transition focus:ring-1 ${hasError ? 'focus:ring-red-500/30' : isValid ? 'focus:ring-green-500/30' : value && error ? 'focus:ring-red-500/30' : 'focus:ring-cinema-gold/30'}`}
           name={name}
           type={type}
           value={value}
@@ -58,14 +61,11 @@ const ValidationField = memo(function ValidationField({
           maxLength={maxLength}
           onChange={(e) => onChange(name, e.target.value)}
         />
-        {value && (isValid ? (
-          <span className="absolute right-3 top-2.5 text-green-500">✓</span>
-        ) : error ? (
-          <span className="absolute right-3 top-2.5 text-red-500">✕</span>
-        ) : null)}
+        {(hasError || (value && !isValid)) && <span className="absolute right-3 top-2.5 text-red-500">✕</span>}
+        {value && isValid && !hasError && <span className="absolute right-3 top-2.5 text-green-500">✓</span>}
       </div>
-      {value && error && <p className="mt-1 text-xs text-red-400">{error}</p>}
-      {isValid && value && <p className="mt-1 text-xs text-green-400">✓ {label.toLowerCase()} válido</p>}
+      {(hasError || (value && error)) && <p className="mt-1 text-xs text-red-400">{error}</p>}
+      {isValid && value && !hasError && <p className="mt-1 text-xs text-green-400">✓ {label.toLowerCase()} válido</p>}
     </label>
   );
 });
@@ -76,26 +76,29 @@ interface ValidationSelectProps {
   onChange: (name: string, value: string) => void;
   options: string[];
   validation?: ValidationItem;
+  showError?: boolean;
 }
 
-const ValidationSelect = memo(function ValidationSelect({ label, value, onChange, options, validation }: ValidationSelectProps) {
+const ValidationSelect = memo(function ValidationSelect({ label, value, onChange, options, validation, showError = false }: ValidationSelectProps) {
   const isValid = validation?.valid;
   const error = validation?.error;
-  const borderClass = isValid ? 'border-green-500/50' : error ? 'border-red-500/50' : 'border-white/10';
+  const hasError = showError && !isValid;
+  const borderClass = hasError ? 'border-red-500/50' : isValid ? 'border-green-500/50' : error ? 'border-red-500/50' : 'border-white/10';
 
   return (
     <label className="block">
       <span className="label-cine">{label}</span>
       <div className="relative mt-2">
         <select
-          className={`input-cine border ${borderClass} transition focus:border-cinema-gold/70`}
+          className={`input-cine border ${borderClass} transition ${hasError ? 'focus:border-red-500/70' : 'focus:border-cinema-gold/70'}`}
           value={value}
           onChange={(e) => onChange('clasificacionEdad', e.target.value)}
         >
           {options.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        {isValid && <span className="absolute right-8 top-2.5 text-green-500">✓</span>}
+        {isValid && !hasError && <span className="absolute right-8 top-2.5 text-green-500">✓</span>}
       </div>
+      {hasError && error && <p className="mt-1 text-xs text-red-400">{error}</p>}
     </label>
   );
 });
@@ -167,8 +170,7 @@ export default function PeliculasPage() {
   const validateDuracion = (value: string): { valid: boolean; error: string } => {
     if (!value) return { valid: false, error: 'La duración es obligatoria' };
     const num = Number(value);
-    if (isNaN(num) || num <= 0) return { valid: false, error: 'Debe ser un número mayor a 0' };
-    if (num < 1 || num > 600) return { valid: false, error: 'Debe estar entre 1 y 600 minutos' };
+    if (isNaN(num) || num < 1) return { valid: false, error: 'Debe ser un número entero mayor o igual a 1' };
     return { valid: true, error: '' };
   };
 
@@ -176,11 +178,12 @@ export default function PeliculasPage() {
     if (!value) return { valid: false, error: 'La fecha es obligatoria' };
     const fecha = new Date(value);
     if (isNaN(fecha.getTime())) return { valid: false, error: 'Fecha inválida' };
-    const minDate = new Date('2020-01-01');
-    const maxDate = new Date();
-    maxDate.setFullYear(maxDate.getFullYear() + 1);
-    if (fecha < minDate) return { valid: false, error: 'La fecha no puede ser anterior a 2020' };
-    if (fecha > maxDate) return { valid: false, error: 'La fecha no puede ser mayor a 1 año en el futuro' };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const fechaEstreno = new Date(value);
+    fechaEstreno.setHours(0, 0, 0, 0);
+    if (fechaEstreno < today) return { valid: false, error: 'La fecha de estreno no puede ser anterior a hoy' };
+    if (fechaEstreno.getFullYear() > today.getFullYear()) return { valid: false, error: 'No puede ser un año mayor al actual' };
     return { valid: true, error: '' };
   };
 
@@ -217,6 +220,8 @@ export default function PeliculasPage() {
       clasificacionEdad: validateClasificacion(formData.clasificacionEdad),
     };
   };
+
+  const [showErrors, setShowErrors] = useState(false);
 
   async function load() {
     try {
@@ -268,11 +273,26 @@ export default function PeliculasPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const validationErrors = validateAll(form);
-    
-    // Verificar si todos los campos son válidos
     const allValid = Object.values(validationErrors).every(v => v.valid);
+    setShowErrors(true);
+
     if (!allValid) {
-      setMessage({ type: 'error', text: 'Por favor, completa todos los campos correctamente.' });
+      const missingField = Object.entries(validationErrors).find(([, value]) => !value.valid);
+      const fieldName = missingField ? {
+        titulo: 'Título',
+        director: 'Director',
+        duracionMinutos: 'Duración',
+        fechaEstreno: 'Fecha de estreno',
+        posterUrl: 'URL del póster',
+        sinopsis: 'Sinopsis',
+        clasificacionEdad: 'Clasificación'
+      }[missingField[0] as keyof Validations] : 'algún campo';
+
+      setMessage({
+        type: 'error',
+        text: `${fieldName} incompleto o inválido. Revise el formulario para continuar.`
+      });
+      setValidations(validationErrors);
       return;
     }
 
@@ -374,6 +394,7 @@ export default function PeliculasPage() {
                 showCounter={true}
                 validation={validations.titulo}
                 onChange={update}
+                showError={showErrors}
               />
               <ValidationField
                 label="Director"
@@ -381,6 +402,7 @@ export default function PeliculasPage() {
                 value={form.director}
                 validation={validations.director}
                 onChange={update}
+                showError={showErrors}
               />
 
               {/* Fila 2 */}
@@ -391,6 +413,7 @@ export default function PeliculasPage() {
                 value={form.duracionMinutos}
                 validation={validations.duracionMinutos}
                 onChange={update}
+                showError={showErrors}
               />
               <ValidationSelect
                 label="Clasificación"
@@ -398,9 +421,9 @@ export default function PeliculasPage() {
                 onChange={update}
                 options={clasificaciones}
                 validation={validations.clasificacionEdad}
+                showError={showErrors}
               />
 
-              {/* Fila 3 */}
               <ValidationField
                 label="Fecha Estreno"
                 name="fechaEstreno"
@@ -408,6 +431,7 @@ export default function PeliculasPage() {
                 value={form.fechaEstreno}
                 validation={validations.fechaEstreno}
                 onChange={update}
+                showError={showErrors}
               />
               <ValidationField
                 label="URL Poster"
@@ -415,6 +439,7 @@ export default function PeliculasPage() {
                 value={form.posterUrl}
                 validation={validations.posterUrl}
                 onChange={update}
+                showError={showErrors}
               />
 
               {/* Sinopsis - Full width */}
@@ -426,19 +451,17 @@ export default function PeliculasPage() {
                   </div>
                   <div className="relative mt-2">
                     <textarea
-                      className={`w-full rounded-xl border ${form.sinopsis && validations.sinopsis.valid ? 'border-green-500/50' : form.sinopsis && validations.sinopsis.error ? 'border-red-500/50' : 'border-white/10'} bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder-cinema-gray/50 outline-none transition focus:ring-1 ${form.sinopsis && validations.sinopsis.valid ? 'focus:border-green-500/70 focus:ring-green-500/30' : form.sinopsis && validations.sinopsis.error ? 'focus:border-red-500/70 focus:ring-red-500/30' : 'focus:border-cinema-gold/50 focus:ring-cinema-gold/30'}`}
+                      className={`w-full rounded-xl border ${showErrors && !validations.sinopsis.valid ? 'border-red-500/50' : form.sinopsis && validations.sinopsis.valid ? 'border-green-500/50' : form.sinopsis && validations.sinopsis.error ? 'border-red-500/50' : 'border-white/10'} bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder-cinema-gray/50 outline-none transition focus:ring-1 ${showErrors && !validations.sinopsis.valid ? 'focus:border-red-500/70 focus:ring-red-500/30' : form.sinopsis && validations.sinopsis.valid ? 'focus:border-green-500/70 focus:ring-green-500/30' : form.sinopsis && validations.sinopsis.error ? 'focus:border-red-500/70 focus:ring-red-500/30' : 'focus:border-cinema-gold/50 focus:ring-cinema-gold/30'}`}
                       rows={3}
                       maxLength={1000}
                       value={form.sinopsis}
                       onChange={(e) => update('sinopsis', e.target.value)}
                     />
-                    {form.sinopsis && (validations.sinopsis.valid ? (
-                      <span className="absolute right-3 top-3 text-green-500">✓</span>
-                    ) : validations.sinopsis.error ? (
+                    {((showErrors && !validations.sinopsis.valid) || (form.sinopsis && validations.sinopsis.error)) && (
                       <span className="absolute right-3 top-3 text-red-500">✕</span>
-                    ) : null)}
+                    )}
                   </div>
-                  {form.sinopsis && validations.sinopsis.error && <p className="mt-1 text-xs text-red-400">{validations.sinopsis.error}</p>}
+                  {(showErrors || form.sinopsis) && validations.sinopsis.error && <p className="mt-1 text-xs text-red-400">{validations.sinopsis.error}</p>}
                   {validations.sinopsis.valid && form.sinopsis && <p className="mt-1 text-xs text-green-400">✓ Sinopsis válida</p>}
                 </label>
               </div>
@@ -449,7 +472,7 @@ export default function PeliculasPage() {
                 <div className="flex gap-3">
                   <button
                     className="btn-primary flex-1 disabled:opacity-50"
-                    disabled={loading || !allValidationsValid}
+                    disabled={loading}
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">

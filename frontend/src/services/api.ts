@@ -124,7 +124,7 @@ export const api = {
   // Funciones
   listarFunciones: () => request<{ ok: boolean; funciones: any[] }>('/funciones'),
   crearFuncion: (payload: Record<string, unknown>) =>
-    request<{ ok: boolean; mensaje: string; idFuncion: number }>('/funciones', { method: 'POST', body: JSON.stringify(payload) }),
+    request<{ ok: boolean; mensaje: string; idFuncion: number; promocionActivada?: boolean }>('/funciones', { method: 'POST', body: JSON.stringify(payload) }),
   eliminarFuncion: (id: number) =>
     request<{ ok: boolean; mensaje: string }>(`/funciones/${id}`, { method: 'DELETE' }),
   copiarSemanaFunciones: (payload: { fechaOrigen: string; fechaDestino: string }) =>

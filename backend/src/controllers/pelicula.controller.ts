@@ -9,7 +9,7 @@ const crearPeliculaSchema = z.object({
   director: z.string().min(1, 'El director es obligatorio').regex(/^[a-zA-ZáéíóúñÑ\s.'-]+$/, 'Solo letras permitidas'),
   sinopsis: z.string().nullable().optional(),
   posterUrl: z.string().nullable().optional(),
-  duracionMinutos: z.number().min(1, 'Duración mínima 1 minuto').max(600, 'Duración máxima 600 minutos'),
+  duracionMinutos: z.number().min(1, 'Duración mínima 1 minuto'),
   clasificacionEdad: z.string().optional().default('TP'),
   fechaEstreno: z.string().nullable().optional().refine(
     (val) => {

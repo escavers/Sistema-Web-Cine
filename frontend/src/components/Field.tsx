@@ -8,6 +8,9 @@ interface FieldProps {
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
+  min?: string;
+  max?: string;
+  step?: string;
   error?: string;
   onChange: (name: string, value: string) => void;
   onBlur?: (name: string, value: string) => void;
@@ -21,6 +24,9 @@ export default function Field({
   placeholder,
   required,
   disabled,
+  min: minAttr,
+  max: maxAttr,
+  step: stepAttr,
   error,
   onChange,
   onBlur
@@ -36,7 +42,7 @@ export default function Field({
       <span className="label-cine">{label}</span>
       <div className="relative">
         <input
-          className="input-cine w-full pr-10"
+          className={`input-cine w-full pr-10 ${error ? 'border-red-500 focus:border-red-500' : ''}`}
           id={inputId}
           name={name}
           type={inputType}
@@ -44,6 +50,9 @@ export default function Field({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
+          min={minAttr}
+          max={maxAttr}
+          step={stepAttr}
           aria-describedby={errorId}
           onChange={(event) => onChange(name, event.target.value)}
           onBlur={onBlur ? () => onBlur(name, value) : undefined}

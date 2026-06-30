@@ -10,7 +10,7 @@ const crearFuncionSchema = z.object({
   fecha: z.string().min(1),
   horaInicio: z.string().min(1),
   horaFin: z.string().min(1),
-  precioBase: z.number().min(0).max(500, 'El precio no puede exceder 500 Bs.'),
+  precioBase: z.number().min(0, 'El precio no puede ser menor a 0').max(9999, 'El precio no puede tener más de 4 dígitos'),
 });
 
 export async function crearFuncion(req: Request, res: Response) {
@@ -24,6 +24,26 @@ export async function crearFuncion(req: Request, res: Response) {
 
   if (d.horaInicio < '12:00' || d.horaFin > '22:00') {
     return fail(res, 'Las funciones deben estar entre las 12:00 y las 22:00.', 400);
+  }
+
+  const [peliculaRows] = await pool.query<any[]>(
+    `SELECT fechaEstreno FROM Pelicula WHERE idPelicula = ? AND estadoA = 1`,
+    [d.idPelicula]
+  );
+
+  if (peliculaRows.length === 0) {
+    return fail(res, 'Película no encontrada o no disponible.', 404);
+  }
+
+  const fechaEstreno = peliculaRows[0].fechaEstreno;
+  if (fechaEstreno) {
+    const estrenoDate = new Date(String(fechaEstreno).split('T')[0]);
+    const funcionDate = new Date(d.fecha);
+    estrenoDate.setHours(0, 0, 0, 0);
+    funcionDate.setHours(0, 0, 0, 0);
+    if (funcionDate < estrenoDate) {
+      return fail(res, 'La fecha de la función no puede ser anterior a la fecha de estreno de la película.', 400);
+    }
   }
 
   try {
