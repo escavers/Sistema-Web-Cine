@@ -92,6 +92,7 @@ export default function Layout() {
               <Link
                 key={item.to}
                 to={item.to}
+                aria-current={location.pathname === item.to ? 'page' : undefined}
                 className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
                   location.pathname === item.to
                     ? 'bg-cinema-gold/15 text-cinema-gold shadow-sm shadow-cinema-gold/5'

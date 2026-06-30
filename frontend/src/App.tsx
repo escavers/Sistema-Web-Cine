@@ -17,6 +17,7 @@ import ReportesPage from './pages/ReportesPage';
 import AccessValidationPage from './pages/AccessValidationPage';
 import PromocionesPage from './pages/PromocionesPage';
 import PerfilPage from './pages/PerfilPage';
+import ComprobantePublicoPage from './pages/ComprobantePublicoPage';
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -107,6 +108,8 @@ export default function App() {
                 <PerfilPage />
               </ProtectedRoute>
             } />
+
+            <Route path="/comprobante/:numero" element={<ComprobantePublicoPage />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

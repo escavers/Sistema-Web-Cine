@@ -138,6 +138,7 @@ export default function FuncionesPage() {
 
   const validateHoraInicio = (value: string): { valid: boolean; error: string } => {
     if (!value) return { valid: false, error: 'La hora es obligatoria' };
+    if (value < '12:00' || value > '22:00') return { valid: false, error: 'La función debe ser entre 12:00 y 22:00' };
     return { valid: true, error: '' };
   };
 
@@ -145,6 +146,7 @@ export default function FuncionesPage() {
     if (!value) return { valid: false, error: 'El precio es obligatorio' };
     const num = Number(value);
     if (isNaN(num) || num <= 0) return { valid: false, error: 'El precio debe ser mayor a 0' };
+    if (num > 500) return { valid: false, error: 'El precio no puede exceder 500 Bs.' };
     return { valid: true, error: '' };
   };
 
@@ -411,10 +413,12 @@ export default function FuncionesPage() {
       let exitosas = 0;
       let conflictos = 0;
       let promocionActivadaCount = 0;
+      const fechasConflicto: string[] = [];
 
       for (const fecha of fechas) {
         if (hasScheduleConflict(form.idSala, fecha, form.horaInicio, duracion)) {
           conflictos++;
+          fechasConflicto.push(fecha);
           continue;
         }
 
@@ -432,9 +436,16 @@ export default function FuncionesPage() {
       }
 
       const promoMsg = promocionActivadaCount > 0 ? ` (${promocionActivadaCount} con 2x1 activado)` : '';
+      let conflictDetail = '';
+      if (fechasConflicto.length > 0) {
+        const datesStr = fechasConflicto.length <= 3
+          ? fechasConflicto.map(f => formatDateLocal(f)).join(', ')
+          : `${fechasConflicto.slice(0, 3).map(f => formatDateLocal(f)).join(', ')} y ${fechasConflicto.length - 3} más`;
+        conflictDetail = ` Conflicto en: ${datesStr}`;
+      }
       setMessage({
-        type: 'ok',
-        text: `${exitosas} función(es) creada(s).${promoMsg} ${conflictos > 0 ? `${conflictos} con conflictos de horario.` : ''}`,
+        type: conflictos > 0 && exitosas === 0 ? 'error' : 'ok',
+        text: `${exitosas} función(es) creada(s).${promoMsg}${conflictDetail}`,
       });
 
       setForm(initial);

@@ -6,12 +6,22 @@ import { createAudit } from '../services/audit.service.js';
 
 const crearPeliculaSchema = z.object({
   titulo: z.string().min(1, 'El título es obligatorio.'),
-  director: z.string().nullable().optional(),
+  director: z.string().min(1, 'El director es obligatorio').regex(/^[a-zA-ZáéíóúñÑ\s.'-]+$/, 'Solo letras permitidas'),
   sinopsis: z.string().nullable().optional(),
   posterUrl: z.string().nullable().optional(),
-  duracionMinutos: z.number().nullable().optional(),
+  duracionMinutos: z.number().min(1, 'Duración mínima 1 minuto').max(600, 'Duración máxima 600 minutos'),
   clasificacionEdad: z.string().optional().default('TP'),
-  fechaEstreno: z.string().nullable().optional(),
+  fechaEstreno: z.string().nullable().optional().refine(
+    (val) => {
+      if (!val) return true;
+      const date = new Date(val);
+      const minDate = new Date('2020-01-01');
+      const maxDate = new Date();
+      maxDate.setFullYear(maxDate.getFullYear() + 1);
+      return date >= minDate && date <= maxDate;
+    },
+    'La fecha debe estar entre 2020-01-01 y un año en el futuro'
+  ),
 });
 
 const actualizarPeliculaSchema = crearPeliculaSchema.partial();
@@ -24,57 +34,65 @@ export async function listarPeliculas(_req: Request, res: Response) {
 }
 
 export async function crearPelicula(req: Request, res: Response) {
-  const parsed = crearPeliculaSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return fail(res, 'Datos inválidos.', 400, { errores: parsed.error.flatten() });
+  try {
+    const parsed = crearPeliculaSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return fail(res, 'Datos inválidos.', 400, { errores: parsed.error.flatten() });
+    }
+
+    const d = parsed.data;
+    const actor = req.user!;
+
+    const [result] = await pool.query<any>(
+      `INSERT INTO Pelicula (titulo, director, sinopsis, posterUrl, duracionMinutos, clasificacionEdad, fechaEstreno, estadoA, fechaA, usuarioA)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURDATE(), ?)`,
+      [d.titulo, d.director ?? null, d.sinopsis ?? null, d.posterUrl ?? null, d.duracionMinutos ?? null, d.clasificacionEdad, d.fechaEstreno ?? null, actor.idUsuario]
+    );
+
+    await createAudit({ tablaNombre: 'Pelicula', registroId: result.insertId, accion: 'PELICULA_CREADA', usuarioA: actor.idUsuario, req, detalles: `Película "${d.titulo}" creada.` });
+
+    return ok(res, { mensaje: 'Película creada correctamente.', idPelicula: result.insertId }, 201);
+  } catch (error) {
+    return fail(res, 'Error al crear la película.', 500);
   }
-
-  const d = parsed.data;
-  const actor = req.user!;
-
-  const [result] = await pool.query<any>(
-    `INSERT INTO Pelicula (titulo, director, sinopsis, posterUrl, duracionMinutos, clasificacionEdad, fechaEstreno, estadoA, fechaA, usuarioA)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURDATE(), ?)`,
-    [d.titulo, d.director ?? null, d.sinopsis ?? null, d.posterUrl ?? null, d.duracionMinutos ?? null, d.clasificacionEdad, d.fechaEstreno ?? null, actor.idUsuario]
-  );
-
-  await createAudit({ tablaNombre: 'Pelicula', registroId: result.insertId, accion: 'PELICULA_CREADA', usuarioA: actor.idUsuario, req, detalles: `Película "${d.titulo}" creada.` });
-
-  return ok(res, { mensaje: 'Película creada correctamente.', idPelicula: result.insertId }, 201);
 }
 
 export async function actualizarPelicula(req: Request, res: Response) {
-  const id = Number(req.params.id);
-  const parsed = actualizarPeliculaSchema.safeParse(req.body);
-  if (isNaN(id) || !parsed.success) {
-    return fail(res, 'Datos inválidos.', 400);
-  }
-
-  const data = parsed.data;
-  const actor = req.user!;
-  const campos = ['titulo', 'director', 'sinopsis', 'posterUrl', 'duracionMinutos', 'clasificacionEdad', 'fechaEstreno'];
-  const updates: string[] = [];
-  const values: unknown[] = [];
-
-  for (const c of campos) {
-    if (Object.prototype.hasOwnProperty.call(data, c)) {
-      updates.push(`${c} = ?`);
-      values.push((data as any)[c]);
+  try {
+    const id = Number(req.params.id);
+    const parsed = actualizarPeliculaSchema.safeParse(req.body);
+    if (isNaN(id) || !parsed.success) {
+      return fail(res, 'Datos inválidos.', 400);
     }
+
+    const data = parsed.data;
+    const actor = req.user!;
+    const campos = ['titulo', 'director', 'sinopsis', 'posterUrl', 'duracionMinutos', 'clasificacionEdad', 'fechaEstreno'];
+    const updates: string[] = [];
+    const values: unknown[] = [];
+
+    for (const c of campos) {
+      if (Object.prototype.hasOwnProperty.call(data, c)) {
+        updates.push(`${c} = ?`);
+        values.push((data as any)[c]);
+      }
+    }
+
+    if (updates.length === 0) return fail(res, 'No hay campos para actualizar.', 400);
+
+    updates.push('fechaA = CURDATE()');
+    updates.push('usuarioA = ?');
+    values.push(actor.idUsuario);
+    values.push(id);
+
+    await pool.query(`UPDATE Pelicula SET ${updates.join(', ')} WHERE idPelicula = ?`, values);
+
+    await createAudit({ tablaNombre: 'Pelicula', registroId: id, accion: 'PELICULA_MODIFICADA', usuarioA: actor.idUsuario, req });
+
+    return ok(res, { mensaje: 'Película actualizada correctamente.' });
+  } catch (error) {
+    return fail(res, 'Error al actualizar la película.', 500);
   }
-
-  if (updates.length === 0) return fail(res, 'No hay campos para actualizar.', 400);
-
-  updates.push('fechaA = CURDATE()');
-  updates.push('usuarioA = ?');
-  values.push(actor.idUsuario);
-  values.push(id);
-
-  await pool.query(`UPDATE Pelicula SET ${updates.join(', ')} WHERE idPelicula = ?`, values);
-
-  await createAudit({ tablaNombre: 'Pelicula', registroId: id, accion: 'PELICULA_MODIFICADA', usuarioA: actor.idUsuario, req });
-
-  return ok(res, { mensaje: 'Película actualizada correctamente.' });
 }
 
 export async function eliminarPelicula(req: Request, res: Response) {

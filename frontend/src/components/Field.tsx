@@ -7,7 +7,10 @@ interface FieldProps {
   value: string;
   placeholder?: string;
   required?: boolean;
+  disabled?: boolean;
+  error?: string;
   onChange: (name: string, value: string) => void;
+  onBlur?: (name: string, value: string) => void;
 }
 
 export default function Field({
@@ -17,25 +20,37 @@ export default function Field({
   value,
   placeholder,
   required,
-  onChange
+  disabled,
+  error,
+  onChange,
+  onBlur
 }: FieldProps) {
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === 'password';
   const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
+  const inputId = `field-${name}`;
+  const errorId = error ? `${name}-error` : undefined;
 
   return (
-    <label className="block">
+    <label className="block" htmlFor={inputId}>
       <span className="label-cine">{label}</span>
       <div className="relative">
         <input
           className="input-cine w-full pr-10"
+          id={inputId}
           name={name}
           type={inputType}
           value={value}
           placeholder={placeholder}
           required={required}
+          disabled={disabled}
+          aria-describedby={errorId}
           onChange={(event) => onChange(name, event.target.value)}
+          onBlur={onBlur ? () => onBlur(name, value) : undefined}
         />
+        {error && (
+          <span id={errorId} role="alert" className="mt-1 block text-xs text-red-400">{error}</span>
+        )}
         {isPassword && (
           <button
             type="button"

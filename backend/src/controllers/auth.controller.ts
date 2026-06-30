@@ -29,6 +29,20 @@ const registroClienteSchema = z.object({
     .regex(/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]]/, 'La contraseña debe incluir al menos un carácter especial.'),
   nit: z.string().optional().nullable(),
   razonSocial: z.string().optional().nullable()
+}).superRefine((data, ctx) => {
+  if (data.fechaNacimiento) {
+    const hoy = new Date();
+    const nac = new Date(data.fechaNacimiento);
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    if (hoy.getMonth() < nac.getMonth() || (hoy.getMonth() === nac.getMonth() && hoy.getDate() < nac.getDate())) edad--;
+    if (edad < 12) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Debe tener al menos 12 años para registrarse.',
+        path: ['fechaNacimiento']
+      });
+    }
+  }
 });
 
 const registroPresencialSchema = z.object({
@@ -42,6 +56,20 @@ const registroPresencialSchema = z.object({
   fechaNacimiento: z.string().optional().nullable(),
   nit: z.string().optional().nullable(),
   razonSocial: z.string().optional().nullable()
+}).superRefine((data, ctx) => {
+  if (data.fechaNacimiento) {
+    const hoy = new Date();
+    const nac = new Date(data.fechaNacimiento);
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    if (hoy.getMonth() < nac.getMonth() || (hoy.getMonth() === nac.getMonth() && hoy.getDate() < nac.getDate())) edad--;
+    if (edad < 12) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Debe tener al menos 12 años para registrarse.',
+        path: ['fechaNacimiento']
+      });
+    }
+  }
 });
 
 function buildToken(usuario: { idUsuario: number; idRol: string[]; correo: string }) {

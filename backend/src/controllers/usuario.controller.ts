@@ -8,28 +8,35 @@ import { fail, ok } from '../utils/response.js';
 const rolSchema = z.enum(['ADMINISTRADOR', 'BOLETERIA', 'CLIENTE', 'ACCESO']);
 
 const crearUsuarioSchema = z.object({
-  nombre1: z.string().min(1),
-  nombre2: z.string().optional().nullable(),
-  apellidoP: z.string().min(1),
-  apellidoM: z.string().optional().nullable(),
-  ci: z.string().min(1),
+  nombre1: z.string().min(1).regex(/^[a-zA-ZáéíóúñÑ\s.'-]+$/, 'Solo letras permitidas'),
+  nombre2: z.string().optional().nullable().refine(v => !v || /^[a-zA-ZáéíóúñÑ\s.'-]+$/.test(v), 'Solo letras permitidas'),
+  apellidoP: z.string().min(1).regex(/^[a-zA-ZáéíóúñÑ\s.'-]+$/, 'Solo letras permitidas'),
+  apellidoM: z.string().optional().nullable().refine(v => !v || /^[a-zA-ZáéíóúñÑ\s.'-]+$/.test(v), 'Solo letras permitidas'),
+  ci: z.string().min(3).regex(/^\d{3,15}$/, 'CI debe ser numérico (3-15 dígitos)'),
   correo: z.string().email(),
-  telefono: z.string().optional().nullable(),
+  telefono: z.string().optional().nullable().refine(v => !v || /^[67]\d{7}$/.test(v), 'Formato de teléfono inválido'),
   fechaNacimiento: z.string().optional().nullable(),
-  contrasena: z.string().optional().nullable(),
+  contrasena: z.string().optional().nullable().refine(
+    v => !v || v.trim() === '' || (
+      v.length >= 8 &&
+      /[A-Z]/.test(v) &&
+      /[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]]/.test(v)
+    ),
+    'La contraseña debe tener al menos 8 caracteres, una mayúscula y un carácter especial.'
+  ),
   idRol: z.array(rolSchema).min(1).max(1),
   nit: z.string().optional().nullable(),
   razonSocial: z.string().optional().nullable()
 });
 
 const actualizarUsuarioSchema = z.object({
-  nombre1: z.string().min(1).optional(),
-  nombre2: z.string().optional().nullable(),
-  apellidoP: z.string().min(1).optional(),
-  apellidoM: z.string().optional().nullable(),
-  ci: z.string().min(1).optional().nullable(),
+  nombre1: z.string().min(1).regex(/^[a-zA-ZáéíóúñÑ\s.'-]+$/, 'Solo letras permitidas').optional(),
+  nombre2: z.string().optional().nullable().refine(v => !v || /^[a-zA-ZáéíóúñÑ\s.'-]+$/.test(v), 'Solo letras permitidas'),
+  apellidoP: z.string().min(1).regex(/^[a-zA-ZáéíóúñÑ\s.'-]+$/, 'Solo letras permitidas').optional(),
+  apellidoM: z.string().optional().nullable().refine(v => !v || /^[a-zA-ZáéíóúñÑ\s.'-]+$/.test(v), 'Solo letras permitidas'),
+  ci: z.string().min(3).regex(/^\d{3,15}$/, 'CI debe ser numérico (3-15 dígitos)').optional().nullable(),
   correo: z.string().email().optional(),
-  telefono: z.string().optional().nullable(),
+  telefono: z.string().optional().nullable().refine(v => !v || /^[67]\d{7}$/.test(v), 'Formato de teléfono inválido'),
   fechaNacimiento: z.string().optional().nullable(),
   nit: z.string().optional().nullable(),
   razonSocial: z.string().optional().nullable(),

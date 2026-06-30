@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+button, a, [role="button"], select, label { cursor: pointer; }
+
+:focus-visible { outline: 2px solid #d4a017; outline-offset: 2px; border-radius: 4px; }
+
+button, a, select, input { transition: all 0.2s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@media (pointer: coarse) {
+  button, a, select, input[type="checkbox"], input[type="radio"] { min-height: 44px; min-width: 44px; }
+}
+
 body {
   margin: 0;
   font-family: Sora, system-ui, sans-serif;

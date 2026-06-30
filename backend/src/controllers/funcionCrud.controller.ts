@@ -10,7 +10,7 @@ const crearFuncionSchema = z.object({
   fecha: z.string().min(1),
   horaInicio: z.string().min(1),
   horaFin: z.string().min(1),
-  precioBase: z.number().min(0),
+  precioBase: z.number().min(0).max(500, 'El precio no puede exceder 500 Bs.'),
 });
 
 export async function crearFuncion(req: Request, res: Response) {
@@ -22,8 +22,12 @@ export async function crearFuncion(req: Request, res: Response) {
   const d = parsed.data;
   const actor = req.user!;
 
-  // Validar que no haya conflicto de horario en la misma sala (margen 15 min)
-  const [conflictos] = await pool.query<any[]>(
+  if (d.horaInicio < '12:00' || d.horaFin > '22:00') {
+    return fail(res, 'Las funciones deben estar entre las 12:00 y las 22:00.', 400);
+  }
+
+  try {
+    const [conflictos] = await pool.query<any[]>(
     `SELECT idFuncion, horaInicio, horaFin FROM Funcion
      WHERE idSala = ? AND fecha = ? AND estadoA = 1
      AND NOT (horaFin <= ? OR horaInicio >= ?)`,
@@ -80,11 +84,15 @@ export async function crearFuncion(req: Request, res: Response) {
 
   await createAudit({ tablaNombre: 'Funcion', registroId: result.insertId, accion: 'FUNCION_CREADA', usuarioA: actor.idUsuario, req });
 
-  return ok(res, {
-    mensaje: 'Función creada correctamente.',
-    idFuncion: result.insertId,
-    promocionActivada,
-  }, 201);
+    return ok(res, {
+      mensaje: 'Función creada correctamente.',
+      idFuncion: result.insertId,
+      promocionActivada,
+    }, 201);
+  } catch (error) {
+    console.error('Error al crear función:', error);
+    return fail(res, 'Error interno al crear la función.', 500);
+  }
 }
 
 const copiarSemanaSchema = z.object({
@@ -101,11 +109,14 @@ export async function copiarSemanaFunciones(req: Request, res: Response) {
   const { fechaOrigen, fechaDestino } = parsed.data;
   const actor = req.user!;
 
-  const [funcionesOriginales] = await pool.query<any[]>(
-    `SELECT idSala, idPelicula, horaInicio, horaFin, precioBase
+  try {
+    const [funcionesOriginales] = await pool.query<any[]>(
+    `SELECT idSala, idPelicula, horaInicio, horaFin, precioBase,
+            DATEDIFF(fecha, ?) AS diaOffset
      FROM Funcion
-     WHERE fecha = ? AND estadoA = 1`,
-    [fechaOrigen]
+     WHERE fecha BETWEEN ? AND DATE_ADD(?, INTERVAL 6 DAY) AND estadoA = 1
+     ORDER BY fecha, horaInicio`,
+    [fechaOrigen, fechaOrigen, fechaOrigen]
   );
 
   if (funcionesOriginales.length === 0) {
@@ -116,11 +127,15 @@ export async function copiarSemanaFunciones(req: Request, res: Response) {
   let conflictos = 0;
 
   for (const f of funcionesOriginales) {
+    const fechaDestinoReal = new Date(fechaDestino + 'T00:00:00');
+    fechaDestinoReal.setDate(fechaDestinoReal.getDate() + (f.diaOffset || 0));
+    const fmtDestino = `${fechaDestinoReal.getFullYear()}-${String(fechaDestinoReal.getMonth() + 1).padStart(2, '0')}-${String(fechaDestinoReal.getDate()).padStart(2, '0')}`;
+
     const [conflicto] = await pool.query<any[]>(
       `SELECT idFuncion FROM Funcion
        WHERE idSala = ? AND fecha = ? AND estadoA = 1
        AND NOT (horaFin <= ? OR horaInicio >= ?)`,
-      [f.idSala, fechaDestino, f.horaInicio, f.horaFin]
+      [f.idSala, fmtDestino, f.horaInicio, f.horaFin]
     );
 
     if (conflicto.length > 0) {
@@ -135,7 +150,7 @@ export async function copiarSemanaFunciones(req: Request, res: Response) {
          ABS(TIMESTAMPDIFF(MINUTE, horaFin, ?)) < 15
          OR ABS(TIMESTAMPDIFF(MINUTE, horaInicio, ?)) < 15
        )`,
-      [f.idSala, fechaDestino, f.horaInicio, f.horaFin]
+      [f.idSala, fmtDestino, f.horaInicio, f.horaFin]
     );
 
     if (margen.length > 0) {
@@ -146,7 +161,7 @@ export async function copiarSemanaFunciones(req: Request, res: Response) {
     await pool.query(
       `INSERT INTO Funcion (idSala, idPelicula, fecha, horaInicio, horaFin, precioBase, promocionActiva, estadoA, fechaA, usuarioA)
        VALUES (?, ?, ?, ?, ?, ?, 0, 1, CURDATE(), ?)`,
-      [f.idSala, f.idPelicula, fechaDestino, f.horaInicio, f.horaFin, f.precioBase, actor.idUsuario]
+      [f.idSala, f.idPelicula, fmtDestino, f.horaInicio, f.horaFin, f.precioBase, actor.idUsuario]
     );
     copiadas++;
   }
@@ -159,11 +174,15 @@ export async function copiarSemanaFunciones(req: Request, res: Response) {
     detalles: `Copia de ${fechaOrigen} a ${fechaDestino}: ${copiadas} copiadas, ${conflictos} conflictos.`
   });
 
-  return ok(res, {
-    mensaje: `Se copiaron ${copiadas} funciones.${conflictos > 0 ? ` ${conflictos} conflictos omitidos.` : ''}`,
-    copiadas,
-    conflictos,
-  });
+    return ok(res, {
+      mensaje: `Se copiaron ${copiadas} funciones.${conflictos > 0 ? ` ${conflictos} conflictos omitidos.` : ''}`,
+      copiadas,
+      conflictos,
+    });
+  } catch (error) {
+    console.error('Error al copiar semana:', error);
+    return fail(res, 'Error interno al copiar funciones.', 500);
+  }
 }
 
 export async function eliminarFuncion(req: Request, res: Response) {

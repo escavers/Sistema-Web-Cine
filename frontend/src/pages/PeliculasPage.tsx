@@ -160,6 +160,7 @@ export default function PeliculasPage() {
 
   const validateDirector = (value: string): { valid: boolean; error: string } => {
     if (!value.trim()) return { valid: false, error: 'El director es obligatorio' };
+    if (!/^[a-zA-ZáéíóúñÑ\s.'-]+$/.test(value)) return { valid: false, error: 'Solo letras, espacios y caracteres permitidos' };
     return { valid: true, error: '' };
   };
 
@@ -167,7 +168,7 @@ export default function PeliculasPage() {
     if (!value) return { valid: false, error: 'La duración es obligatoria' };
     const num = Number(value);
     if (isNaN(num) || num <= 0) return { valid: false, error: 'Debe ser un número mayor a 0' };
-    if (num < 30 || num > 300) return { valid: false, error: 'Debe estar entre 30 y 300 minutos' };
+    if (num < 1 || num > 600) return { valid: false, error: 'Debe estar entre 1 y 600 minutos' };
     return { valid: true, error: '' };
   };
 
@@ -175,6 +176,11 @@ export default function PeliculasPage() {
     if (!value) return { valid: false, error: 'La fecha es obligatoria' };
     const fecha = new Date(value);
     if (isNaN(fecha.getTime())) return { valid: false, error: 'Fecha inválida' };
+    const minDate = new Date('2020-01-01');
+    const maxDate = new Date();
+    maxDate.setFullYear(maxDate.getFullYear() + 1);
+    if (fecha < minDate) return { valid: false, error: 'La fecha no puede ser anterior a 2020' };
+    if (fecha > maxDate) return { valid: false, error: 'La fecha no puede ser mayor a 1 año en el futuro' };
     return { valid: true, error: '' };
   };
 
