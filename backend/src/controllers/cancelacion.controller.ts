@@ -3,6 +3,7 @@ import { pool } from '../config/db.js';
 import { z } from 'zod';
 import { fail, ok } from '../utils/response.js';
 import { createAudit } from '../services/audit.service.js';
+import { evaluarPromocionFuncion } from '../services/promotionSchedulerService.js';
 
 const cancelacionSchema = z.object({
   idVenta: z.number().min(1, 'ID de venta requerido'),
@@ -83,6 +84,17 @@ export async function cancelarVenta(req: Request, res: Response) {
     );
 
     await connection.commit();
+
+    try {
+      const [funcionRow] = await pool.query<any[]>(
+        'SELECT idFuncion FROM Venta WHERE idVenta = ?', [idVenta]
+      );
+      if (funcionRow.length > 0) {
+        await evaluarPromocionFuncion(funcionRow[0].idFuncion, pool);
+      }
+    } catch (promoErr) {
+      console.error('Error al recalcular promoción tras cancelación:', promoErr);
+    }
 
     await createAudit({
       tablaNombre: 'Venta',

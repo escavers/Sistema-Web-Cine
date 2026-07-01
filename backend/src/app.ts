@@ -10,6 +10,7 @@ import salaRoutes from './routes/sala.routes.js';
 import funcionRoutes from './routes/funcion.routes.js';
 import reporteRoutes from './routes/reporte.routes.js';
 import comprobanteRoutes from './routes/comprobante.routes.js';
+import promocionRoutes from './routes/promocion.routes.js';
 
 const app = express();
 
@@ -48,6 +49,7 @@ import accessRoutes from './routes/accessRoutes.js';
 app.use('/api/acceso', accessRoutes);
 app.use('/api/reportes', reporteRoutes);
 app.use('/api/comprobantes', comprobanteRoutes);
+app.use('/api/promociones', promocionRoutes);
 app.use('/api', ventaRoutes);
 
 app.use((_req, res) => {

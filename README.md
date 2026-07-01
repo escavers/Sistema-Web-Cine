@@ -197,11 +197,52 @@ cd backend
 
 Ejecute:
 
+<<<<<<< HEAD
 ```bash
 npm install
 ```
 
 Este comando instala todo lo necesario para que el backend funcione.
+=======
+### 1. Inicialización de Base de Datos
+1. Acceda a su cliente MySQL (ej. MySQL Workbench o DBeaver).
+2. Ejecute el archivo `cine_db.sql` localizado en la raíz del repositorio. 
+   *Resultado esperado:* Se creará la base de datos `cine_db` con todas sus tablas, disparadores (triggers) y procedimientos almacenados (la base de datos estará estructurada pero vacía).
+
+### 2. Configuración del Servidor (Backend) y Poblado de Datos (Seed)
+1. Abra una terminal y navegue al directorio backend:
+   ```bash
+   cd backend
+   ```
+2. Instale los módulos requeridos:
+   ```bash
+   npm install
+   ```
+3. Genere el archivo de entorno `.env` copiando el formato de `.env.example` y configure sus credenciales de base de datos.
+   **ATENCIÓN:** Es crítico verificar que `DB_PORT` (usualmente 3306), `DB_USER` (usualmente root) y `DB_PASSWORD` coincidan exactamente con su entorno local de MySQL para evitar errores de conexión al probar el sistema.
+   ```env
+   PORT=4000
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=su_contraseña_local
+   DB_NAME=cine_db
+   JWT_SECRET=super_secret_qa_key
+   JWT_EXPIRES_IN=8h
+   FRONTEND_URL=http://localhost:5173
+   ```
+4. **Poblar la Base de Datos (Seed)**:
+   Ejecute el script de semillero para registrar automáticamente los roles del sistema, usuarios mock, salas, asientos y películas iniciales de prueba en la base de datos:
+   ```bash
+   npm run seed
+   ```
+   *Resultado esperado:* Se insertarán todos los datos base de prueba requeridos para poder iniciar sesión y realizar compras.
+5. Inicie el entorno de desarrollo:
+   ```bash
+   npm run dev
+   ```
+   *(El backend estará escuchando en `http://localhost:4000/api`)*
+>>>>>>> a8553a9c7d9459a6f17e6d589c7b5cce5a954efe
 
 Espere hasta que termine. Si se crea una carpeta llamada `node_modules`, es normal.
 

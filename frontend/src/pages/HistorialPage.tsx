@@ -9,6 +9,7 @@ export default function HistorialPage() {
   const [historial, setHistorial] = useState<any[]>([]);
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [loadingCancel, setLoadingCancel] = useState<number | null>(null);
+  const [loadingHistorial, setLoadingHistorial] = useState(true);
 
   const [filterPelicula, setFilterPelicula] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
@@ -27,13 +28,25 @@ export default function HistorialPage() {
 
   const fetchHistorial = () => {
     if (!user) return;
+    setLoadingHistorial(true);
     api.historialCliente(user.idUsuario)
       .then(res => setHistorial(res.historial))
-      .catch(err => setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al cargar historial.' }));
+      .catch(err => setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al cargar historial.' }))
+      .finally(() => setLoadingHistorial(false));
   };
 
   useEffect(() => { fetchHistorial(); }, [user]);
   useEffect(() => { setCurrentPage(1); }, [filterPelicula, filterEstado, filterSalaTipo, filterFechaDesde, filterFechaHasta]);
+
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape' && showModal) closeModal();
+    }
+    if (showModal) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [showModal]);
 
   const closeModal = () => {
     setShowModal(false);
@@ -132,12 +145,19 @@ export default function HistorialPage() {
     return localDate;
   };
 
+  let effectiveDesde = filterFechaDesde;
+  let effectiveHasta = filterFechaHasta;
+  if (effectiveDesde && effectiveHasta && effectiveDesde > effectiveHasta) {
+    effectiveDesde = filterFechaHasta;
+    effectiveHasta = filterFechaDesde;
+  }
+
   const historialFiltrado = historial.filter(h => {
     if (filterPelicula && !h.peliculaTitulo.toLowerCase().includes(filterPelicula.toLowerCase())) return false;
     if (filterEstado && h.estadoVenta !== filterEstado) return false;
     if (filterSalaTipo && h.salaTipo !== filterSalaTipo) return false;
-    if (filterFechaDesde) { const d = parseLocalDate(h.fecha); if (d && d < parseLocalDate(filterFechaDesde)!) return false; }
-    if (filterFechaHasta) { const d = parseLocalDate(h.fecha); if (d && d > parseLocalDate(filterFechaHasta)!) return false; }
+    if (effectiveDesde) { const d = parseLocalDate(h.fecha); if (d && d < parseLocalDate(effectiveDesde)!) return false; }
+    if (effectiveHasta) { const d = parseLocalDate(h.fecha); if (d && d > parseLocalDate(effectiveHasta)!) return false; }
     return true;
   });
 
@@ -165,6 +185,62 @@ export default function HistorialPage() {
         <span className="text-[10px] sm:text-xs text-cinema-gray">{historialFiltrado.length} de {historial.length} · Pág. {currentPage}/{totalPages}</span>
       </div>
       {message && <Message type={message.type} text={message.text} />}
+
+      {loadingHistorial && historial.length === 0 && (
+        <div className="card-cine overflow-hidden">
+          <div className="md:hidden flex flex-col gap-3 p-3 sm:p-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-3 animate-pulse">
+                <div className="flex justify-between">
+                  <div className="h-5 bg-white/[0.06] rounded-full w-20" />
+                  <div className="h-5 bg-white/[0.06] rounded w-16" />
+                </div>
+                <div className="h-4 bg-white/[0.06] rounded w-3/4" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <div className="h-2 bg-white/[0.04] rounded w-12" />
+                    <div className="h-3 bg-white/[0.06] rounded w-20" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="h-2 bg-white/[0.04] rounded w-16" />
+                    <div className="h-3 bg-white/[0.06] rounded w-24" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-sm text-cinema-gray">
+              <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
+                <tr>
+                  <th className="px-3 py-3">Película</th>
+                  <th className="px-3 py-3">Fecha</th>
+                  <th className="px-3 py-3">Hora</th>
+                  <th className="px-3 py-3">Sala</th>
+                  <th className="px-3 py-3">Asientos</th>
+                  <th className="px-3 py-3">Total</th>
+                  <th className="px-3 py-3">Estado</th>
+                  <th className="px-3 py-3">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...Array(5)].map((_, i) => (
+                  <tr key={i} className="border-t border-white/5 animate-pulse">
+                    <td className="px-3 py-3"><div className="h-4 bg-white/[0.06] rounded w-32" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-white/[0.06] rounded w-20" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-white/[0.06] rounded w-12" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-white/[0.06] rounded w-16" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-white/[0.06] rounded w-24" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-white/[0.06] rounded w-16" /></td>
+                    <td className="px-3 py-3"><div className="h-5 bg-white/[0.06] rounded-full w-20" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-white/[0.06] rounded w-16" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ── Filtros ── */}
       <div className="card-cine p-3 sm:p-4">
@@ -196,6 +272,11 @@ export default function HistorialPage() {
             <span className="label-cine block mb-1">Hasta</span>
             <input type="date" value={filterFechaHasta} onChange={e => setFilterFechaHasta(e.target.value)} className="input-cine mt-0" />
           </div>
+          {filterFechaDesde && filterFechaHasta && filterFechaDesde > filterFechaHasta && (
+            <div className="col-span-2 sm:col-span-3 lg:col-span-2 -mt-1">
+              <p className="text-[11px] text-amber-400">⚠ Las fechas se intercambiaron automáticamente.</p>
+            </div>
+          )}
           <div className="col-span-2 sm:col-span-3 lg:col-span-1 flex justify-end">
             <button type="button" onClick={() => { setFilterPelicula(''); setFilterEstado(''); setFilterSalaTipo(''); setFilterFechaDesde(''); setFilterFechaHasta(''); }} className="btn-secondary px-3 py-2 text-xs w-full sm:w-auto">
               Limpiar
@@ -290,8 +371,9 @@ export default function HistorialPage() {
                             <button type="button" className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white px-2 py-1 text-[11px] font-bold transition" onClick={() => handleDescargarPdf(h.numero)}>
                               PDF
                             </button>
-                            <button type="button" className="rounded-lg border border-cinema-gold/30 bg-cinema-gold/10 hover:bg-cinema-gold/20 text-cinema-gold px-2 py-1 text-[11px] font-bold transition" onClick={() => handleDescargarTicket(h.numero)} title="Ticket térmico">
-                              🎟️
+                            <button type="button" className="rounded-lg border border-cinema-gold/30 bg-cinema-gold/10 hover:bg-cinema-gold/20 text-cinema-gold px-2.5 py-1 text-[11px] font-bold transition flex items-center gap-1.5" onClick={() => handleDescargarTicket(h.numero)} title="Ticket térmico">
+                              <span>🎟️</span>
+                              <span>Térmico</span>
                             </button>
                           </>
                         )}
@@ -333,12 +415,12 @@ export default function HistorialPage() {
 
       {/* ── MODAL BOLETO ── */}
       {showModal && selectedVenta && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={closeModal}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={closeModal} role="dialog" aria-modal="true" aria-labelledby="history-ticket-title">
           <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0d0d14] p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex justify-between items-center border-b border-white/10 pb-2">
-              <h4 className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-cinema-gold">Vista Previa de Boleto</h4>
-              <button onClick={closeModal} className="text-cinema-gray hover:text-white transition" title="Cerrar">
+              <h4 id="history-ticket-title" className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-cinema-gold">Vista Previa de Boleto</h4>
+              <button onClick={closeModal} className="text-cinema-gray hover:text-white transition" aria-label="Cerrar">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                 </svg>

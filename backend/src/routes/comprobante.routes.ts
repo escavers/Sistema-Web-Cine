@@ -9,7 +9,7 @@ import {
 
 const router = Router();
 
-router.get('/:numero', authMiddleware, requireRoles('ADMINISTRADOR', 'BOLETERIA', 'CLIENTE'), obtenerComprobantePorNumero);
+router.get('/:numero', obtenerComprobantePorNumero);
 router.get('/:numero/pdf', descargarComprobantePdf);
 router.get('/:numero/ticket', authMiddleware, requireRoles('ADMINISTRADOR', 'BOLETERIA', 'CLIENTE'), descargarComprobanteTicketPdf);
 

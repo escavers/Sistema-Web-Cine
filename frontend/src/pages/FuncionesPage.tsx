@@ -43,6 +43,13 @@ interface MovieWithFunciones {
   funciones: FuncionItem[];
 }
 
+interface CrearFuncionResponse {
+  ok: boolean;
+  mensaje: string;
+  idFuncion: number;
+  promocionActivada?: boolean;
+}
+
 const parseLocalDate = (dateStr: string) => {
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(y, m - 1, d);
@@ -127,24 +134,31 @@ export default function FuncionesPage() {
     return { valid: true, error: '' };
   };
 
-  const validateFecha = (value: string): { valid: boolean; error: string } => {
+  const validateFecha = (value: string, fechaEstreno?: string): { valid: boolean; error: string } => {
     if (!value) return { valid: false, error: 'La fecha es obligatoria' };
     const fecha = parseLocalDate(value);
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     if (fecha < hoy) return { valid: false, error: 'No puedes programar fechas pasadas' };
+    if (fechaEstreno) {
+      const estreno = parseLocalDate(fechaEstreno);
+      if (fecha < estreno) return { valid: false, error: 'No puedes programar antes de la fecha de estreno de la película' };
+    }
     return { valid: true, error: '' };
   };
 
   const validateHoraInicio = (value: string): { valid: boolean; error: string } => {
     if (!value) return { valid: false, error: 'La hora es obligatoria' };
+    if (value < '12:00' || value > '22:00') return { valid: false, error: 'La función debe ser entre 12:00 y 22:00' };
     return { valid: true, error: '' };
   };
 
   const validatePrecio = (value: string): { valid: boolean; error: string } => {
-    if (!value) return { valid: false, error: 'El precio es obligatorio' };
+    if (!value) return { valid: false, error: 'El precio base es obligatorio' };
     const num = Number(value);
-    if (isNaN(num) || num <= 0) return { valid: false, error: 'El precio debe ser mayor a 0' };
+    if (isNaN(num)) return { valid: false, error: 'El precio debe ser un número válido' };
+    if (num < 0) return { valid: false, error: 'El precio no puede ser menor a 0' };
+    if (num > 9999) return { valid: false, error: 'El precio no puede tener más de 4 dígitos' };
     return { valid: true, error: '' };
   };
 
@@ -182,14 +196,17 @@ export default function FuncionesPage() {
   };
 
   const validateAll = (formData: typeof form): Validations => {
+    const peliculaSeleccionada = peliculas.find((p) => p.idPelicula === Number(formData.idPelicula));
+    const fechaEstreno = peliculaSeleccionada?.fechaEstreno;
+
     const validations = {
       idSala: validateIdSala(formData.idSala),
       idPelicula: validateIdPelicula(formData.idPelicula),
-      fecha: programacionMasiva ? { valid: true, error: '' } : validateFecha(formData.fecha),
+      fecha: programacionMasiva ? { valid: true, error: '' } : validateFecha(formData.fecha, fechaEstreno),
       horaInicio: validateHoraInicio(formData.horaInicio),
       precioBase: validatePrecio(formData.precioBase),
-      fechaInicio: programacionMasiva ? validateFecha(masivaDatos.fechaInicio) : { valid: true, error: '' },
-      fechaFin: programacionMasiva ? validateFecha(masivaDatos.fechaFin) : { valid: true, error: '' },
+      fechaInicio: programacionMasiva ? validateFecha(masivaDatos.fechaInicio, fechaEstreno) : { valid: true, error: '' },
+      fechaFin: programacionMasiva ? validateFecha(masivaDatos.fechaFin, fechaEstreno) : { valid: true, error: '' },
     };
 
     if (!programacionMasiva && formData.idSala && formData.fecha && formData.horaInicio && formData.idPelicula) {
@@ -340,9 +357,11 @@ export default function FuncionesPage() {
     e.preventDefault();
     const validationErrors = validateAll(form);
     const allValid = Object.values(validationErrors).every(v => v.valid);
+    const validationMessage = getValidationFeedback(validationErrors);
 
     if (!allValid || conflictoHorario) {
-      setMessage({ type: 'error', text: conflictoHorario || 'Por favor, completa todos los campos correctamente.' });
+      setMessage({ type: 'error', text: conflictoHorario || validationMessage || 'Por favor, completa todos los campos correctamente.' });
+      setValidations(validationErrors);
       return;
     }
 
@@ -363,7 +382,7 @@ export default function FuncionesPage() {
         precioBase: Number(form.precioBase),
       };
 
-      const res = await api.crearFuncion(payload);
+      const res = await api.crearFuncion(payload) as CrearFuncionResponse;
       const promoMsg = res.promocionActivada ? ' ¡2x1 activado!' : '';
       setMessage({ type: 'ok', text: 'Función creada correctamente.' + promoMsg });
       setForm(initial);
@@ -387,9 +406,11 @@ export default function FuncionesPage() {
     e.preventDefault();
     const validationErrors = validateAll(form);
     const allValid = Object.values(validationErrors).every(v => v.valid);
+    const validationMessage = getValidationFeedback(validationErrors);
 
     if (!allValid || masivaDatos.diasSeleccionados.length === 0) {
-      setMessage({ type: 'error', text: 'Completa todos los campos y selecciona al menos un día.' });
+      setMessage({ type: 'error', text: validationMessage || (masivaDatos.diasSeleccionados.length === 0 ? 'Selecciona al menos un día de la semana.' : 'Completa todos los campos correctamente.') });
+      setValidations(validationErrors);
       return;
     }
 
@@ -411,10 +432,12 @@ export default function FuncionesPage() {
       let exitosas = 0;
       let conflictos = 0;
       let promocionActivadaCount = 0;
+      const fechasConflicto: string[] = [];
 
       for (const fecha of fechas) {
         if (hasScheduleConflict(form.idSala, fecha, form.horaInicio, duracion)) {
           conflictos++;
+          fechasConflicto.push(fecha);
           continue;
         }
 
@@ -426,15 +449,22 @@ export default function FuncionesPage() {
           horaFin: horaFin + ':00',
           precioBase: Number(form.precioBase),
         };
-        const res = await api.crearFuncion(payload);
+        const res = await api.crearFuncion(payload) as CrearFuncionResponse;
         if (res.promocionActivada) promocionActivadaCount++;
         exitosas++;
       }
 
       const promoMsg = promocionActivadaCount > 0 ? ` (${promocionActivadaCount} con 2x1 activado)` : '';
+      let conflictDetail = '';
+      if (fechasConflicto.length > 0) {
+        const datesStr = fechasConflicto.length <= 3
+          ? fechasConflicto.map(f => formatDateLocal(f)).join(', ')
+          : `${fechasConflicto.slice(0, 3).map(f => formatDateLocal(f)).join(', ')} y ${fechasConflicto.length - 3} más`;
+        conflictDetail = ` Conflicto en: ${datesStr}`;
+      }
       setMessage({
-        type: 'ok',
-        text: `${exitosas} función(es) creada(s).${promoMsg} ${conflictos > 0 ? `${conflictos} con conflictos de horario.` : ''}`,
+        type: conflictos > 0 && exitosas === 0 ? 'error' : 'ok',
+        text: `${exitosas} función(es) creada(s).${promoMsg}${conflictDetail}`,
       });
 
       setForm(initial);
@@ -540,23 +570,24 @@ export default function FuncionesPage() {
     return slots;
   }, [form.idSala, form.fecha, funcionesSalaSeleccionada, duracionPelicula]);
 
-  const getValidationFeedback = (): string | null => {
-    if (!validations.idPelicula.valid) return 'Selecciona una película';
-    if (!validations.idSala.valid) return 'Selecciona una sala';
-    if (!validations.horaInicio.valid) return 'Especifica la hora de inicio';
-    
+  const getValidationFeedback = (errors?: Validations): string | null => {
+    const source = errors ?? validations;
+    if (!source.idPelicula.valid) return source.idPelicula.error || 'Selecciona una película';
+    if (!source.idSala.valid) return source.idSala.error || 'Selecciona una sala';
+    if (!source.horaInicio.valid) return source.horaInicio.error || 'Especifica la hora de inicio';
+
     if (programacionMasiva) {
       if (!masivaDatos.fechaInicio) return 'Ingresa la fecha de inicio';
       if (!masivaDatos.fechaFin) return 'Ingresa la fecha de fin';
       if (masivaDatos.diasSeleccionados.length === 0) return 'Selecciona al menos un día de la semana';
       if (parseLocalDate(masivaDatos.fechaInicio) > parseLocalDate(masivaDatos.fechaFin)) return 'La fecha de fin debe ser posterior a la fecha de inicio';
     } else {
-      if (!validations.fecha.valid) return 'Selecciona una fecha válida';
+      if (!source.fecha.valid) return source.fecha.error || 'Selecciona una fecha válida';
     }
-    
-    if (!validations.precioBase.valid) return 'Ingresa un precio válido (mayor a 0)';
+
+    if (!source.precioBase.valid) return source.precioBase.error || 'Ingresa un precio válido entre 0 y 9999';
     if (conflictoHorario) return conflictoHorario;
-    
+
     return null;
   };
 
@@ -670,6 +701,7 @@ export default function FuncionesPage() {
                 type="time"
                 value={form.horaInicio}
                 onChange={update}
+                error={validations.horaInicio.error}
               />
 
               {/* Fecha(s) */}
@@ -680,6 +712,7 @@ export default function FuncionesPage() {
                   type="date"
                   value={form.fecha}
                   onChange={update}
+                  error={validations.fecha.error}
                 />
               ) : (
                 <>
@@ -689,6 +722,7 @@ export default function FuncionesPage() {
                     type="date"
                     value={masivaDatos.fechaInicio}
                     onChange={(name, value) => setMasivaDatos(m => ({ ...m, fechaInicio: value }))}
+                    error={validations.fechaInicio?.error}
                   />
                   <Field
                     label="Fecha fin"
@@ -696,6 +730,7 @@ export default function FuncionesPage() {
                     type="date"
                     value={masivaDatos.fechaFin}
                     onChange={(name, value) => setMasivaDatos(m => ({ ...m, fechaFin: value }))}
+                    error={validations.fechaFin?.error}
                   />
                 </>
               )}
@@ -707,6 +742,10 @@ export default function FuncionesPage() {
                 type="number"
                 value={form.precioBase}
                 onChange={update}
+                min="0"
+                max="9999"
+                step="0.01"
+                error={validations.precioBase.error}
               />
 
               {/* Días de la semana (solo programación masiva) */}

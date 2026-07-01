@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState, useRef } from 'react';
+import { FormEvent, memo, useEffect, useMemo, useState, useRef } from 'react';
 import Field from '../components/Field';
 import Message from '../components/Message';
 import { api } from '../services/api';
@@ -83,6 +83,7 @@ export default function SalasPage() {
     columnas: { valid: false, error: '' },
   });
   const [seatLayout, setSeatLayout] = useState<AsientoPreview[]>([]);
+  const [seatPreviewFullscreen, setSeatPreviewFullscreen] = useState(false);
   const [filterTipo, setFilterTipo] = useState('');
   const [sortCapacidad, setSortCapacidad] = useState('');
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -261,7 +262,7 @@ export default function SalasPage() {
   }
 
   // Componente para vista previa de asientos
-  const SeatPreview = () => {
+  const SeatPreview = ({ isFullscreen = false }: { isFullscreen?: boolean }) => {
     const filas = Number(form.filas) || 0;
     const columnas = Number(form.columnas) || 0;
 
@@ -274,6 +275,7 @@ export default function SalasPage() {
     }
 
     const filasArray = Array.from({ length: filas }, (_, i) => String.fromCharCode(65 + i));
+    const columnaNumbers = Array.from({ length: columnas }, (_, i) => i + 1);
 
     return (
       <div className="space-y-6">
@@ -287,12 +289,31 @@ export default function SalasPage() {
         </div>
 
         {/* Asientos */}
-        <div className="flex flex-col gap-2 bg-white/[0.02] p-6 rounded-xl border border-white/5">
-          {filasArray.map((fila) => (
-            <div key={fila} className="flex gap-1 justify-center items-center">
-              <span className="text-xs font-bold text-cinema-gold w-4">{fila}</span>
-              <div className="flex gap-1">
-                {seatLayout
+        <div className={`bg-white/[0.02] p-6 rounded-xl border border-white/5 ${isFullscreen ? 'w-full' : ''}`}>
+          <div className="overflow-auto">
+            <div
+              className="min-w-max"
+              style={{
+                gridTemplateColumns: `minmax(1rem, 2rem) repeat(${columnas}, minmax(2rem, 2rem))`,
+                display: 'grid',
+                gap: '0.25rem'
+              }}
+            >
+              <div className="h-8" />
+              {columnaNumbers.map((num) => (
+                <div
+                  key={num}
+                  className="h-8 w-8 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-cinema-gray leading-8"
+                >
+                  {num}
+                </div>
+              ))}
+
+              {filasArray.flatMap((fila) => [
+                <div key={`${fila}-label`} className="flex h-8 items-center justify-center text-xs font-bold text-cinema-gold">
+                  {fila}
+                </div>,
+                ...seatLayout
                   .filter((seat) => seat.fila === fila)
                   .sort((a, b) => a.numero - b.numero)
                   .map((seat) => (
@@ -305,21 +326,8 @@ export default function SalasPage() {
                     >
                       {seat.activo ? seat.numero : '×'}
                     </button>
-                  ))}
-              </div>
-            </div>
-          ))}
-          
-          {/* Numeración de columnas */}
-          <div className="flex gap-1 justify-center items-center mt-4">
-            <span className="w-4"></span>
-            <div className="flex gap-1 text-xs text-cinema-gray/50">
-              {Array.from({ length: columnas > 20 ? 10 : columnas }, (_, col) => (
-                <span key={col} className="w-8 text-center">
-                  {col === 0 ? 1 : col === 9 ? 10 : ''}
-                </span>
-              ))}
-              {columnas > 20 && <span>...{columnas}</span>}
+                  ))
+              ])}
             </div>
           </div>
         </div>
@@ -510,8 +518,20 @@ export default function SalasPage() {
 
           {/* Vista previa a la derecha */}
           <div className="space-y-4">
-            <div className="soft-card border-white/10 overflow-y-auto max-h-[600px]">
-              <SeatPreview />
+            <div className="soft-card border-white/10 overflow-hidden max-h-[600px]">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                <h4 className="text-sm font-bold text-cinema-cream uppercase tracking-wider">Vista previa de asientos</h4>
+                <button
+                  type="button"
+                  className="btn-secondary px-3 py-1 text-xs"
+                  onClick={() => setSeatPreviewFullscreen(true)}
+                >
+                  Ver pantalla completa
+                </button>
+              </div>
+              <div className="overflow-auto px-4 pb-4 max-h-[520px]">
+                <SeatPreview />
+              </div>
             </div>
             <SummaryCard />
           </div>
@@ -607,6 +627,25 @@ export default function SalasPage() {
           </table>
         </div>
       </div>
+      {seatPreviewFullscreen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-6">
+          <div className="relative w-full max-w-7xl rounded-3xl border border-white/10 bg-slate-950/95 p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+              <h3 className="text-lg font-bold text-white">Vista completa de asientos</h3>
+              <button
+                type="button"
+                className="btn-secondary px-3 py-1 text-xs"
+                onClick={() => setSeatPreviewFullscreen(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+            <div className="max-h-[80vh] overflow-auto">
+              <SeatPreview isFullscreen />
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -384,7 +384,7 @@ export default function RegisterPage() {
             {message && <Message type={message.type} text={message.text} />}
 
             <button className="btn-primary w-full" disabled={loading}>
-              {loading ? 'Registrando...' : 'Crear cuenta'}
+              {loading ? 'Creando cuenta...' : 'Crear cuenta'}
             </button>
           </div>
         </form>

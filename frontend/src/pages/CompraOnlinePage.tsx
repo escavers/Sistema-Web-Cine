@@ -68,11 +68,23 @@ export default function CompraOnlinePage() {
   }, [showModal, resultado, selectedFuncion]);
 
   useEffect(() => {
+    setLoading(true);
     api.listarFunciones().then(res => {
       setFunciones(res.funciones);
       setFilteredFunciones(res.funciones);
-    }).catch(() => { });
+    }).catch(() => { }).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (step !== 2 || !selectedFuncion) return;
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await api.obtenerAsientosPorFuncion(selectedFuncion.idFuncion);
+        setAsientos(fresh.asientos || []);
+      } catch { /* ignore */ }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [step, selectedFuncion]);
 
   // Muestra la duración en formato 'Xh Ym' o 'Ym'
   function formatDuration(minutes?: number | null) {
@@ -142,6 +154,19 @@ export default function CompraOnlinePage() {
       document.body.style.overflow = '';
     };
   }, [previewFuncion, step]);
+
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        if (previewFuncion && step === 1) closePreviewModal();
+        if (showModal) setShowModal(false);
+      }
+    }
+    if (previewFuncion || showModal) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [previewFuncion, showModal, step]);
 
   // Update selectedModalIsPast whenever a modal function is selected
   useEffect(() => {
@@ -297,6 +322,25 @@ export default function CompraOnlinePage() {
     <section className="space-y-8">
       {message && <Message type={message.type} text={message.text} />}
 
+      {loading && funciones.length === 0 && (
+        <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="rounded-3xl border border-white/[0.06] bg-white/[0.03] overflow-hidden animate-pulse">
+              <div className="aspect-[2/3] bg-white/[0.05]" />
+              <div className="p-5 space-y-3">
+                <div className="h-5 bg-white/[0.06] rounded w-3/4" />
+                <div className="h-3 bg-white/[0.04] rounded w-full" />
+                <div className="h-3 bg-white/[0.04] rounded w-2/3" />
+                <div className="flex gap-2 pt-2">
+                  <div className="h-6 bg-white/[0.04] rounded-full w-16" />
+                  <div className="h-6 bg-white/[0.04] rounded-full w-10" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {step === 1 && (
         <>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -451,13 +495,13 @@ export default function CompraOnlinePage() {
       )}
 
       {previewFuncion && step === 1 && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 backdrop-blur-sm p-4 md:items-center">
-          <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-white/[0.08] bg-[#08080d] shadow-2xl shadow-black/60 my-8 md:my-0">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 backdrop-blur-sm p-4 md:items-center" role="dialog" aria-modal="true" aria-labelledby="preview-funcion-title">
+           <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-white/[0.08] bg-[#08080d] shadow-2xl shadow-black/60 my-8 md:my-0">
             <div className="flex flex-col gap-6 p-6 lg:p-8">
               {/* Header */}
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-2xl font-bold text-white lg:text-3xl">{previewFuncion.peliculaTitulo}</h3>
+                  <h3 id="preview-funcion-title" className="text-2xl font-bold text-white lg:text-3xl">{previewFuncion.peliculaTitulo}</h3>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-cinema-gray">
                     {previewFuncion.peliculaDirector && <span>{previewFuncion.peliculaDirector}</span>}
                     {previewFuncion.peliculaDuracion && (
@@ -477,7 +521,7 @@ export default function CompraOnlinePage() {
                     })()}
                   </div>
                 </div>
-                <button className="btn-secondary shrink-0" onClick={closePreviewModal}>Cerrar</button>
+                <button className="btn-secondary shrink-0" onClick={closePreviewModal} aria-label="Cerrar">Cerrar</button>
               </div>
 
               <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -577,7 +621,12 @@ export default function CompraOnlinePage() {
                                       </div>
                                       {isPast && <span className="text-[10px] text-red-400">Cerrada</span>}
                                     </div>
-                                    <p className="text-[10px] text-cinema-gray/60 mt-1">{func.idSala}</p>
+                                     <p className="text-[10px] text-cinema-gray/60 mt-1">{func.idSala}</p>
+                                      {func.capacidadTotal > 0 && (
+                                        <p className={`text-[10px] mt-0.5 ${(func.capacidadTotal - (func.boletosVendidos || 0)) < 10 ? 'text-red-400' : 'text-green-400'}`}>
+                                          {func.capacidadTotal - (func.boletosVendidos || 0)} asiento(s) libre(s)
+                                        </p>
+                                      )}
                                   </button>
                                 );
                               })}
@@ -743,15 +792,15 @@ export default function CompraOnlinePage() {
 
           {/* VENTANA EMERGENTE (MODAL) CON VISTA PREVIA Y ACCIONES DE BOLETOS INDIVIDUALES */}
           {showModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-              <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl space-y-5">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-labelledby="ticket-modal-title">
+              <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 {/* Header del Modal */}
                 <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-cinema-gold">Vista Previa de Boleto</h4>
+                  <h4 id="ticket-modal-title" className="text-xs font-bold uppercase tracking-wider text-cinema-gold">Vista Previa de Boleto</h4>
                   <button
                     onClick={() => setShowModal(false)}
                     className="text-cinema-gray hover:text-white transition"
-                    title="Cerrar vista previa"
+                    aria-label="Cerrar"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />

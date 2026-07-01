@@ -67,6 +67,18 @@ export default function PublicAccessPage({ onLogin }: PublicAccessPageProps) {
     setLoading(true);
 
     try {
+      if (registerForm.fechaNacimiento) {
+        const hoy = new Date();
+        const nac = new Date(registerForm.fechaNacimiento);
+        let edad = hoy.getFullYear() - nac.getFullYear();
+        if (hoy.getMonth() < nac.getMonth() || (hoy.getMonth() === nac.getMonth() && hoy.getDate() < nac.getDate())) edad--;
+        if (edad < 12) {
+          setMessage({ type: 'error', text: 'Debe tener al menos 12 años para registrarse.' });
+          setLoading(false);
+          return;
+        }
+      }
+
       const payload = Object.fromEntries(
         Object.entries(registerForm).map(([key, value]) => [key, value || null])
       );

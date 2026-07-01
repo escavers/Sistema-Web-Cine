@@ -3,7 +3,7 @@ import Field from '../components/Field';
 import Message from '../components/Message';
 import { api } from '../services/api';
 
-type TabId = 'ocupacion' | 'mas-vistas' | 'ventas';
+type TabId = 'ocupacion' | 'mas-vistas' | 'ventas' | 'promociones';
 
 const HEADER_MAP: Record<TabId, { key: string; label: string }[]> = {
   ocupacion: [
@@ -40,11 +40,17 @@ const HEADER_MAP: Record<TabId, { key: string; label: string }[]> = {
     { key: 'canal', label: 'Canal' },
     { key: 'estadoVenta', label: 'Estado' },
   ],
+  promociones: [
+    { key: 'pelicula', label: 'Película' },
+    { key: 'funcionesActivas', label: 'Funciones con 2x1' },
+    { key: 'fechaInicio', label: 'Desde' },
+    { key: 'fechaFin', label: 'Hasta' },
+  ],
 };
 
 function formatCell(val: any, key: string): string {
   if (val === null || val === undefined) return '—';
-  if (key === 'fecha' || key === 'fechaCompra' || key === 'fechaFuncion') {
+  if (key === 'fecha' || key === 'fechaCompra' || key === 'fechaFuncion' || key === 'fechaInicio' || key === 'fechaFin') {
     const d = new Date(val);
     return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString('es-BO');
   }
@@ -108,14 +114,33 @@ export default function ReportesPage() {
     setMessage(null);
     setData([]);
     try {
-      const params = buildParams();
-      let res;
-      if (tab === 'ocupacion') res = await api.reporteOcupacion(params);
-      else if (tab === 'mas-vistas') res = await api.reporteMasVistas(params);
-      else res = await api.reporteVentas(params);
+      if (tab === 'promociones') {
+        const res = await api.listarFunciones();
+        const funciones = res.funciones || [];
+        const activas = funciones.filter((f: any) => f.promocionActiva === 1);
+        const agrupadas: Record<string, any> = {};
+        activas.forEach((f: any) => {
+          const titulo = f.pelicula?.titulo ?? f.tituloPelicula ?? `Pelicula #${f.idPelicula}`;
+          if (!agrupadas[titulo]) {
+            agrupadas[titulo] = { pelicula: titulo, funcionesActivas: 0, fechaInicio: f.fecha, fechaFin: f.fecha };
+          }
+          agrupadas[titulo].funcionesActivas++;
+          if (f.fecha < agrupadas[titulo].fechaInicio) agrupadas[titulo].fechaInicio = f.fecha;
+          if (f.fecha > agrupadas[titulo].fechaFin) agrupadas[titulo].fechaFin = f.fecha;
+        });
+        const resultado = Object.values(agrupadas);
+        setData(resultado);
+        if (!resultado.length) setMessage({ type: 'ok', text: 'No hay películas con promoción 2x1 activa.' });
+      } else {
+        const params = buildParams();
+        let res;
+        if (tab === 'ocupacion') res = await api.reporteOcupacion(params);
+        else if (tab === 'mas-vistas') res = await api.reporteMasVistas(params);
+        else res = await api.reporteVentas(params);
 
-      setData(res.reporte || []);
-      if (!res.reporte?.length) setMessage({ type: 'ok', text: 'No hay datos para el rango seleccionado.' });
+        setData(res.reporte || []);
+        if (!res.reporte?.length) setMessage({ type: 'ok', text: 'No hay datos para el rango seleccionado.' });
+      }
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al cargar reporte.' });
     } finally {
@@ -165,6 +190,10 @@ export default function ReportesPage() {
       const totalIngreso = data.reduce((s, r) => s + Number(r.ingresoTotal || 0), 0);
       return `Total boletos: ${totalBoletos.toLocaleString('es-BO')} | Ingreso total: Bs. ${totalIngreso.toFixed(2)}`;
     }
+    if (tab === 'promociones') {
+      const totalFunciones = data.reduce((s, r) => s + Number(r.funcionesActivas || 0), 0);
+      return `Películas con 2x1: ${data.length} | Total funciones en promoción: ${totalFunciones}`;
+    }
     const totalIngreso = data.reduce((s, r) => s + Number(r.montoTotal || 0), 0);
     return `Total ventas: ${data.length} | Ingreso total: Bs. ${totalIngreso.toFixed(2)}`;
   }, [data, tab]);
@@ -185,6 +214,7 @@ export default function ReportesPage() {
     { id: 'ocupacion' as const, label: 'Ocupación' },
     { id: 'mas-vistas' as const, label: 'Más vistas' },
     { id: 'ventas' as const, label: 'Ventas' },
+    { id: 'promociones' as const, label: 'Promociones' },
   ];
 
   return (
@@ -203,8 +233,8 @@ export default function ReportesPage() {
             ))}
           </div>
 
-          <Field label="Desde" name="fechaInicio" type="date" value={fechaInicio} onChange={(_, v) => setFechaInicio(v)} />
-          <Field label="Hasta" name="fechaFin" type="date" value={fechaFin} onChange={(_, v) => setFechaFin(v)} />
+          <Field label="Desde" name="fechaInicio" type="date" value={fechaInicio} onChange={(_, v) => setFechaInicio(v)} disabled={tab === 'promociones'} />
+          <Field label="Hasta" name="fechaFin" type="date" value={fechaFin} onChange={(_, v) => setFechaFin(v)} disabled={tab === 'promociones'} />
 
           {tab === 'ocupacion' && (
             <>
@@ -244,15 +274,45 @@ export default function ReportesPage() {
           </button>
           <button
             className="rounded-lg border border-cinema-gold/40 bg-cinema-gold/10 px-4 py-2 text-xs font-semibold text-cinema-gold transition hover:bg-cinema-gold/20 disabled:opacity-50"
-            disabled={downloading}
+            disabled={downloading || tab === 'promociones'}
             onClick={downloadPdf}
           >
             {downloading ? 'Generando…' : 'Descargar PDF'}
           </button>
         </div>
+        {tab === 'promociones' && (
+          <p className="mt-4 text-xs text-cinema-gray">Reporte de películas con promoción 2x1 activa</p>
+        )}
       </div>
 
       {message && <Message type={message.type} text={message.text} />}
+
+      {loading && data.length === 0 && (
+        <div className="card-cine overflow-hidden">
+          <div className="max-h-[70vh] overflow-auto">
+            <table className="min-w-full text-sm text-cinema-gray" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
+                <tr>
+                  {headers.map(h => (
+                    <th key={h.key} className="px-5 py-4">{h.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...Array(6)].map((_, i) => (
+                  <tr key={i} className="border-t border-white/5 animate-pulse">
+                    {headers.map(h => (
+                      <td key={h.key} className="px-5 py-4">
+                        <div className="h-4 bg-white/[0.06] rounded w-24" />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {data.length > 0 && (
         <>

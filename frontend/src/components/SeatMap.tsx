@@ -16,6 +16,8 @@ export default function SeatMap({ asientos = [], selectedAsientos = [], onToggle
     return <p className="text-cinema-gray text-center py-8">No hay asientos disponibles.</p>;
   }
 
+  const allOccupied = asientos.every(a => !a.estado);
+
   // Agrupar por fila
   const filas = [...new Set(asientos.map(a => a.fila))].sort();
   const maxCol = Math.max(...asientos.map(a => a.columna));
@@ -55,6 +57,8 @@ export default function SeatMap({ asientos = [], selectedAsientos = [], onToggle
                   <button
                     key={asiento.idAsiento}
                     disabled={estado === 'ocupado'}
+                    aria-label={`Asiento ${asiento.fila}${asiento.columna}, ${estado === 'ocupado' ? 'ocupado' : estado === 'seleccionado' ? 'seleccionado' : 'disponible'}`}
+                    aria-disabled={estado === 'ocupado' ? true : undefined}
                     className={`flex h-8 w-8 items-center justify-center rounded-lg border text-[10px] font-semibold transition ${
                       colores[estado]
                     }`}
@@ -76,6 +80,12 @@ export default function SeatMap({ asientos = [], selectedAsientos = [], onToggle
         </div>
       </div>
     </div>
+
+      {allOccupied && (
+        <p className="mt-4 text-center text-sm text-red-400 font-semibold">
+          Esta función no tiene asientos disponibles.
+        </p>
+      )}
 
       <div className="mt-6 flex flex-wrap justify-center gap-4 sm:gap-6 text-xs">
         <div className="flex items-center gap-2">

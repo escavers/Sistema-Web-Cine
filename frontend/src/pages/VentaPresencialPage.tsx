@@ -105,6 +105,19 @@ export default function VentaPresencialPage() {
     };
   }, [previewFuncion, step]);
 
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        if (previewFuncion && step === 1) closePreviewModal();
+        if (showModal) setShowModal(false);
+      }
+    }
+    if (previewFuncion || showModal) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [previewFuncion, showModal, step]);
+
   function openMovieModal(f: any) {
     const funcionesPorPelicula = funciones.filter(fn => fn.peliculaTitulo === f.peliculaTitulo);
     const now = new Date();
@@ -317,19 +330,19 @@ export default function VentaPresencialPage() {
           </div>
 
           {previewFuncion && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 md:items-center">
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 md:items-center" role="dialog" aria-modal="true" aria-labelledby="preview-funcion-title">
               <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] shadow-2xl my-8 md:my-0">
                 <div className="flex flex-col gap-6 p-6 lg:p-8">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h3 className="text-3xl font-bold text-white">{previewFuncion.peliculaTitulo}</h3>
+                      <h3 id="preview-funcion-title" className="text-3xl font-bold text-white">{previewFuncion.peliculaTitulo}</h3>
                       <p className="text-sm text-cinema-gray mt-2">
                         {previewFuncion.peliculaDirector ? `Director: ${previewFuncion.peliculaDirector}` : ''}
                         {previewFuncion.peliculaDuracion ? ` · ${previewFuncion.peliculaDuracion} min` : ''}
                         {previewFuncion.peliculaClasificacion ? ` · ${previewFuncion.peliculaClasificacion}` : ''}
                       </p>
                     </div>
-                    <button className="btn-secondary" onClick={closePreviewModal}>Cerrar</button>
+                    <button className="btn-secondary" onClick={closePreviewModal} aria-label="Cerrar">Cerrar</button>
                   </div>
 
                   <div className="grid gap-6 lg:grid-cols-[350px_minmax(0,1fr)]">
@@ -532,6 +545,12 @@ export default function VentaPresencialPage() {
               </button>
               <button 
                 className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold px-5 py-2.5 text-sm transition" 
+                onClick={() => setStep(2)}
+              >
+                Volver
+              </button>
+              <button 
+                className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold px-5 py-2.5 text-sm transition" 
                 onClick={nuevaVenta}
               >
                 Nueva venta
@@ -541,15 +560,15 @@ export default function VentaPresencialPage() {
 
           {/* VENTANA EMERGENTE (MODAL) CON VISTA PREVIA Y ACCIONES */}
           {showModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-              <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl space-y-5">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-labelledby="ticket-modal-title">
+              <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 {/* Header del Modal */}
                 <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-cinema-gold">Vista Previa de Boleto</h4>
+                  <h4 id="ticket-modal-title" className="text-xs font-bold uppercase tracking-wider text-cinema-gold">Vista Previa de Boleto</h4>
                   <button 
                     onClick={() => setShowModal(false)}
                     className="text-cinema-gray hover:text-white transition"
-                    title="Cerrar vista previa"
+                    aria-label="Cerrar"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
