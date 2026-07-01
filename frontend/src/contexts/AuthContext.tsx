@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function updateUser(nextUser: AuthUser) {
     const normalized = normalizeUser(nextUser);
-    const token = localStorage.getItem('cine_token');
+    const token = sessionStorage.getItem('cine_token');
     if (token) setSession(token, normalized);
     setUser(normalized);
   }
