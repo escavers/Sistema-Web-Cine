@@ -188,7 +188,7 @@ export const api = {
     request<{ ok: boolean; boletos: { idBoleto: number; idAsiento: string; codigoAcceso: string | null }[] }>(`/ventas/${idVenta}/boletos`),
 
   validarAcceso: (qrCode: string) =>
-    request<{ ok: boolean; mensaje: string; detalle: any }>('/acceso/validate', {
+    request<{ ok: boolean; mensaje: string; motivo: string; detalle: any }>('/acceso/validate', {
       method: 'POST',
       body: JSON.stringify({ qrCode })
     }),

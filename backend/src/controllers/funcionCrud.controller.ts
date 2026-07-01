@@ -4,13 +4,22 @@ import { z } from 'zod';
 import { fail, ok } from '../utils/response.js';
 import { createAudit } from '../services/audit.service.js';
 
+// Valida que un string sea una fecha real en formato YYYY-MM-DD
+function isValidDateString(fecha: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fecha);
+  if (!match) return false;
+  const [, y, m, d] = match.map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() + 1 === m && dt.getDate() === d && y >= 2000 && y <= 2100;
+}
+
 const crearFuncionSchema = z.object({
   idSala: z.string().min(1),
   idPelicula: z.number().min(1),
-  fecha: z.string().min(1),
+  fecha: z.string().min(1).refine(isValidDateString, { message: 'La fecha de la funcion no es valida (use formato YYYY-MM-DD).' }),
   horaInicio: z.string().min(1),
   horaFin: z.string().min(1),
-  precioBase: z.number().min(0, 'El precio no puede ser menor a 0').max(9999, 'El precio no puede tener más de 4 dígitos'),
+  precioBase: z.number().min(0, 'El precio no puede ser menor a 0').max(9999, 'El precio no puede tener mas de 4 digitos'),
 });
 
 export async function crearFuncion(req: Request, res: Response) {
@@ -116,8 +125,8 @@ export async function crearFuncion(req: Request, res: Response) {
 }
 
 const copiarSemanaSchema = z.object({
-  fechaOrigen: z.string().min(1),
-  fechaDestino: z.string().min(1),
+  fechaOrigen: z.string().min(1).refine(isValidDateString, { message: 'La fecha de origen no es valida (use formato YYYY-MM-DD).' }),
+  fechaDestino: z.string().min(1).refine(isValidDateString, { message: 'La fecha de destino no es valida (use formato YYYY-MM-DD).' }),
 });
 
 export async function copiarSemanaFunciones(req: Request, res: Response) {

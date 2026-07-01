@@ -258,15 +258,59 @@ async function _processValidatedBoleto(connection: any, boleto: any, idEncargado
 
   const funcion = funciones[0];
 
-  const [dateRows] = await connection.query('SELECT CURDATE() as today');
-  const today = dateRows[0]?.today;
-  if (funcion.fecha !== today) {
-    return { valido: false, motivo: 'FECHA_INCORRECTA', mensaje: `Esta entrada es para la fecha ${funcion.fecha}. Fecha actual del sistema: ${today}.` };
+  // --- Validacion unificada de fecha + hora con objetos Date ---
+  // Construye los momentos de inicio y fin de la funcion en hora local
+  const [dateRows] = await connection.query('SELECT CURDATE() as today, NOW() as nowDT');
+  const today = dateRows[0]?.today;   // YYYY-MM-DD (local de MySQL)
+  const ahora = new Date();           // hora local del servidor Node
+
+  // Extraer la fecha de la funcion como YYYY-MM-DD
+  let fechaFunStr: string;
+  if (funcion.fecha instanceof Date) {
+    // MySQL puede devolver un objeto Date
+    const fd = funcion.fecha as Date;
+    fechaFunStr = `${fd.getFullYear()}-${String(fd.getMonth() + 1).padStart(2, '0')}-${String(fd.getDate()).padStart(2, '0')}`;
+  } else {
+    const s = String(funcion.fecha);
+    const match = s.match(/\d{4}-\d{2}-\d{2}/);
+    fechaFunStr = match ? match[0] : s;
   }
 
-  const currentTime = new Date().toTimeString().split(' ')[0];
-  if (funcion.horaFin < currentTime) {
-    return { valido: false, motivo: 'FUNCION_EXPIRADA', mensaje: `La función asociada a esta entrada ya finalizó a las ${funcion.horaFin}.` };
+  // Obtener la fecha actual del sistema (local) en YYYY-MM-DD
+  const todayStr = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+
+  if (fechaFunStr !== todayStr) {
+    return { valido: false, motivo: 'FECHA_INCORRECTA', mensaje: `Esta entrada es para la fecha ${fechaFunStr}. Hoy es ${todayStr}.` };
+  }
+
+  // Construir DateTime de inicio y fin de la funcion usando la fecha de hoy
+  function buildFuncionDateTime(fechaStr: string, horaStr: string): Date {
+    const [y, m, d] = fechaStr.split('-').map(Number);
+    const [hh, mm, ss] = (horaStr || '00:00:00').split(':').map(Number);
+    return new Date(y, m - 1, d, hh, mm, ss || 0);
+  }
+
+  const horaInicioStr = typeof funcion.horaInicio === 'string' ? funcion.horaInicio : String(funcion.horaInicio || '00:00:00');
+  const horaFinStr    = typeof funcion.horaFin    === 'string' ? funcion.horaFin    : String(funcion.horaFin    || '23:59:59');
+
+  let dtInicio = buildFuncionDateTime(fechaFunStr, horaInicioStr);
+  let dtFin    = buildFuncionDateTime(fechaFunStr, horaFinStr);
+
+  // Si la funcion termina antes de que empiece (cruce de medianoche), avanzar dtFin al dia siguiente
+  if (dtFin <= dtInicio) {
+    dtFin.setDate(dtFin.getDate() + 1);
+  }
+
+  // Permitir ingreso 30 minutos antes del inicio hasta el fin de la funcion
+  const dtAcceso = new Date(dtInicio.getTime() - 30 * 60 * 1000);
+
+  if (ahora < dtAcceso) {
+    const diffMin = Math.ceil((dtAcceso.getTime() - ahora.getTime()) / 60000);
+    return { valido: false, motivo: 'FUNCION_NO_INICIADA', mensaje: `La función inicia a las ${horaInicioStr.substring(0, 5)}. El acceso abre en ${diffMin} minuto(s).` };
+  }
+
+  if (ahora > dtFin) {
+    return { valido: false, motivo: 'FUNCION_EXPIRADA', mensaje: `La función asociada a esta entrada ya finalizó a las ${horaFinStr.substring(0, 5)}.` };
   }
 
   await connection.query(

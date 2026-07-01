@@ -1,6 +1,6 @@
 # Informe Técnico de Actualizaciones y Ajustes de Seguridad (Desarrollador 4)
 
-**Fecha:** 30 de junio de 2026  
+**Fecha:** 1 de julio de 2026  
 **Autor:** Desarrollador 4 (D4)  
 **Módulo:** Seguridad, Autenticación, Promociones y Validación de Boletos  
 
@@ -11,6 +11,7 @@ El presente informe documenta las modificaciones arquitectónicas, de base de da
 1. Asegurar la lógica automática del 2x1 (Historias HU-11, cubriendo su activación y su desactivación por capacidad límite).
 2. Cerrar vulnerabilidades críticas de control de acceso a información de boletos de terceros (BOLA / IDOR).
 3. Resolver inconsistencias visuales y problemas de responsividad del frontend en la visualización de boletos QR y pases manuales (HU-16).
+4. Correcciones de segunda ronda tras nueva revisión de QA: validación de fechas, lógica de ventana de acceso, vista de promociones agrupada por película y compatibilidad con cámara real en dispositivos móviles.
 
 ---
 
@@ -26,11 +27,12 @@ El presente informe documenta las modificaciones arquitectónicas, de base de da
     *   Si se supera el 70% de ocupación o no se cumple la fecha de cartelera, la promoción se cambia inmediatamente a `0` (desactivada).
     *   Se integró este recálculo en tiempo real en [venta.controller.ts](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/backend/src/controllers/venta.controller.ts) (`crearVenta`), por lo que tan pronto una compra cruza el umbral del 70%, la promoción queda desactivada de inmediato para el siguiente comprador.
 
-### 2.2. Panel Informativo de Promociones (Lectura Única)
-*   **Problema reportado:** *"No existe ningún apartado de promociones, el caso de 2x1 es automático, tanto que no sé cómo funciona"*.
-*   **Corrección en Frontend:**
-    *   Se creó una nueva página administrativa [PromocionesPage.tsx](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/frontend/src/pages/PromocionesPage.tsx) bajo `/promociones` para los administradores.
-    *   Esta interfaz es **de lectura y carácter estrictamente informativo**. En ella se explican de forma interactiva las dos reglas del 2x1 automático, y se lista en tiempo real el catálogo de funciones con un indicador de ocupación visual y un badge dinámico (`🔥 2x1 Activo`, `🆕 Estreno (<30d)`, `👥 Alta Ocupación (>=70%)`).
+### 2.2. Panel Informativo de Promociones — Vista Agrupada por Película (HU-11)
+*   **Problema reportado (ronda 2):** La página de promociones mostraba todas las funciones en una tabla plana con demasiados registros. El filtro por nombre de película fallaba con títulos que contienen tildes (ej. buscar "pacifico" no encontraba "Pacífico"). El administrador no podía identificar rápidamente qué películas tienen 2x1 activo.
+*   **Correcciones en Frontend** — [PromocionesPage.tsx](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/frontend/src/pages/PromocionesPage.tsx):
+    *   Se implementó la función `normalizeStr` que elimina tildes y convierte a minúsculas antes de comparar, haciendo la búsqueda completamente insensible a acentos.
+    *   Se rediseñó la vista: las funciones ahora se agrupan por película en tarjetas acordeón expandibles. Cada película muestra un badge de resumen (ej. `🔥 3 con 2x1`) y al expandirla se visualiza la tabla de sus funciones individuales con fecha, sala, ocupación y estado 2x1.
+    *   El endpoint `/api/promociones/funciones` fue actualizado para incluir `idPelicula` en la respuesta, permitiendo una agrupación confiable por ID y no solo por título.
 
 ---
 
@@ -61,14 +63,45 @@ El presente informe documenta las modificaciones arquitectónicas, de base de da
 
 ---
 
-## 5. Pruebas de QA Automatizadas (Checklist)
-Hemos robustecido el archivo de pruebas `test_runner_d4.ts` agregando verificaciones explícitas para las nuevas reglas implementadas:
+## 5. Validación de Acceso QR (HU-16) — Correcciones de Segunda Ronda
 
-*   **[SUCCESS - HU-11]**: El scheduler evalúa y activa la promoción para funciones de estreno antiguo y baja ocupación.
-*   **[SUCCESS - HU-16]**: La simulación de lectura de un QR válido concede acceso, actualiza el estado del boleto en la base de datos a usado (`estadoA = 0`) y audita el escaneo.
-*   **[SUCCESS - HU-11 Escenario 3]**: Al simular una sala con ocupación al 100% (superando el límite del 70%), el scheduler desactiva automáticamente la promoción 2x1 (`promocionActiva = 0`).
-*   **[SUCCESS - IDOR/BOLA]**: 
-    *   El cliente dueño legítimo de la venta puede acceder a sus boletos de forma segura.
-    *   Cualquier petición de un cliente ajeno sobre esa misma venta es interceptada y rechazada con un código HTTP **403**.
+### 5.1. Inconsistencias en la Comprobación de Hora de Acceso
+*   **Problema reportado:** El proceso de verificación de boletos presentaba inconsistencias en la validación de hora. El sistema rechazaba boletos válidos (motivo `FUNCION_EXPIRADA`) cuando el usuario llegaba a la sala antes de la hora de inicio de la función. La comparación de strings de tiempo independientes era propensa a errores en ciertos escenarios.
+*   **Corrección en Backend** — [accessController.ts](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/backend/src/controllers/accessController.ts):
+    *   Se reemplazó la validación de fecha y hora basada en strings separados por una comparación unificada con objetos `Date` de JavaScript.
+    *   Se implementa correctamente el cruce de medianoche (funciones que terminan después de las 00:00).
+    *   Se establece una **ventana de acceso de 30 minutos antes del inicio** de la función, eliminando el falso rechazo al llegar temprano.
+    *   Se agrega el nuevo motivo `FUNCION_NO_INICIADA` para informar al encargado con el tiempo exacto de espera restante.
+
+### 5.2. Mensaje de Acceso Exitoso no Visible
+*   **Problema reportado:** Aun cuando el boleto era válido, el sistema no mostraba visualmente que el acceso había sido concedido.
+*   **Corrección en Frontend** — [AccessValidationPage.tsx](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/frontend/src/pages/AccessValidationPage.tsx):
+    *   Los motivos de rechazo ahora se muestran con etiquetas legibles en español en lugar del código técnico interno.
+    *   El motivo `FUNCION_NO_INICIADA` muestra un aviso en color ámbar (advertencia) en lugar de rojo (denegación total), diferenciando semánticamente ambos casos.
+
+### 5.3. Compatibilidad con Cámara Real (Droidcam / Móvil)
+*   **Problema reportado:** El escáner de cámara no interpretaba correctamente el nuevo formato de `codigoAcceso` (`XXXX-XXXX`) cuando era leído desde la cámara del dispositivo.
+*   **Correcciones:**
+    *   Se corrigió el parser del texto decodificado por la cámara en [AccessValidationPage.tsx](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/frontend/src/pages/AccessValidationPage.tsx): ahora detecta el formato de 8 caracteres alfanuméricos y lo normaliza al formato `XXXX-XXXX` antes de enviarlo al backend.
+    *   Se habilitó `host: true` en [vite.config.js](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/frontend/vite.config.js) para exponer el servidor de desarrollo en la red local (`0.0.0.0`), permitiendo acceder al sistema desde el celular mediante la IP local (ej. `192.168.100.80:5173`).
+
+### 5.4. Prevención de Fechas Inválidas en Funciones
+*   **Problema reportado:** Era posible registrar funciones con fechas inválidas (ej. `0000-00-00`) por ausencia de validación en el backend.
+*   **Corrección en Backend** — [funcionCrud.controller.ts](file:///e:/desarrollo%20de%20sistemas2/repositorio/siswebv2/backend/src/controllers/funcionCrud.controller.ts):
+    *   Se agregó la función `isValidDateString` que valida formato `YYYY-MM-DD` y que la fecha sea real del calendario (año entre 2000 y 2100, día y mes válidos).
+    *   Esta validación se aplica mediante `.refine()` de Zod tanto al crear funciones como al copiar semanas.
+
+---
+
+## 6. Pruebas de QA (Checklist)
+
+*   **[OK - HU-11]**: El scheduler evalúa y activa la promoción para funciones de estreno antiguo y baja ocupación.
+*   **[OK - HU-11 Escenario 3]**: Al simular ocupación al 100%, el scheduler desactiva automáticamente el 2x1 (`promocionActiva = 0`).
+*   **[OK - HU-11 Filtro]**: La búsqueda por nombre de película en la vista de promociones funciona correctamente con y sin tildes.
+*   **[OK - HU-16]**: La validación QR por cámara desde dispositivo móvil (Droidcam) detecta correctamente el formato `XXXX-XXXX`.
+*   **[OK - HU-16]**: El acceso se permite en la ventana de ±30 min antes del inicio de la función.
+*   **[OK - HU-16]**: El motivo `FUNCION_NO_INICIADA` informa el tiempo de espera y se muestra en ámbar, diferenciado del rechazo rojo.
+*   **[OK - IDOR/BOLA]**: El cliente propietario accede a sus boletos. Clientes ajenos reciben HTTP 403.
+*   **[OK - Fechas]**: El backend rechaza fechas inválidas como `0000-00-00` con mensaje de validación claro.
 
 Todo el set de pruebas se ejecuta de forma exitosa sin regresiones en la base de datos o en la API.

@@ -69,17 +69,21 @@ export default function AccessValidationPage() {
             }
           },
           (decodedText) => {
-            // Extraer el id del boleto si viene con el formato CINE-ID-NIT-FECHA
-            // Si el QR tiene guiones, intentamos verificar si es un formato completo
-            // Ej: CINE-1-123456-1719289291
-            let finalCode = decodedText;
-            if (decodedText.startsWith('CINE-')) {
-              const parts = decodedText.split('-');
-              if (parts.length >= 2) {
-                // Buscamos si la segunda parte es un número (idBoleto) o el código de comprobante
-                finalCode = parts[1];
-              }
+            /**
+             * Determinar el código a enviar al backend:
+             *  - Si el texto es XXXX-XXXX (8 alfanuméricos, guión en pos 4) → codigoAcceso nuevo
+             *  - Si empieza por C- o CINE- → pasar completo (el backend lo maneja)
+             *  - Cualquier otro → pasar tal cual
+             */
+            let finalCode = decodedText.trim();
+            const noHyphen = finalCode.replace(/-/g, '').toUpperCase();
+
+            // Detectar formato nuevo: 8 chars alfanuméricos (con o sin guión)
+            if (/^[A-Z2-9]{8}$/.test(noHyphen)) {
+              // Normalizar al formato XXXX-XXXX esperado por el backend
+              finalCode = `${noHyphen.slice(0, 4)}-${noHyphen.slice(4)}`;
             }
+            // Para formato CINE-... dejamos el código completo; el backend lo interpreta
 
             setQrCode(finalCode);
             scanner.stop().then(() => {
@@ -404,12 +408,28 @@ export default function AccessValidationPage() {
               </div>
             )}
 
-            {!result.success && (
-              <div className="rounded-xl bg-black/40 p-4 text-xs space-y-1">
-                <p className="text-cinema-gray font-bold uppercase tracking-wider text-[10px]">Motivo del Rechazo</p>
-                <p className="font-semibold text-red-300 font-mono">{result.motivo}</p>
-              </div>
-            )}
+            {!result.success && (() => {
+              const motivoLabels: Record<string, string> = {
+                FUNCION_NO_INICIADA:  'Función aún no inicia',
+                FUNCION_EXPIRADA:     'Función expirada',
+                FECHA_INCORRECTA:     'Fecha incorrecta',
+                BOLETO_INVALIDADO:    'Boleto ya utilizado',
+                BOLETO_NO_ENCONTRADO: 'Boleto no encontrado',
+                VENTA_NO_ENCONTRADA:  'Venta no encontrada',
+                FUNCION_INEXISTENTE:  'Función no activa',
+                ERROR_BD:             'Error de base de datos',
+                ERROR_CONEXION:       'Error de conexión',
+              };
+              const isWarning = result.motivo === 'FUNCION_NO_INICIADA';
+              return (
+                <div className={`rounded-xl p-4 text-xs space-y-1 ${isWarning ? 'bg-amber-950/40 border border-amber-500/20' : 'bg-black/40'}`}>
+                  <p className="text-cinema-gray font-bold uppercase tracking-wider text-[10px]">Motivo del Rechazo</p>
+                  <p className={`font-semibold font-mono ${isWarning ? 'text-amber-300' : 'text-red-300'}`}>
+                    {motivoLabels[result.motivo] ?? result.motivo}
+                  </p>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
