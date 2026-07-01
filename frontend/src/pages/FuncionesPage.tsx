@@ -106,6 +106,8 @@ export default function FuncionesPage() {
   const [timelineZoom, setTimelineZoom] = useState<'hour' | '30min' | '15min'>('hour');
   const [timelineScrollPct, setTimelineScrollPct] = useState(0);
   const timelineContainerRef = useRef<HTMLDivElement | null>(null);
+  const [showMovieSelector, setShowMovieSelector] = useState(false);
+  const [searchMovie, setSearchMovie] = useState('');
   const modalMsgTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -446,6 +448,33 @@ export default function FuncionesPage() {
     setMessage({ type: 'ok', text: 'Semana copiada al siguiente período.' });
   };
 
+  const openMovieSelector = () => setShowMovieSelector(true);
+
+  const closeMovieSelector = () => {
+    setShowMovieSelector(false);
+    setSearchMovie('');
+  };
+
+  const selectMovie = (id: number) => {
+    update('idPelicula', id.toString());
+    closeMovieSelector();
+  };
+
+  useEffect(() => {
+    document.body.style.overflow = showMovieSelector ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [showMovieSelector]);
+
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape' && showMovieSelector) closeMovieSelector();
+    }
+    if (showMovieSelector) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [showMovieSelector]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const validationErrors = validateAll(form);
@@ -616,6 +645,7 @@ export default function FuncionesPage() {
     : [];
   const allValid = Object.values(validations).every(v => v.valid);
   const salaSeleccionada = salas.find(s => s.idSala === form.idSala);
+  const peliculasFiltradas = peliculas.filter(p => p.titulo.toLowerCase().includes(searchMovie.toLowerCase()));
 
   // Promo eligibility based on release date
   const isPromoEligible = useMemo(() => {
@@ -862,20 +892,40 @@ export default function FuncionesPage() {
           <div className="lg:col-span-2">
             <form className="grid gap-4 md:grid-cols-2" onSubmit={programacionMasiva ? submitMasiva : submit}>
               {/* Película */}
-              <label className="block md:col-span-2">
+              <div className="block md:col-span-2">
                 <span className="label-cine">Película</span>
-                <div className="relative mt-2">
-                  <select
-                    className={`input-cine border ${!form.idPelicula ? 'border-white/10' : 'border-green-500/50'} transition focus:border-cinema-gold/70`}
-                    value={form.idPelicula}
-                    onChange={(e) => update('idPelicula', e.target.value)}
-                  >
-                    <option value="">Seleccionar película...</option>
-                    {peliculas.map(p => <option key={p.idPelicula} value={p.idPelicula}>{p.titulo}</option>)}
-                  </select>
-                  {form.idPelicula && <span className="absolute right-3 top-2.5 text-green-500">✓</span>}
-                </div>
-              </label>
+                <button type="button" onClick={openMovieSelector} className="mt-2 w-full text-left">
+                  {form.idPelicula && peliculaSeleccionada ? (
+                    <div className="flex items-center gap-3 rounded-xl border border-green-500/50 bg-white/[0.05] p-3 transition-all duration-200 hover:bg-white/[0.08] hover:border-green-500/70">
+                      <div className="w-10 h-14 rounded-lg overflow-hidden shrink-0 bg-white/[0.05]">
+                        {peliculaSeleccionada.posterUrl ? (
+                          <img src={peliculaSeleccionada.posterUrl} alt={peliculaSeleccionada.titulo} referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-cinema-gray/40 text-[8px]">Sin poster</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{peliculaSeleccionada.titulo}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px] text-cinema-gray">{peliculaSeleccionada.duracionMinutos} min</span>
+                          <span className="text-[11px] text-cinema-gold font-semibold">{peliculaSeleccionada.clasificacionEdad || 'TP'}</span>
+                          {peliculaSeleccionada.fechaEstreno && (
+                            <span className="text-[11px] text-cinema-gray/60">{new Date(peliculaSeleccionada.fechaEstreno).getFullYear()}</span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-green-500 text-lg shrink-0">✓</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] p-3 transition-all duration-200 hover:bg-white/[0.06] hover:border-white/[0.2]">
+                      <div className="w-10 h-10 rounded-lg bg-white/[0.04] flex items-center justify-center shrink-0">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cinema-gold/60"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                      </div>
+                      <span className="text-sm text-cinema-gray/70">Seleccionar película...</span>
+                    </div>
+                  )}
+                </button>
+              </div>
 
               {/* Sala */}
               <label className="block">
@@ -1453,7 +1503,7 @@ export default function FuncionesPage() {
           {filteredMovies.length === 0 ? (
             <div className="p-8 text-center text-cinema-gray">No hay funciones programadas para esa búsqueda.</div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredMovies.map((movie) => {
                 const rooms = Array.from(new Set(movie.funciones.map((f: any) => f.idSala))).sort();
                 const ultimaFecha = movie.funciones
@@ -1666,6 +1716,80 @@ export default function FuncionesPage() {
                   >
                     Limpiar selección
                   </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Movie selector modal */}
+      {showMovieSelector && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 backdrop-blur-sm p-4 md:items-center" role="dialog" aria-modal="true" aria-labelledby="movie-selector-title">
+          <div className="w-full max-w-4xl overflow-hidden rounded-3xl border border-white/[0.08] bg-[#08080d] shadow-2xl shadow-black/60 my-8 md:my-0" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4">
+              <h2 id="movie-selector-title" className="text-lg font-bold text-white">Seleccionar película</h2>
+              <button type="button" onClick={closeMovieSelector} className="text-cinema-gray hover:text-white transition-colors p-1">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-6 py-4 border-b border-white/[0.06]">
+              <div className="relative">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-cinema-gray/50"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                  type="text"
+                  value={searchMovie}
+                  onChange={(e) => setSearchMovie(e.target.value)}
+                  placeholder="Buscar por título..."
+                  autoFocus
+                  autoComplete="off"
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.05] pl-10 pr-4 py-3 text-sm text-white placeholder-cinema-gray/50 outline-none transition-all duration-200 focus:border-cinema-gold/60 focus:bg-white/[0.08] focus:ring-1 focus:ring-cinema-gold/20"
+                />
+                {searchMovie && (
+                  <button type="button" onClick={() => setSearchMovie('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-cinema-gray hover:text-white">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Grid */}
+            <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
+              {peliculasFiltradas.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-cinema-gray/60 text-sm">No se encontraron películas con ese título.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {peliculasFiltradas.map((p) => (
+                    <button
+                      type="button"
+                      key={p.idPelicula}
+                      onClick={() => selectMovie(p.idPelicula)}
+                      className={`group text-left rounded-2xl border overflow-hidden transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${Number(form.idPelicula) === p.idPelicula ? 'border-green-500/60 bg-green-500/5' : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.15]'}`}
+                    >
+                      <div className="aspect-[3/4] bg-white/[0.03] overflow-hidden">
+                        {p.posterUrl ? (
+                          <img src={p.posterUrl} alt={p.titulo} referrerPolicy="no-referrer" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-cinema-gray/30 text-xs">Sin poster</div>
+                        )}
+                      </div>
+                      <div className="p-3 space-y-1.5">
+                        <p className="text-sm font-semibold text-white leading-tight line-clamp-2 group-hover:text-cinema-gold transition-colors">{p.titulo}</p>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] text-cinema-gray">{p.duracionMinutos} min</span>
+                          <span className="text-[11px] text-cinema-gold font-semibold bg-amber-500/10 px-1.5 py-0.5 rounded">{p.clasificacionEdad || 'TP'}</span>
+                          {p.fechaEstreno && (
+                            <span className="text-[11px] text-cinema-gray/60">{new Date(p.fechaEstreno).getFullYear()}</span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>

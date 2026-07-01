@@ -83,6 +83,15 @@ select.input-cine option {
   text-shadow: 0 0 0 #fff;
 }
 
+/* ── Date input dark theme ── */
+input[type="date"] {
+  color-scheme: dark;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+
 /* ── Label de formulario ── */
 .label-cine {
   @apply block text-xs font-semibold uppercase tracking-[0.15em] text-cinema-cream/70;

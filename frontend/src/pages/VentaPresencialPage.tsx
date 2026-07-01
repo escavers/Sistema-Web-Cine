@@ -30,6 +30,9 @@ export default function VentaPresencialPage() {
   const [modalAvailableDates, setModalAvailableDates] = useState<string[]>([]);
   const [selectedModalFuncion, setSelectedModalFuncion] = useState<any>(null);
   const [selectedModalIsPast, setSelectedModalIsPast] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [filtroClasificacion, setFiltroClasificacion] = useState('');
+  const [filtroPromocion, setFiltroPromocion] = useState(false);
 
   useEffect(() => {
     api.listarFunciones().then(res => setFunciones(res.funciones)).catch(() => {});
@@ -142,9 +145,19 @@ export default function VentaPresencialPage() {
     setModalSelectedDate('');
   }
 
-  const peliculasFiltradas = Array.from(
-    new Map(funciones.map(funcion => [funcion.idPelicula ?? funcion.peliculaTitulo, funcion])).values()
-  );
+  const clasificaciones = Array.from(new Set(funciones.map(f => f.peliculaClasificacion).filter(Boolean))) as string[];
+
+  const peliculasFiltradas = (() => {
+    const unique = Array.from(
+      new Map(funciones.map(funcion => [funcion.idPelicula ?? funcion.peliculaTitulo, funcion])).values()
+    );
+    return unique.filter(f => {
+      if (searchText && !f.peliculaTitulo?.toLowerCase().includes(searchText.toLowerCase())) return false;
+      if (filtroClasificacion && f.peliculaClasificacion !== filtroClasificacion) return false;
+      if (filtroPromocion && !funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1)) return false;
+      return true;
+    });
+  })();
 
   const modalFuncionesFiltradas = modalSelectedDate
     ? modalFunciones.filter(fn => fn.fecha === modalSelectedDate)
@@ -284,6 +297,47 @@ export default function VentaPresencialPage() {
 
       {step === 1 && (
         <>
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-cinema-gray/50 pointer-events-none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Buscar película..."
+                autoComplete="off"
+                className="input-cine w-full pr-8"
+                style={{ paddingLeft: '2.5rem' }}
+              />
+              {searchText && (
+                <button type="button" onClick={() => setSearchText('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-cinema-gray hover:text-white transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              )}
+            </div>
+            <select
+              value={filtroClasificacion}
+              onChange={(e) => setFiltroClasificacion(e.target.value)}
+              className="input-cine w-auto min-w-[150px]"
+            >
+              <option value="">Todas las clasificaciones</option>
+              {clasificaciones.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={() => setFiltroPromocion(!filtroPromocion)}
+              className={`flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                filtroPromocion
+                  ? 'border-cinema-gold/60 bg-cinema-gold/15 text-cinema-gold shadow-sm shadow-cinema-gold/10'
+                  : 'border-white/[0.08] bg-white/[0.04] text-cinema-gray hover:border-white/20 hover:text-cinema-cream'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${filtroPromocion ? 'bg-cinema-gold' : 'bg-white/[0.15]'}`} />
+              2x1
+            </button>
+          </div>
+
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {peliculasFiltradas.map(f => (
               <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] transition hover:border-cinema-gold/30">

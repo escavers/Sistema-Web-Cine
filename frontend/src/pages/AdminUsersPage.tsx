@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import Field from '../components/Field';
 import Message from '../components/Message';
 import { api } from '../services/api';
 import type { Rol, Usuario } from '../types';
@@ -92,6 +93,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
+  const [contrasenaTemporal, setContrasenaTemporal] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [contrasenaCopiada, setContrasenaCopiada] = useState(false);
 
@@ -155,7 +157,7 @@ export default function AdminUsersPage() {
     });
   }, []);
 
-  function validarCampo(name: string, value: string, f: typeof initial): string {
+  function validarCampo(name: string, value: string, _f?: typeof initial): string {
     const letras = /^[a-zA-ZáéíóúñÑ\s.'-]+$/;
     const ciPat = /^\d{4,15}([-\s][a-zA-Z0-9]{1,5})?$/;
     const telPat = /^[67]\d{7}$/;
@@ -271,6 +273,9 @@ export default function AdminUsersPage() {
         idRol: [form.idRol[0]]
       };
 
+      if (editandoId && form.contrasena.trim()) {
+        (payload as any).contrasena = form.contrasena.trim();
+      }
       const response = editandoId
         ? await api.actualizarUsuario(editandoId, payload)
         : await api.crearUsuario({ ...payload, contrasena: form.contrasena });
@@ -436,32 +441,32 @@ export default function AdminUsersPage() {
           )}
         </div>
 
-        <form className="mt-6 space-y-3" onSubmit={submit}>
+        <form className="mt-6 space-y-3" onSubmit={submit} autoComplete="off">
           {seccion('Datos personales')}
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <fieldset className="relative">
-              <Field label="Primer nombre" name="nombre1" value={form.nombre1} required onChange={update} error={errores.nombre1} />
+              <Field label="Primer nombre" name="nombre1" value={form.nombre1} required onChange={update} error={errores.nombre1} placeholder="Ej: Juan" autoComplete="off" />
               {esValido('nombre1') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
             </fieldset>
             <fieldset className="relative">
-              <Field label="Segundo nombre" name="nombre2" value={form.nombre2} onChange={update} error={errores.nombre2} />
+              <Field label="Segundo nombre" name="nombre2" value={form.nombre2} onChange={update} error={errores.nombre2} placeholder="Ej: Carlos" autoComplete="off" />
               {esValido('nombre2') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
             </fieldset>
             <fieldset className="relative">
-              <Field label="Apellido paterno" name="apellidoP" value={form.apellidoP} required onChange={update} error={errores.apellidoP} />
+              <Field label="Apellido paterno" name="apellidoP" value={form.apellidoP} required onChange={update} error={errores.apellidoP} placeholder="Ej: Pérez" autoComplete="off" />
               {esValido('apellidoP') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
             </fieldset>
             <fieldset className="relative">
-              <Field label="Apellido materno" name="apellidoM" value={form.apellidoM} onChange={update} error={errores.apellidoM} />
+              <Field label="Apellido materno" name="apellidoM" value={form.apellidoM} onChange={update} error={errores.apellidoM} placeholder="Ej: García" autoComplete="off" />
               {esValido('apellidoM') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
             </fieldset>
             <fieldset className="relative">
-              <Field label="Cédula de Identidad" name="ci" value={form.ci} required onChange={update} error={errores.ci} placeholder="1234567 o 1234567-1L" />
+              <Field label="Cédula de Identidad" name="ci" value={form.ci} required onChange={update} error={errores.ci} placeholder="1234567 o 1234567-1L" autoComplete="off" />
               {esValido('ci') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
             </fieldset>
             <fieldset className="relative">
-              <Field label="Fecha de nacimiento" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={update} min="1900-01-01" max={new Date().toISOString().split('T')[0]} />
+              <Field label="Fecha de nacimiento" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={update} min="1900-01-01" max={new Date().toISOString().split('T')[0]} autoComplete="bday" />
             </fieldset>
           </div>
 
@@ -469,11 +474,27 @@ export default function AdminUsersPage() {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <fieldset className="relative">
-              <Field label="Correo electrónico" name="correo" type="email" value={form.correo} required onChange={update} error={errores.correo} />
+              <Field label="Correo electrónico" name="correo" type="email" value={form.correo} required onChange={update} error={errores.correo} placeholder="Ej: usuario@correo.com" autoComplete="off" />
               {esValido('correo') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
             </fieldset>
             <fieldset className="relative">
-              <Field label="Teléfono" name="telefono" value={form.telefono} onChange={update} error={errores.telefono} placeholder="6XXXXXXX" />
+              <label className="block">
+                <span className="label-cine">Teléfono</span>
+                <div className={`mt-2 flex items-center rounded-xl border bg-white/[0.05] text-sm transition-all duration-200 focus-within:ring-1 ${errores.telefono ? 'border-red-500 focus-within:border-red-500 focus-within:ring-red-500/20' : 'border-white/[0.08] focus-within:border-cinema-gold/60 focus-within:ring-cinema-gold/20'}`}>
+                  <span className="flex items-center px-3 py-2.5 text-cinema-gold/60 select-none shrink-0 border-r border-white/[0.06]">+591</span>
+                  <input
+                    name="telefono"
+                    type="text"
+                    value={form.telefono}
+                    onChange={(e) => update('telefono', e.target.value)}
+                    placeholder="71234567"
+                    autoComplete="off"
+                    className="flex-1 bg-transparent border-none outline-none text-sm text-white placeholder-cinema-gray/50 px-3 py-2.5 min-w-0"
+                    aria-describedby={errores.telefono ? 'telefono-error' : undefined}
+                  />
+                </div>
+                {errores.telefono && <span id="telefono-error" role="alert" className="mt-1 block text-xs text-red-400">{errores.telefono}</span>}
+              </label>
               {esValido('telefono') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
             </fieldset>
           </div>
@@ -504,10 +525,15 @@ export default function AdminUsersPage() {
             </div>
 
             <fieldset className="relative">
-              <Field label="Contraseña" name="contrasena" type="password" value={form.contrasena} onChange={update} placeholder="Vacío = temporal" />
+              <Field label="Contraseña" name="contrasena" type="password" value={form.contrasena} onChange={update} placeholder={editandoId ? 'Nueva contraseña' : 'Vacío = temporal'} autoComplete="new-password" />
               {!editandoId && (
                 <p className="mt-1.5 text-[11px] leading-tight text-cinema-gray/60">
                   Mín. 8 caracteres — debe tener al menos una mayúscula, un número y un carácter especial
+                </p>
+              )}
+              {editandoId && (
+                <p className="mt-1.5 text-[11px] leading-tight text-cinema-gray/60">
+                  Dejar vacío mantiene la contraseña actual
                 </p>
               )}
             </fieldset>
@@ -537,13 +563,6 @@ export default function AdminUsersPage() {
                 </div>
               </div>
             )}
-          </div>
-
-          {seccion('Facturación (opcional)')}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="NIT" name="nit" value={form.nit} onChange={update} placeholder="Número de NIT" />
-            <Field label="Razón social" name="razonSocial" value={form.razonSocial} onChange={update} placeholder="Nombre o razón social" />
           </div>
 
           {contrasenaTemporal && (
