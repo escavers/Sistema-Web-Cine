@@ -297,8 +297,17 @@ export default function SalasPage() {
   }
 
   async function del(id: string) {
-    if (!window.confirm('¿Eliminar esta sala y todos sus asientos?')) return;
     try {
+      // Verificar en cliente si existen funciones activas para esta sala
+      const res = await api.listarFunciones();
+      const funcionesActivas = res.funciones.filter((f: any) => String(f.idSala) === String(id));
+      if (funcionesActivas.length > 0) {
+        setMessage({ type: 'error', text: 'No se puede eliminar la sala porque tiene funciones activas programadas' });
+        return;
+      }
+
+      if (!window.confirm('¿Eliminar esta sala y todos sus asientos?')) return;
+
       await api.eliminarSala(id);
       setMessage({ type: 'ok', text: 'Sala eliminada.' });
       await load();

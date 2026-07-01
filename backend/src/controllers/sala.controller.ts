@@ -152,6 +152,16 @@ export async function eliminarSala(req: Request, res: Response) {
   const id = req.params.id;
   const actor = req.user!;
 
+  // Verificar si existen funciones activas vinculadas a la sala
+  const [funciones] = await pool.query<any[]>(
+    `SELECT COUNT(*) as total FROM Funcion WHERE idSala = ? AND estadoA = 1`,
+    [id]
+  );
+
+  if (funciones[0].total > 0) {
+    return fail(res, 'No se puede eliminar la sala porque tiene funciones activas programadas', 400);
+  }
+
   await pool.query('UPDATE Sala SET estadoA = 0, fechaA = CURDATE(), usuarioA = ? WHERE idSala = ?', [actor.idUsuario, id]);
 
   await createAudit({ tablaNombre: 'Sala', registroId: id, accion: 'SALA_ELIMINADA', usuarioA: actor.idUsuario, req });
