@@ -14,6 +14,8 @@ const initial = {
   telefono: '',
   fechaNacimiento: '',
   contrasena: '',
+  nit: '',
+  razonSocial: '',
   idRol: ['CLIENTE'] as Rol[]
 };
 
@@ -27,64 +29,6 @@ const roleLabels: Record<Rol, string> = {
 const allRoles: Rol[] = ['CLIENTE', 'BOLETERIA', 'ADMINISTRADOR', 'ACCESO'];
 
 type EstadoFiltro = 'TODOS' | 'ACTIVO' | 'INACTIVO';
-
-// Componente InputField fuera del componente principal
-const InputField = ({ 
-  label, 
-  name, 
-  value, 
-  onChange, 
-  required = false, 
-  type = 'text',
-  placeholder = '',
-  error,
-  icon,
-  onIconClick
-}: any) => {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(name, e.target.value);
-  };
-
-  return (
-    <div className="block">
-      <label htmlFor={name} className="label-cine">
-        {label}
-        {required && <span className="ml-1 text-red-500">*</span>}
-      </label>
-      <div className="relative">
-        <input
-          id={name}
-          name={name}
-          type={type}
-          value={value || ''}
-          onChange={handleChange}
-          placeholder={placeholder}
-          className={`w-full rounded-lg border px-4 py-2.5 text-sm transition
-            ${error 
-              ? 'border-red-500 bg-red-500/10 text-red-300 placeholder-red-300/50 focus:border-red-400 focus:ring-red-500/20' 
-              : 'border-white/10 bg-black/20 text-white placeholder-gray-500 focus:border-cinema-gold focus:ring-cinema-gold/20'
-            } focus:outline-none focus:ring-2 ${icon ? 'pr-10' : ''}`}
-          required={required}
-        />
-        {icon && (
-          <button
-            type="button"
-            onClick={onIconClick}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-          >
-            {icon}
-          </button>
-        )}
-      </div>
-      {error && (
-        <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
-          <span className="text-red-500">🔴</span>
-          {error}
-        </p>
-      )}
-    </div>
-  );
-};
 
 export default function AdminUsersPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -210,6 +154,8 @@ export default function AdminUsersPage() {
       telefono: usuario.telefono || '',
       fechaNacimiento: usuario.fechaNacimiento || '',
       contrasena: '',
+      nit: (usuario as any).nit || '',
+      razonSocial: (usuario as any).razonSocial || '',
       idRol: usuario.idRol?.length ? [usuario.idRol[0]] : ['CLIENTE']
     });
 
@@ -564,6 +510,8 @@ export default function AdminUsersPage() {
               </div>
             )}
           </div>
+
+
 
           {contrasenaTemporal && (
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">

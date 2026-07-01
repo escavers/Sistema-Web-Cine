@@ -17,6 +17,7 @@ import ReportesPage from './pages/ReportesPage';
 import AccessValidationPage from './pages/AccessValidationPage';
 import PerfilPage from './pages/PerfilPage';
 import ComprobantePublicoPage from './pages/ComprobantePublicoPage';
+import PromocionesPage from './pages/PromocionesPage';
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -93,6 +94,12 @@ export default function App() {
             <Route path="/acceso/validar" element={
               <ProtectedRoute roles={['ACCESO', 'ADMINISTRADOR']}>
                 <AccessValidationPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/promociones" element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <PromocionesPage />
               </ProtectedRoute>
             } />
 

@@ -120,7 +120,7 @@ export default function ReportesPage() {
         const activas = funciones.filter((f: any) => f.promocionActiva === true);
         const agrupadas: Record<string, any> = {};
         activas.forEach((f: any) => {
-          const titulo = f.peliculaTitulo || `Película #${f.idFuncion}`;
+          const titulo = f.peliculaTitulo || `Función #${f.idFuncion}`;
           if (!agrupadas[titulo]) {
             agrupadas[titulo] = { pelicula: titulo, funcionesActivas: 0, fechaInicio: f.fecha, fechaFin: f.fecha };
           }
