@@ -4,6 +4,7 @@ import { pool } from '../config/db.js';
 import { createAudit } from '../services/audit.service.js';
 import { generarContrasenaTemporal, hashPassword } from '../utils/password.js';
 import { fail, ok } from '../utils/response.js';
+import {validarNombre, validarCI, validarTelefono, validarCorreo, validarFechaNacimiento} from '../utils/validators.js';
 
 const rolSchema = z.enum(['ADMINISTRADOR', 'BOLETERIA', 'CLIENTE', 'ACCESO']);
 
@@ -17,9 +18,7 @@ const crearUsuarioSchema = z.object({
   telefono: z.string().optional().nullable(),
   fechaNacimiento: z.string().optional().nullable(),
   contrasena: z.string().optional().nullable(),
-  idRol: z.array(rolSchema).min(1).max(1),
-  nit: z.string().optional().nullable(),
-  razonSocial: z.string().optional().nullable()
+  idRol: z.array(rolSchema).min(1).max(1)
 });
 
 const actualizarUsuarioSchema = z.object({
@@ -31,11 +30,17 @@ const actualizarUsuarioSchema = z.object({
   correo: z.string().email().optional(),
   telefono: z.string().optional().nullable(),
   fechaNacimiento: z.string().optional().nullable(),
-  nit: z.string().optional().nullable(),
-  razonSocial: z.string().optional().nullable(),
   estado: z.boolean().optional(),
-  idRol: z.array(rolSchema).min(1).max(1).optional()
+  idRol: z.array(rolSchema).min(1).max(1).optional(),
+  cambiarContrasena: z.boolean().optional(),
+  nuevaContrasena: z.string().min(8).optional()
 });
+
+// Función para normalizar nombres (capitalizar)
+function normalizarNombre(nombre: string): string {
+  if (!nombre) return nombre;
+  return nombre.trim().toLowerCase().replace(/\b\w/g, letra => letra.toUpperCase());
+}
 
 export async function listarUsuarios(_req: Request, res: Response) {
   const [rows] = await pool.query(
@@ -50,8 +55,6 @@ export async function listarUsuarios(_req: Request, res: Response) {
       u.correo,
       u.telefono,
       u.fechaNacimiento,
-      u.nit,
-      u.razonSocial,
       u.estado,
       u.estadoA,
       u.fechaA,
@@ -87,14 +90,71 @@ export async function crearUsuario(req: Request, res: Response) {
   try {
     await connection.beginTransaction();
 
-    const contrasenaTemporal =
-      data.contrasena && data.contrasena.trim() !== ''
-        ? data.contrasena.trim()
-        : generarContrasenaTemporal(
-            data.ci,
-            data.apellidoP,
-            data.apellidoM || ''
-          );
+    // Normalizar nombres (capitalizar)
+    const nombre1 = normalizarNombre(data.nombre1);
+    const nombre2 = data.nombre2 ? normalizarNombre(data.nombre2) : null;
+    const apellidoP = normalizarNombre(data.apellidoP);
+    const apellidoM = data.apellidoM ? normalizarNombre(data.apellidoM) : null;
+
+    // Validaciones
+    if (!validarNombre(nombre1))
+      return fail(res, 'El primer nombre solo puede contener letras.', 400);
+
+    if (nombre2 && !validarNombre(nombre2))
+      return fail(res, 'El segundo nombre solo puede contener letras.', 400);
+
+    if (!validarNombre(apellidoP))
+      return fail(res, 'El apellido paterno solo puede contener letras.', 400);
+
+    if (apellidoM && !validarNombre(apellidoM))
+      return fail(res, 'El apellido materno solo puede contener letras.', 400);
+
+    // Validar CI (permitir números, guiones y letras)
+    if (!validarCI(data.ci))
+      return fail(res, 'El CI no es válido.', 400);
+
+    // Validar CI duplicado
+    const [ciExistente] = await connection.query<any[]>(
+      'SELECT idUsuario FROM Usuario WHERE ci = ?',
+      [data.ci]
+    );
+    if (ciExistente.length > 0) {
+      return fail(res, 'El CI ya se encuentra registrado.', 400);
+    }
+
+    if (!validarCorreo(data.correo))
+      return fail(res, 'El correo electrónico no es válido.', 400);
+
+    // Validar correo duplicado
+    const [correoExistente] = await connection.query<any[]>(
+      'SELECT idUsuario FROM Usuario WHERE correo = ?',
+      [data.correo]
+    );
+    if (correoExistente.length > 0) {
+      return fail(res, 'El correo electrónico ya está registrado.', 400);
+    }
+
+    // Validar teléfono
+    if (data.telefono) {
+      if (!validarTelefono(data.telefono))
+        return fail(res, 'El teléfono debe tener 8 dígitos y comenzar con 6 o 7.', 400);
+
+      // Validar teléfono duplicado
+      const [telefonoExistente] = await connection.query<any[]>(
+        'SELECT idUsuario FROM Usuario WHERE telefono = ?',
+        [data.telefono]
+      );
+      if (telefonoExistente.length > 0) {
+        return fail(res, 'El teléfono ya se encuentra registrado.', 400);
+      }
+    }
+
+    if (data.fechaNacimiento && !validarFechaNacimiento(data.fechaNacimiento))
+      return fail(res, 'La fecha de nacimiento no es válida o la persona es menor de 1 año o mayor de 120 años.', 400);
+
+    const contrasenaTemporal = data.contrasena && data.contrasena.trim() !== ''
+      ? data.contrasena.trim()
+      : generarContrasenaTemporal(data.ci, apellidoP, apellidoM || '');
 
     const hashedPassword = await hashPassword(contrasenaTemporal);
     const rolSeleccionado = data.idRol[0];
@@ -112,27 +172,23 @@ export async function crearUsuario(req: Request, res: Response) {
         telefono,
         fechaNacimiento,
         contrasena,
-        nit,
-        razonSocial,
         estado,
         estadoA,
         fechaA,
         usuarioA
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE, CURDATE(), ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE, CURDATE(), ?)
       `,
       [
-        data.nombre1,
-        data.nombre2 ?? null,
-        data.apellidoP,
-        data.apellidoM ?? null,
+        nombre1,
+        nombre2,
+        apellidoP,
+        apellidoM,
         data.ci,
         data.correo,
         data.telefono ?? null,
         data.fechaNacimiento ?? null,
         hashedPassword,
-        data.nit ?? null,
-        data.razonSocial ?? null,
         actor.idUsuario
       ]
     );
@@ -172,7 +228,7 @@ export async function crearUsuario(req: Request, res: Response) {
     }
 
     if (error?.code === 'ER_NO_REFERENCED_ROW_2') {
-      return fail(res, 'Falta el rol seleccionado en la tabla Rol.', 500);
+      return fail(res, 'El rol seleccionado no existe.', 400);
     }
 
     console.error(error);
@@ -209,6 +265,54 @@ export async function actualizarUsuario(req: Request, res: Response) {
       return fail(res, 'Usuario no encontrado.', 404);
     }
 
+    // Validar que no se esté desactivando a sí mismo
+    if (data.estado === false && idUsuario === actor.idUsuario) {
+      await connection.rollback();
+      return fail(res, 'No puede desactivar su propia cuenta.', 400);
+    }
+
+    // Validar CI duplicado solo si cambió
+    if (data.ci && data.ci !== actual.ci) {
+      if (!validarCI(data.ci)) {
+        return fail(res, 'El CI no es válido.', 400);
+      }
+      const [ciExistente] = await connection.query<any[]>(
+        'SELECT idUsuario FROM Usuario WHERE ci = ? AND idUsuario != ?',
+        [data.ci, idUsuario]
+      );
+      if (ciExistente.length > 0) {
+        return fail(res, 'El CI ya se encuentra registrado por otro usuario.', 400);
+      }
+    }
+
+    // Validar correo duplicado solo si cambió
+    if (data.correo && data.correo !== actual.correo) {
+      if (!validarCorreo(data.correo)) {
+        return fail(res, 'El correo electrónico no es válido.', 400);
+      }
+      const [correoExistente] = await connection.query<any[]>(
+        'SELECT idUsuario FROM Usuario WHERE correo = ? AND idUsuario != ?',
+        [data.correo, idUsuario]
+      );
+      if (correoExistente.length > 0) {
+        return fail(res, 'El correo electrónico ya está registrado por otro usuario.', 400);
+      }
+    }
+
+    // Validar teléfono duplicado solo si cambió
+    if (data.telefono && data.telefono !== actual.telefono) {
+      if (!validarTelefono(data.telefono)) {
+        return fail(res, 'El teléfono debe tener 8 dígitos y comenzar con 6 o 7.', 400);
+      }
+      const [telefonoExistente] = await connection.query<any[]>(
+        'SELECT idUsuario FROM Usuario WHERE telefono = ? AND idUsuario != ?',
+        [data.telefono, idUsuario]
+      );
+      if (telefonoExistente.length > 0) {
+        return fail(res, 'El teléfono ya se encuentra registrado por otro usuario.', 400);
+      }
+    }
+
     const [rolActualRows] = await connection.query<any[]>(
       `SELECT idRol FROM Usuario_Rol WHERE idUsuario = ? LIMIT 1`,
       [idUsuario]
@@ -225,8 +329,6 @@ export async function actualizarUsuario(req: Request, res: Response) {
       'correo',
       'telefono',
       'fechaNacimiento',
-      'nit',
-      'razonSocial',
       'estado'
     ];
 
@@ -235,9 +337,21 @@ export async function actualizarUsuario(req: Request, res: Response) {
 
     for (const campo of camposPermitidos) {
       if (Object.prototype.hasOwnProperty.call(data, campo)) {
+        // Normalizar nombres si son campos de texto
+        let valor = (data as any)[campo];
+        if (['nombre1', 'nombre2', 'apellidoP', 'apellidoM'].includes(campo) && valor) {
+          valor = normalizarNombre(valor);
+        }
         updates.push(`${campo} = ?`);
-        values.push((data as any)[campo]);
+        values.push(valor);
       }
+    }
+
+    // Manejar cambio de contraseña
+    if (data.cambiarContrasena && data.nuevaContrasena) {
+      const hashedPassword = await hashPassword(data.nuevaContrasena);
+      updates.push('contrasena = ?');
+      values.push(hashedPassword);
     }
 
     if (updates.length > 0) {
@@ -266,7 +380,7 @@ export async function actualizarUsuario(req: Request, res: Response) {
       );
     }
 
-    if (updates.length === 0 && !data.idRol) {
+    if (updates.length === 0 && !data.idRol && !data.cambiarContrasena) {
       await connection.rollback();
       return fail(res, 'No hay campos para actualizar.', 400);
     }
@@ -287,6 +401,20 @@ export async function actualizarUsuario(req: Request, res: Response) {
           detalles: `Campo ${campo} actualizado desde administración.`
         });
       }
+    }
+
+    if (data.cambiarContrasena) {
+      await createAudit({
+        tablaNombre: 'Usuario',
+        registroId: idUsuario,
+        accion: 'CONTRASENA_CAMBIADA',
+        campo: 'contrasena',
+        valorAnterior: '[HASH]',
+        valorNuevo: '[HASH]',
+        usuarioA: actor.idUsuario,
+        req,
+        detalles: 'Contraseña cambiada desde administración.'
+      });
     }
 
     if (data.idRol && data.idRol[0] !== rolAnterior) {
@@ -312,7 +440,7 @@ export async function actualizarUsuario(req: Request, res: Response) {
     }
 
     if (error?.code === 'ER_NO_REFERENCED_ROW_2') {
-      return fail(res, 'El rol seleccionado no existe.', 500);
+      return fail(res, 'El rol seleccionado no existe.', 400);
     }
 
     console.error(error);
@@ -330,12 +458,21 @@ export async function darBajaUsuario(req: Request, res: Response) {
     return fail(res, 'ID inválido.', 400);
   }
 
+  // No permitir darse de baja a sí mismo
+  if (idUsuario === actor.idUsuario) {
+    return fail(res, 'No puede dar de baja su propia cuenta.', 400);
+  }
+
   const [actualRows] = await pool.query<any[]>(
-    `SELECT estadoA FROM Usuario WHERE idUsuario = ? LIMIT 1`,
+    `SELECT nombre1, apellidoP, estadoA FROM Usuario WHERE idUsuario = ? LIMIT 1`,
     [idUsuario]
   );
 
   if (!actualRows[0]) return fail(res, 'Usuario no encontrado.', 404);
+
+  if (!actualRows[0].estadoA) {
+    return fail(res, 'El usuario ya está dado de baja.', 400);
+  }
 
   await pool.query(
     `
@@ -351,12 +488,14 @@ export async function darBajaUsuario(req: Request, res: Response) {
     registroId: idUsuario,
     accion: 'USUARIO_DADO_BAJA',
     campo: 'estadoA',
-    valorAnterior: actualRows[0].estadoA,
+    valorAnterior: true,
     valorNuevo: false,
     usuarioA: actor.idUsuario,
     req,
-    detalles: 'Baja lógica de usuario. No se elimina físicamente para conservar historial.'
+    detalles: `Baja lógica del usuario ${actualRows[0].nombre1} ${actualRows[0].apellidoP}.`
   });
 
-  return ok(res, { mensaje: 'Usuario dado de baja correctamente.' });
+  return ok(res, { 
+    mensaje: `El usuario ${actualRows[0].nombre1} ${actualRows[0].apellidoP} fue dado de baja correctamente.` 
+  });
 }

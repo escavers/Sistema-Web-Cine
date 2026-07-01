@@ -19,21 +19,21 @@ export function normalizeUser(user: AuthUser): AuthUser {
 }
 
 export function getToken() {
-  return localStorage.getItem('cine_token');
+  return sessionStorage.getItem('cine_token');
 }
 
 export function setSession(token: string, usuario: AuthUser) {
-  localStorage.setItem('cine_token', token);
-  localStorage.setItem('cine_usuario', JSON.stringify(normalizeUser(usuario)));
+  sessionStorage.setItem('cine_token', token);
+  sessionStorage.setItem('cine_usuario', JSON.stringify(normalizeUser(usuario)));
 }
 
 export function clearSession() {
-  localStorage.removeItem('cine_token');
-  localStorage.removeItem('cine_usuario');
+  sessionStorage.removeItem('cine_token');
+  sessionStorage.removeItem('cine_usuario');
 }
 
 export function getStoredUser(): AuthUser | null {
-  const raw = localStorage.getItem('cine_usuario');
+  const raw = sessionStorage.getItem('cine_usuario');
   if (!raw) return null;
   try {
     const stored = JSON.parse(raw) as AuthUser;

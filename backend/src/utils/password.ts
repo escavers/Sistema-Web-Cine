@@ -9,8 +9,18 @@ export async function comparePassword(password: string, hash: string): Promise<b
   return bcrypt.compare(password, hash);
 }
 
-export function generarContrasenaTemporal(ci: string, apellidoP: string, apellidoM: string): string {
+export function generarContrasenaTemporal(
+  ci: string,
+  apellidoP: string,
+  apellidoM: string
+): string {
+
   const inicialP = apellidoP.trim().charAt(0).toUpperCase();
-  const inicialM = apellidoM.trim().charAt(0).toUpperCase();
-  return `${ci}${inicialP}${inicialM}`;
+
+  const inicialM =
+    apellidoM.trim().length > 0
+      ? apellidoM.trim().charAt(0).toUpperCase()
+      : '';
+
+  return `${ci}${inicialP}${inicialM}!`;
 }

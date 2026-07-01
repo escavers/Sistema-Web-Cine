@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import Field from '../components/Field';
 import Message from '../components/Message';
 import { api } from '../services/api';
 import type { Rol, Usuario } from '../types';
@@ -14,9 +13,7 @@ const initial = {
   telefono: '',
   fechaNacimiento: '',
   contrasena: '',
-  idRol: ['CLIENTE'] as Rol[],
-  nit: '',
-  razonSocial: ''
+  idRol: ['CLIENTE'] as Rol[]
 };
 
 const roleLabels: Record<Rol, string> = {
@@ -30,12 +27,73 @@ const allRoles: Rol[] = ['CLIENTE', 'BOLETERIA', 'ADMINISTRADOR', 'ACCESO'];
 
 type EstadoFiltro = 'TODOS' | 'ACTIVO' | 'INACTIVO';
 
+// Componente InputField fuera del componente principal
+const InputField = ({ 
+  label, 
+  name, 
+  value, 
+  onChange, 
+  required = false, 
+  type = 'text',
+  placeholder = '',
+  error,
+  icon,
+  onIconClick
+}: any) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(name, e.target.value);
+  };
+
+  return (
+    <div className="block">
+      <label htmlFor={name} className="label-cine">
+        {label}
+        {required && <span className="ml-1 text-red-500">*</span>}
+      </label>
+      <div className="relative">
+        <input
+          id={name}
+          name={name}
+          type={type}
+          value={value || ''}
+          onChange={handleChange}
+          placeholder={placeholder}
+          className={`w-full rounded-lg border px-4 py-2.5 text-sm transition
+            ${error 
+              ? 'border-red-500 bg-red-500/10 text-red-300 placeholder-red-300/50 focus:border-red-400 focus:ring-red-500/20' 
+              : 'border-white/10 bg-black/20 text-white placeholder-gray-500 focus:border-cinema-gold focus:ring-cinema-gold/20'
+            } focus:outline-none focus:ring-2 ${icon ? 'pr-10' : ''}`}
+          required={required}
+        />
+        {icon && (
+          <button
+            type="button"
+            onClick={onIconClick}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+          >
+            {icon}
+          </button>
+        )}
+      </div>
+      {error && (
+        <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+          <span className="text-red-500">🔴</span>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+};
+
 export default function AdminUsersPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [form, setForm] = useState(initial);
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [errores, setErrores] = useState<Record<string, string>>({});
+  const [mostrarContrasena, setMostrarContrasena] = useState(false);
+  const [contrasenaCopiada, setContrasenaCopiada] = useState(false);
 
   const [busqueda, setBusqueda] = useState('');
   const [rolFiltro, setRolFiltro] = useState<'TODOS' | Rol>('TODOS');
@@ -55,22 +113,79 @@ export default function AdminUsersPage() {
     });
   }, []);
 
-  function update(name: string, value: string) {
-    setForm((current) => ({ ...current, [name]: value }));
+  function generarContrasena(ci: string, apellidoP: string, apellidoM: string) {
+    const inicialP = apellidoP.trim().charAt(0).toUpperCase();
+    const inicialM = apellidoM.trim().charAt(0).toUpperCase();
+    return `${ci}${inicialP}${inicialM}!`;
   }
 
+  function validarCampo(name: string, value: string): string {
+    switch (name) {
+      case 'nombre1':
+        if (!value.trim()) return 'El primer nombre es requerido';
+        if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El nombre solo puede contener letras';
+        if (value.trim().length < 2) return 'El nombre debe tener al menos 2 caracteres';
+        return '';
+      case 'nombre2':
+        if (value.trim() && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El nombre solo puede contener letras';
+        return '';
+      case 'apellidoP':
+        if (!value.trim()) return 'El apellido paterno es requerido';
+        if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El apellido solo puede contener letras';
+        if (value.trim().length < 2) return 'El apellido debe tener al menos 2 caracteres';
+        return '';
+      case 'apellidoM':
+        if (value.trim() && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El apellido solo puede contener letras';
+        return '';
+      case 'ci':
+        if (!value.trim()) return 'El CI es requerido';
+        return '';
+      case 'correo':
+        if (!value.trim()) return 'El correo es requerido';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return 'Ingrese un correo electrónico válido';
+        return '';
+      case 'telefono':
+        if (value.trim() && !/^[67][0-9]{7}$/.test(value.trim())) return 'El teléfono debe tener 8 dígitos y comenzar con 6 o 7';
+        return '';
+      case 'contrasena':
+        if (!editandoId && !value.trim()) return 'La contraseña es requerida';
+        if (!editandoId && value.trim().length < 8) return 'La contraseña debe tener al menos 8 caracteres';
+        return '';
+      default:
+        return '';
+    }
+  }
+
+  function update(name: string, value: string) {
+    setForm(prev => ({ ...prev, [name]: value }));
+    const error = validarCampo(name, value);
+    setErrores(prev => ({ ...prev, [name]: error }));
+  }
+
+  // Auto-generar contraseña
+  useEffect(() => {
+    if (form.ci && form.apellidoP && !editandoId) {
+      const contrasenaGenerada = generarContrasena(form.ci, form.apellidoP, form.apellidoM || '');
+      setForm(prev => ({ ...prev, contrasena: contrasenaGenerada }));
+    }
+  }, [form.ci, form.apellidoP, form.apellidoM, editandoId]);
+
   function seleccionarRol(rol: Rol) {
-    setForm((current) => ({ ...current, idRol: [rol] }));
+    setForm(prev => ({ ...prev, idRol: [rol] }));
   }
 
   function limpiarFormulario() {
     setForm(initial);
     setEditandoId(null);
+    setErrores({});
+    setMessage(null);
+    setContrasenaCopiada(false);
   }
 
   function editarUsuario(usuario: Usuario) {
     setEditandoId(usuario.idUsuario);
     setMessage(null);
+    setErrores({});
 
     setForm({
       nombre1: usuario.nombre1 || '',
@@ -82,18 +197,46 @@ export default function AdminUsersPage() {
       telefono: usuario.telefono || '',
       fechaNacimiento: usuario.fechaNacimiento || '',
       contrasena: '',
-      idRol: usuario.idRol?.length ? [usuario.idRol[0]] : ['CLIENTE'],
-      nit: usuario.nit || '',
-      razonSocial: usuario.razonSocial || ''
+      idRol: usuario.idRol?.length ? [usuario.idRol[0]] : ['CLIENTE']
     });
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function validarFormularioCompleto(): boolean {
+    const nuevosErrores: Record<string, string> = {};
+    let esValido = true;
+
+    const camposAValidar = ['nombre1', 'apellidoP', 'ci', 'correo'];
+    if (!editandoId) {
+      camposAValidar.push('contrasena');
+    }
+    
+    camposAValidar.forEach(key => {
+      const error = validarCampo(key, form[key as keyof typeof form] as string);
+      if (error) {
+        nuevosErrores[key] = error;
+        esValido = false;
+      }
+    });
+
+    setErrores(nuevosErrores);
+    return esValido;
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    setLoading(true);
     setMessage(null);
+
+    if (!validarFormularioCompleto()) {
+      setMessage({
+        type: 'error',
+        text: 'Por favor, corrija los errores marcados en rojo.'
+      });
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const payload = {
@@ -105,14 +248,12 @@ export default function AdminUsersPage() {
         correo: form.correo.trim().toLowerCase(),
         telefono: form.telefono.trim() || null,
         fechaNacimiento: form.fechaNacimiento || null,
-        idRol: [form.idRol[0]],
-        nit: form.nit.trim() || null,
-        razonSocial: form.razonSocial.trim() || null
+        idRol: [form.idRol[0]]
       };
 
       const response = editandoId
         ? await api.actualizarUsuario(editandoId, payload)
-        : await api.crearUsuario(payload);
+        : await api.crearUsuario({ ...payload, contrasena: form.contrasena });
 
       setMessage({
         type: 'ok',
@@ -154,8 +295,8 @@ export default function AdminUsersPage() {
   }
 
   async function darBaja(usuario: Usuario) {
-    const confirmed = window.confirm(`¿Desea dar de baja a ${usuario.nombre1} ${usuario.apellidoP}?`);
-    if (!confirmed) return;
+    const confirmado = window.confirm(`¿Está seguro que desea dar de baja a ${usuario.nombre1} ${usuario.apellidoP}?`);
+    if (!confirmado) return;
 
     setMessage(null);
 
@@ -166,7 +307,7 @@ export default function AdminUsersPage() {
     } catch (err) {
       setMessage({
         type: 'error',
-        text: err instanceof Error ? err.message : 'No se pudo completar la baja lógica del usuario.'
+        text: err instanceof Error ? err.message : 'No se pudo completar la baja del usuario.'
       });
     }
   }
@@ -174,6 +315,28 @@ export default function AdminUsersPage() {
   function formatRoles(roles: Rol[]) {
     if (!roles || roles.length === 0) return 'Sin rol';
     return roleLabels[roles[0]];
+  }
+
+  function copiarContrasena() {
+    if (form.contrasena) {
+      navigator.clipboard.writeText(form.contrasena);
+      setContrasenaCopiada(true);
+      setTimeout(() => setContrasenaCopiada(false), 3000);
+    }
+  }
+
+  function getFortalezaContrasena(contrasena: string): { texto: string; color: string } {
+    if (!contrasena) return { texto: '', color: '' };
+    const length = contrasena.length;
+    const hasUpper = /[A-Z]/.test(contrasena);
+    const hasLower = /[a-z]/.test(contrasena);
+    const hasNumber = /[0-9]/.test(contrasena);
+    const hasSpecial = /[^A-Za-z0-9]/.test(contrasena);
+    const puntos = [hasUpper, hasLower, hasNumber, hasSpecial, length >= 8].filter(Boolean).length;
+
+    if (puntos <= 2) return { texto: 'Débil', color: 'text-red-400' };
+    if (puntos <= 3) return { texto: 'Media', color: 'text-yellow-400' };
+    return { texto: 'Fuerte', color: 'text-green-400' };
   }
 
   const usuariosFiltrados = useMemo(() => {
@@ -205,6 +368,13 @@ export default function AdminUsersPage() {
 
   return (
     <section className="space-y-8">
+      {/* Mensaje flotante */}
+      {message && (
+        <div className="fixed top-4 right-4 z-50 max-w-md animate-slide-down">
+          <Message type={message.type} text={message.text} />
+        </div>
+      )}
+
       <div className="card-cine p-7">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
@@ -224,17 +394,91 @@ export default function AdminUsersPage() {
         </div>
 
         <form className="mt-6 grid gap-4 md:grid-cols-3" onSubmit={submit}>
-          <Field label="Primer nombre" name="nombre1" value={form.nombre1} required onChange={update} />
-          <Field label="Segundo nombre" name="nombre2" value={form.nombre2} onChange={update} />
-          <Field label="Apellido paterno" name="apellidoP" value={form.apellidoP} required onChange={update} />
-          <Field label="Apellido materno" name="apellidoM" value={form.apellidoM} onChange={update} />
-          <Field label="CI" name="ci" value={form.ci} required onChange={update} />
-          <Field label="Correo" name="correo" type="email" value={form.correo} required onChange={update} />
-          <Field label="Teléfono" name="telefono" value={form.telefono} onChange={update} />
-          <Field label="Fecha nacimiento" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={update} />
+          <InputField 
+            label="Primer nombre" 
+            name="nombre1" 
+            value={form.nombre1} 
+            required 
+            onChange={update}
+            error={errores.nombre1}
+            placeholder="Ej: Juan"
+          />
+          <InputField 
+            label="Segundo nombre" 
+            name="nombre2" 
+            value={form.nombre2} 
+            onChange={update}
+            error={errores.nombre2}
+            placeholder="Ej: Carlos"
+          />
+          <InputField 
+            label="Apellido paterno" 
+            name="apellidoP" 
+            value={form.apellidoP} 
+            required 
+            onChange={update}
+            error={errores.apellidoP}
+            placeholder="Ej: Pérez"
+          />
+          <InputField 
+            label="Apellido materno" 
+            name="apellidoM" 
+            value={form.apellidoM} 
+            onChange={update}
+            error={errores.apellidoM}
+            placeholder="Ej: Gómez"
+          />
+          <InputField 
+            label="CI" 
+            name="ci" 
+            value={form.ci} 
+            required 
+            onChange={update}
+            error={errores.ci}
+            placeholder="Ej: 1234567"
+          />
+          <InputField 
+            label="Correo" 
+            name="correo" 
+            type="email" 
+            value={form.correo} 
+            required 
+            onChange={update}
+            error={errores.correo}
+            placeholder="ejemplo@correo.com"
+          />
+          <InputField 
+            label="Teléfono" 
+            name="telefono" 
+            value={form.telefono} 
+            onChange={update}
+            error={errores.telefono}
+            placeholder="Ej: 71234567"
+          />
+          <InputField 
+            label="Fecha nacimiento" 
+            name="fechaNacimiento" 
+            type="date" 
+            value={form.fechaNacimiento} 
+            onChange={update}
+          />
+          <InputField
+            label="Contraseña"
+            name="contrasena"
+            value={form.contrasena}
+            onChange={update}
+            type={mostrarContrasena ? 'text' : 'password'}
+            error={errores.contrasena}
+            required={!editandoId}
+            placeholder={editandoId ? 'Dejar vacío para mantener' : 'Se genera automáticamente'}
+            icon={mostrarContrasena ? '👁️' : '👁️‍🗨️'}
+            onIconClick={() => setMostrarContrasena(!mostrarContrasena)}
+          />
 
           <div className="block">
-            <span className="label-cine">Rol</span>
+            <span className="label-cine">
+              Rol <span className="ml-1 text-red-500">*</span>
+            </span>
             <div className="mt-1 grid grid-cols-2 gap-2">
               {allRoles.map((rol) => (
                 <button
@@ -253,16 +497,54 @@ export default function AdminUsersPage() {
             </div>
           </div>
 
-          <Field label="NIT" name="nit" value={form.nit} onChange={update} />
-          <Field label="Razón social" name="razonSocial" value={form.razonSocial} onChange={update} />
+          {!editandoId && form.contrasena && (
+            <div className="md:col-span-3 space-y-2">
+              <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-cinema-gray">
+                    Contraseña temporal: 
+                    <span className="ml-2 font-mono text-white">{form.contrasena}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={copiarContrasena}
+                    className="btn-secondary px-3 py-1 text-xs"
+                  >
+                    {contrasenaCopiada ? '✅ Copiado' : '📋 Copiar'}
+                  </button>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-cinema-gray">Fortaleza:</span>
+                  <span className={`text-xs font-semibold ${getFortalezaContrasena(form.contrasena).color}`}>
+                    {getFortalezaContrasena(form.contrasena).texto}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
-          <div className="md:col-span-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-cinema-gray">
-            La contraseña temporal es: 
-          </div>
+          {editandoId && (
+            <div className="md:col-span-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('¿Desea cambiar la contraseña de este usuario?')) {
+                    const nuevaContrasena = prompt('Ingrese la nueva contraseña (mínimo 8 caracteres):');
+                    if (nuevaContrasena && nuevaContrasena.length >= 8) {
+                      setForm(prev => ({ ...prev, contrasena: nuevaContrasena }));
+                    } else if (nuevaContrasena !== null) {
+                      alert('La contraseña debe tener al menos 8 caracteres.');
+                    }
+                  }
+                }}
+                className="btn-secondary px-4 py-2 text-sm"
+              >
+                Cambiar contraseña
+              </button>
+            </div>
+          )}
 
           <div className="md:col-span-3 space-y-4">
-            {message && <Message type={message.type} text={message.text} />}
-
             <div className="flex flex-wrap gap-3">
               <button className="btn-primary" disabled={loading}>
                 {loading
@@ -378,9 +660,6 @@ export default function AdminUsersPage() {
                         {Boolean(usuario.estado) ? 'Inactivar' : 'Activar'}
                       </button>
 
-                      <button className="btn-primary px-3 py-2" onClick={() => darBaja(usuario)}>
-                        Baja lógica
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -389,7 +668,7 @@ export default function AdminUsersPage() {
               {usuariosFiltrados.length === 0 && (
                 <tr>
                   <td className="px-5 py-8 text-center text-cinema-gray" colSpan={6}>
-                    El usuario no existe.
+                    No se encontraron usuarios.
                   </td>
                 </tr>
               )}
@@ -397,6 +676,22 @@ export default function AdminUsersPage() {
           </table>
         </div>
       </div>
+
+      <style>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-1rem);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-down {
+          animation: slideDown 0.3s ease-out;
+        }
+      `}</style>
     </section>
   );
 }

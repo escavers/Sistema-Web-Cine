@@ -1,13 +1,78 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Field from '../components/Field';
 import Message from '../components/Message';
 import { api } from '../services/api';
 
 const initial = {
-  nombre1: '', nombre2: '', apellidoP: '', apellidoM: '',
-  ci: '', correo: '', telefono: '', fechaNacimiento: '',
-  contrasena: '', nit: '', razonSocial: ''
+  nombre1: '', 
+  nombre2: '', 
+  apellidoP: '', 
+  apellidoM: '',
+  ci: '', 
+  correo: '', 
+  telefono: '', 
+  fechaNacimiento: '',
+  contrasena: '', 
+  nit: '', 
+  razonSocial: ''
+};
+
+// Componente InputField personalizado
+const InputField = ({ 
+  label, 
+  name, 
+  value, 
+  onChange, 
+  required = false, 
+  type = 'text',
+  placeholder = '',
+  error,
+  icon,
+  onIconClick
+}: any) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(name, e.target.value);
+  };
+
+  return (
+    <div className="block">
+      <label htmlFor={name} className="label-cine">
+        {label}
+        {required && <span className="ml-1 text-red-500">*</span>}
+      </label>
+      <div className="relative">
+        <input
+          id={name}
+          name={name}
+          type={type}
+          value={value || ''}
+          onChange={handleChange}
+          placeholder={placeholder}
+          className={`w-full rounded-lg border px-4 py-2.5 text-sm transition
+            ${error 
+              ? 'border-red-500 bg-red-500/10 text-red-300 placeholder-red-300/50 focus:border-red-400 focus:ring-red-500/20' 
+              : 'border-white/10 bg-black/20 text-white placeholder-gray-500 focus:border-cinema-gold focus:ring-cinema-gold/20'
+            } focus:outline-none focus:ring-2 ${icon ? 'pr-10' : ''}`}
+          required={required}
+        />
+        {icon && (
+          <button
+            type="button"
+            onClick={onIconClick}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+          >
+            {icon}
+          </button>
+        )}
+      </div>
+      {error && (
+        <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+          <span className="text-red-500">🔴</span>
+          {error}
+        </p>
+      )}
+    </div>
+  );
 };
 
 export default function RegisterPage() {
@@ -16,50 +81,138 @@ export default function RegisterPage() {
   const [confirmarContrasena, setConfirmarContrasena] = useState('');
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [errores, setErrores] = useState<Record<string, string>>({});
+  const [mostrarContrasena, setMostrarContrasena] = useState(false);
+  const [mostrarConfirmarContrasena, setMostrarConfirmarContrasena] = useState(false);
+
+  function validarCampo(name: string, value: string): string {
+    switch (name) {
+      case 'nombre1':
+        if (!value.trim()) return 'El primer nombre es requerido';
+        if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El nombre solo puede contener letras';
+        if (value.trim().length < 2) return 'El nombre debe tener al menos 2 caracteres';
+        return '';
+      case 'nombre2':
+        if (value.trim() && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El nombre solo puede contener letras';
+        return '';
+      case 'apellidoP':
+        if (!value.trim()) return 'El apellido paterno es requerido';
+        if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El apellido solo puede contener letras';
+        if (value.trim().length < 2) return 'El apellido debe tener al menos 2 caracteres';
+        return '';
+      case 'apellidoM':
+        if (value.trim() && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El apellido solo puede contener letras';
+        return '';
+      case 'ci':
+        if (!value.trim()) return 'El CI es requerido';
+        const ciLimpia = value.replace(/[^0-9]/g, '');
+        if (ciLimpia.length < 7 || ciLimpia.length > 10) return 'El CI debe tener entre 7 y 10 dígitos';
+        if (!/^\d{7,10}[A-Za-z\-]*$/.test(value.replace(/\s/g, ''))) {
+          return 'El CI solo puede contener números y opcionalmente letras o guiones al final (ej: 1234567LP o 1234567-1A)';
+        }
+        return '';
+      case 'correo':
+        if (!value.trim()) return 'El correo es requerido';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return 'Ingrese un correo electrónico válido';
+        return '';
+      case 'telefono':
+        if (value.trim()) {
+          const telefonoLimpio = value.trim().replace(/\s/g, '');
+          if (!/^\d{8}$/.test(telefonoLimpio)) {
+            return 'El teléfono debe tener exactamente 8 dígitos';
+          }
+          if (!/^[67]/.test(telefonoLimpio)) {
+            return 'El teléfono debe comenzar con 6 o 7';
+          }
+          if (/^(\d)\1{7}$/.test(telefonoLimpio)) {
+            return 'El teléfono no puede tener todos los dígitos iguales';
+          }
+        }
+        return '';
+      case 'contrasena':
+        if (!value.trim()) return 'La contraseña es requerida';
+        if (value.trim().length < 8) return 'La contraseña debe tener al menos 8 caracteres';
+        if (!/[A-Z]/.test(value)) return 'La contraseña debe incluir al menos una letra mayúscula';
+        if (!/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]]/.test(value)) {
+          return 'La contraseña debe incluir al menos un carácter especial';
+        }
+        return '';
+      case 'confirmarContrasena':
+        if (!value.trim()) return 'Confirme su contraseña';
+        if (value !== form.contrasena) return 'Las contraseñas no coinciden';
+        return '';
+      default:
+        return '';
+    }
+  }
 
   function update(name: string, value: string) {
-    setForm((c) => ({ ...c, [name]: value }));
+    setForm(prev => ({ ...prev, [name]: value }));
+    const error = validarCampo(name, value);
+    setErrores(prev => ({ ...prev, [name]: error }));
   }
 
-  function updateConfirmarContrasena(_name: string, value: string) {
+  function updateConfirmarContrasena(name: string, value: string) {
     setConfirmarContrasena(value);
+    const error = validarCampo(name, value);
+    setErrores(prev => ({ ...prev, [name]: error }));
   }
 
-  function validarFormulario() {
-    if (!form.nombre1.trim()) return 'Ingrese su primer nombre.';
-    if (!form.apellidoP.trim()) return 'Ingrese su apellido paterno.';
-    if (!form.ci.trim()) return 'Ingrese su CI.';
-    if (!form.correo.trim()) return 'Ingrese su correo electrónico.';
-    if (!form.contrasena.trim()) return 'Ingrese una contraseña.';
-    if (!confirmarContrasena.trim()) return 'Confirme su contraseña.';
-
-    if (form.contrasena.length < 8) {
-      return 'La contraseña debe tener al menos 8 caracteres.';
+  // Validar confirmar contraseña cuando cambia la contraseña
+  useEffect(() => {
+    if (confirmarContrasena) {
+      const error = validarCampo('confirmarContrasena', confirmarContrasena);
+      setErrores(prev => ({ ...prev, confirmarContrasena: error }));
     }
+  }, [form.contrasena]);
 
-    if (!/[A-Z]/.test(form.contrasena)) {
-      return 'La contraseña debe incluir al menos una letra mayúscula.';
-    }
+  function validarFormularioCompleto(): boolean {
+    const nuevosErrores: Record<string, string> = {};
+    let esValido = true;
 
-    if (!/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]]/.test(form.contrasena)) {
-      return 'La contraseña debe incluir al menos un carácter especial.';
-    }
+    const camposAValidar = ['nombre1', 'apellidoP', 'ci', 'correo', 'contrasena', 'confirmarContrasena'];
+    
+    camposAValidar.forEach(key => {
+      let value = '';
+      if (key === 'confirmarContrasena') {
+        value = confirmarContrasena;
+      } else {
+        value = form[key as keyof typeof form] as string;
+      }
+      const error = validarCampo(key, value);
+      if (error) {
+        nuevosErrores[key] = error;
+        esValido = false;
+      }
+    });
 
-    if (form.contrasena !== confirmarContrasena) {
-      return 'Las contraseñas no coinciden.';
-    }
+    setErrores(nuevosErrores);
+    return esValido;
+  }
 
-    return null;
+  function getFortalezaContrasena(contrasena: string): { texto: string; color: string } {
+    if (!contrasena) return { texto: '', color: '' };
+    const length = contrasena.length;
+    const hasUpper = /[A-Z]/.test(contrasena);
+    const hasLower = /[a-z]/.test(contrasena);
+    const hasNumber = /[0-9]/.test(contrasena);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]]/.test(contrasena);
+    const puntos = [hasUpper, hasLower, hasNumber, hasSpecial, length >= 8].filter(Boolean).length;
+
+    if (puntos <= 2) return { texto: 'Débil', color: 'text-red-400' };
+    if (puntos <= 3) return { texto: 'Media', color: 'text-yellow-400' };
+    return { texto: 'Fuerte', color: 'text-green-400' };
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
 
-    const errorValidacion = validarFormulario();
-
-    if (errorValidacion) {
-      setMessage({ type: 'error', text: errorValidacion });
+    if (!validarFormularioCompleto()) {
+      setMessage({
+        type: 'error',
+        text: 'Por favor, corrija los errores marcados en rojo.'
+      });
       return;
     }
 
@@ -85,6 +238,7 @@ export default function RegisterPage() {
       setMessage({ type: 'ok', text: res.mensaje || 'Cuenta creada correctamente.' });
       setForm(initial);
       setConfirmarContrasena('');
+      setErrores({});
 
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
@@ -108,23 +262,119 @@ export default function RegisterPage() {
         </div>
 
         <form className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
-          <Field label="Primer nombre" name="nombre1" value={form.nombre1} required onChange={update} />
-          <Field label="Segundo nombre" name="nombre2" value={form.nombre2} onChange={update} />
-          <Field label="Apellido paterno" name="apellidoP" value={form.apellidoP} required onChange={update} />
-          <Field label="Apellido materno" name="apellidoM" value={form.apellidoM} onChange={update} />
-          <Field label="CI" name="ci" value={form.ci} required onChange={update} />
-          <Field label="Correo" name="correo" type="email" value={form.correo} required onChange={update} />
-          <Field label="Teléfono" name="telefono" value={form.telefono} onChange={update} />
-          <Field label="Fecha de nacimiento" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={update} />
-          <Field label="Contraseña" name="contrasena" type="password" value={form.contrasena} required onChange={update} />
-          <Field
+          <InputField 
+            label="Primer nombre" 
+            name="nombre1" 
+            value={form.nombre1} 
+            required 
+            onChange={update}
+            error={errores.nombre1}
+            placeholder="Ej: Juan"
+          />
+          <InputField 
+            label="Segundo nombre" 
+            name="nombre2" 
+            value={form.nombre2} 
+            onChange={update}
+            error={errores.nombre2}
+            placeholder="Ej: Carlos"
+          />
+          <InputField 
+            label="Apellido paterno" 
+            name="apellidoP" 
+            value={form.apellidoP} 
+            required 
+            onChange={update}
+            error={errores.apellidoP}
+            placeholder="Ej: Pérez"
+          />
+          <InputField 
+            label="Apellido materno" 
+            name="apellidoM" 
+            value={form.apellidoM} 
+            onChange={update}
+            error={errores.apellidoM}
+            placeholder="Ej: Gómez"
+          />
+          <InputField 
+            label="CI" 
+            name="ci" 
+            value={form.ci} 
+            required 
+            onChange={update}
+            error={errores.ci}
+            placeholder="Ej: 1234567 o 1234567LP"
+          />
+          <InputField 
+            label="Correo" 
+            name="correo" 
+            type="email" 
+            value={form.correo} 
+            required 
+            onChange={update}
+            error={errores.correo}
+            placeholder="ejemplo@correo.com"
+          />
+          <InputField 
+            label="Teléfono" 
+            name="telefono" 
+            value={form.telefono} 
+            onChange={update}
+            error={errores.telefono}
+            placeholder="Ej: 71234567"
+          />
+          <InputField 
+            label="Fecha de nacimiento" 
+            name="fechaNacimiento" 
+            type="date" 
+            value={form.fechaNacimiento} 
+            onChange={update}
+          />
+
+          <InputField
+            label="Contraseña"
+            name="contrasena"
+            value={form.contrasena}
+            onChange={update}
+            type={mostrarContrasena ? 'text' : 'password'}
+            error={errores.contrasena}
+            required
+            placeholder="Mínimo 8 caracteres"
+            icon={mostrarContrasena ? '👁️' : '👁️‍🗨️'}
+            onIconClick={() => setMostrarContrasena(!mostrarContrasena)}
+          />
+
+          <InputField
             label="Confirmar contraseña"
             name="confirmarContrasena"
-            type="password"
             value={confirmarContrasena}
-            required
             onChange={updateConfirmarContrasena}
+            type={mostrarConfirmarContrasena ? 'text' : 'password'}
+            error={errores.confirmarContrasena}
+            required
+            placeholder="Repita su contraseña"
+            icon={mostrarConfirmarContrasena ? '👁️' : '👁️‍🗨️'}
+            onIconClick={() => setMostrarConfirmarContrasena(!mostrarConfirmarContrasena)}
           />
+
+          {/* Indicador de fortaleza de contraseña */}
+          {form.contrasena && (
+            <div className="md:col-span-2 flex items-center gap-2">
+              <span className="text-xs text-cinema-gray">Fortaleza:</span>
+              <span className={`text-xs font-semibold ${getFortalezaContrasena(form.contrasena).color}`}>
+                {getFortalezaContrasena(form.contrasena).texto}
+              </span>
+              <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-300 ${
+                    getFortalezaContrasena(form.contrasena).texto === 'Fuerte' ? 'bg-green-400 w-full' :
+                    getFortalezaContrasena(form.contrasena).texto === 'Media' ? 'bg-yellow-400 w-2/3' :
+                    'bg-red-400 w-1/3'
+                  }`}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="md:col-span-2 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-cinema-gray">
             Los datos de facturación podrán completarse al momento de realizar una compra.
