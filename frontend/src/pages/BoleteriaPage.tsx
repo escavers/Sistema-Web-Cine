@@ -66,7 +66,7 @@ const InputField = ({
       </div>
       {error && (
         <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
-          <span className="text-red-500">🔴</span>
+          <span className="text-red-500"></span>
           {error}
         </p>
       )}

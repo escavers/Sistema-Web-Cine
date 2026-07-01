@@ -40,11 +40,14 @@ export default function Field({
   const errorId = error ? `${name}-error` : undefined;
 
   return (
-    <label className="block" htmlFor={inputId}>
-      <span className="label-cine">{label}</span>
+    <div className="block">
+      <label htmlFor={inputId} className="label-cine block mb-1.5">
+        {label}
+        {required && <span className="ml-1 text-red-500">*</span>}
+      </label>
+      
       <div className="relative">
         <input
-          className={`input-cine w-full pr-10 ${error ? 'border-red-500 focus:border-red-500' : ''}`}
           id={inputId}
           name={name}
           type={inputType}
@@ -59,14 +62,22 @@ export default function Field({
           aria-describedby={errorId}
           onChange={(event) => onChange(name, event.target.value)}
           onBlur={onBlur ? () => onBlur(name, value) : undefined}
+          // Añadidas clases dinámicas para cuando esté disabled o tenga error
+          className={`input-cine w-full pr-10 text-sm transition-all duration-200
+            ${error 
+              ? 'border-red-500 bg-red-500/10 text-red-300 focus:border-red-500 focus:ring-red-500/20' 
+              : 'border-white/10 bg-black/20 text-white focus:border-cinema-gold'
+            }
+            ${disabled 
+              ? 'opacity-40 cursor-not-allowed bg-black/40 border-white/5 select-none' 
+              : ''
+            }`}
         />
-        {error && (
-          <span id={errorId} role="alert" className="mt-1 block text-xs text-red-400">{error}</span>
-        )}
-        {isPassword && (
+        
+        {isPassword && !disabled && (
           <button
             type="button"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-cinema-gray hover:text-white"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-cinema-gray hover:text-white transition-colors"
             onClick={() => setShowPassword(!showPassword)}
             tabIndex={-1}
           >
@@ -78,6 +89,14 @@ export default function Field({
           </button>
         )}
       </div>
-    </label>
+
+      {/* CORRECCIÓN: El error ahora se renderiza fuera del contenedor relativo para que se ubique abajo correctamente */}
+      {error && (
+        <p id={errorId} role="alert" className="mt-1.5 text-xs text-red-400 flex items-center gap-1 animate-slide-down">
+          <span className="text-red-500">🔴</span>
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

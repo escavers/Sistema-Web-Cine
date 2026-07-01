@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { AuthUser } from '../types';
 
 interface HeaderProps {
@@ -34,15 +35,21 @@ export default function Header({ user, onLogout }: HeaderProps) {
 
         {user ? (
           <div className="flex items-center gap-4">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-semibold text-white">
-                {user.nombreCompleto}
+            {/* Redirección directa a la página de perfil con un Link */}
+            <Link
+              to="/perfil"
+              className="group flex flex-col text-right items-end justify-center cursor-pointer focus:outline-none"
+              title="Ir a mi perfil"
+            >
+              <p className="text-sm font-semibold text-white group-hover:text-cinema-gold transition-colors duration-200 flex items-center gap-1">
+                {user.nombreCompleto || `${user.nombre1} ${user.apellidoP}`}
+                <span className="text-[11px] opacity-60 group-hover:opacity-100 transition-opacity">⚙️</span>
               </p>
 
-              <p className="text-xs text-cinema-gray">
+              <p className="text-xs text-cinema-gray group-hover:text-cinema-gray/80 transition-colors duration-200">
                 {rolesDisplay}
               </p>
-            </div>
+            </Link>
 
             <button
               type="button"

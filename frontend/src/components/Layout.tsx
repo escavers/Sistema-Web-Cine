@@ -69,11 +69,38 @@ export default function Layout() {
 
           {user ? (
             <div className="flex flex-col items-start gap-3 sm:items-end md:flex-row md:items-center md:gap-5">
-              <div className="hidden md:block text-right">
-                <p className="text-sm font-semibold text-white/90">{user.nombreCompleto}</p>
-                <p className="text-[11px] text-cinema-gray/60 uppercase tracking-wider">{rolesDisplay}</p>
-              </div>
-              <button className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-cinema-gray/80 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white" onClick={handleLogout}>
+              
+              {/* CORRECCIÓN: Botón interactivo de perfil con diseño premium integrado en el Layout */}
+              <button
+                type="button"
+                onClick={() => navigate('/perfil')}
+                className="group flex items-center gap-3 text-right cursor-pointer focus:outline-none bg-transparent border-none p-1 rounded-xl border border-transparent hover:border-cinema-gold/30 hover:bg-cinema-gold/5 transition-all duration-300"
+                title="Ver mi perfil"
+              >
+                {/* Iniciales en un badge circular dorado brillante */}
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cinema-gold text-black font-black text-sm tracking-wide shadow-md shadow-cinema-gold/20 group-hover:scale-105 transition-transform duration-200">
+                  {user.nombre1?.charAt(0).toUpperCase() || 'U'}
+                  {user.apellidoP?.charAt(0).toUpperCase() || ''}
+                </div>
+
+                {/* Nombres y Roles del Usuario autenticado */}
+                <div className="hidden md:block text-right">
+                  <p className="text-sm font-bold text-white group-hover:text-cinema-gold transition-colors duration-200">
+                    {user.nombreCompleto || `${user.nombre1} ${user.apellidoP}`}
+                  </p>
+                  <p className="text-[10px] text-cinema-gold bg-cinema-gold/10 px-1.5 py-0.5 rounded border border-cinema-gold/20 inline-block font-bold tracking-wider mt-0.5 uppercase">
+                    {rolesDisplay}
+                  </p>
+                </div>
+              </button>
+
+              {/* Separador vertical */}
+              <div className="h-6 w-px bg-white/10 hidden md:block" />
+
+              <button 
+                className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-cinema-gray/80 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white" 
+                onClick={handleLogout}
+              >
                 Cerrar sesión
               </button>
             </div>
