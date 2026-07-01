@@ -28,7 +28,8 @@ const InputField = ({
   placeholder = '',
   error,
   icon,
-  onIconClick
+  onIconClick,
+  max // Añadimos max para restringir fechas en el calendario
 }: any) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(name, e.target.value);
@@ -48,6 +49,7 @@ const InputField = ({
           value={value || ''}
           onChange={handleChange}
           placeholder={placeholder}
+          max={max}
           className={`w-full rounded-lg border px-4 py-2.5 text-sm transition
             ${error 
               ? 'border-red-500 bg-red-500/10 text-red-300 placeholder-red-300/50 focus:border-red-400 focus:ring-red-500/20' 
@@ -85,6 +87,9 @@ export default function RegisterPage() {
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [mostrarConfirmarContrasena, setMostrarConfirmarContrasena] = useState(false);
 
+  // Obtener la fecha de hoy en formato YYYY-MM-DD para limitar el HTML input date
+  const hoyString = new Date().toISOString().split('T')[0];
+
   function validarCampo(name: string, value: string): string {
     switch (name) {
       case 'nombre1':
@@ -105,10 +110,8 @@ export default function RegisterPage() {
         return '';
       case 'ci':
         if (!value.trim()) return 'El CI es requerido';
-        const ciLimpia = value.replace(/[^0-9]/g, '');
-        if (ciLimpia.length < 7 || ciLimpia.length > 10) return 'El CI debe tener entre 7 y 10 dígitos';
-        if (!/^\d{7,10}[A-Za-z\-]*$/.test(value.replace(/\s/g, ''))) {
-          return 'El CI solo puede contener números y opcionalmente letras o guiones al final (ej: 1234567LP o 1234567-1A)';
+        if (!/^[0-9]+[A-Za-z0-9\-]*$/.test(value.trim()) || !/[0-9]/.test(value)) {
+          return 'El CI debe contener números y puede incluir letras o guiones (ej: 1234567LP)';
         }
         return '';
       case 'correo':
@@ -117,17 +120,32 @@ export default function RegisterPage() {
         return '';
       case 'telefono':
         if (value.trim()) {
-          const telefonoLimpio = value.trim().replace(/\s/g, '');
-          if (!/^\d{8}$/.test(telefonoLimpio)) {
-            return 'El teléfono debe tener exactamente 8 dígitos';
-          }
-          if (!/^[67]/.test(telefonoLimpio)) {
-            return 'El teléfono debe comenzar con 6 o 7';
+          const telefonoLimpio = value.trim();
+          if (!/^[67][0-9]{7}$/.test(telefonoLimpio)) {
+            return 'El teléfono debe tener 8 dígitos y comenzar con 6 o 7';
           }
           if (/^(\d)\1{7}$/.test(telefonoLimpio)) {
             return 'El teléfono no puede tener todos los dígitos iguales';
           }
         }
+        return '';
+      case 'fechaNacimiento':
+        if (!value) return 'La fecha de nacimiento es requerida';
+        
+        const nacimiento = new Date(value);
+        const hoy = new Date();
+        
+        if (isNaN(nacimiento.getTime())) return 'Fecha inválida';
+        if (nacimiento >= hoy) return 'La fecha de nacimiento no puede ser futura';
+        
+        let edad = hoy.getFullYear() - nacimiento.getFullYear();
+        const mes = hoy.getMonth() - nacimiento.getMonth();
+        if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+          edad--;
+        }
+        
+        if (edad < 1) return 'La edad ingresada debe ser mayor a 1 año';
+        if (edad > 120) return 'Ingrese una edad válida (menor a 120 años)';
         return '';
       case 'contrasena':
         if (!value.trim()) return 'La contraseña es requerida';
@@ -158,7 +176,6 @@ export default function RegisterPage() {
     setErrores(prev => ({ ...prev, [name]: error }));
   }
 
-  // Validar confirmar contraseña cuando cambia la contraseña
   useEffect(() => {
     if (confirmarContrasena) {
       const error = validarCampo('confirmarContrasena', confirmarContrasena);
@@ -170,7 +187,8 @@ export default function RegisterPage() {
     const nuevosErrores: Record<string, string> = {};
     let esValido = true;
 
-    const camposAValidar = ['nombre1', 'apellidoP', 'ci', 'correo', 'contrasena', 'confirmarContrasena'];
+    // Añadida 'fechaNacimiento' a la lista de validación obligatoria en el Submit
+    const camposAValidar = ['nombre1', 'apellidoP', 'ci', 'correo', 'fechaNacimiento', 'contrasena', 'confirmarContrasena'];
     
     camposAValidar.forEach(key => {
       let value = '';
@@ -327,8 +345,11 @@ export default function RegisterPage() {
             label="Fecha de nacimiento" 
             name="fechaNacimiento" 
             type="date" 
+            required
             value={form.fechaNacimiento} 
             onChange={update}
+            error={errores.fechaNacimiento}
+            max={hoyString} // Evita que se seleccionen fechas futuras en el calendario nativo
           />
 
           <InputField

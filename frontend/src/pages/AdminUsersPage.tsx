@@ -50,7 +50,8 @@ export default function AdminUsersPage() {
   function calcularErrores(f: typeof initial, esEdicion: boolean): Record<string, string> {
     const e: Record<string, string> = {};
     const letras = /^[a-zA-ZáéíóúñÑ\s.'-]+$/;
-    const ciPat = /^\d{4,15}([-\s][a-zA-Z0-9]{1,5})?$/;
+ 
+    const ciPat = /^\d{7,10}([- ]?[a-zA-Z0-9]{1,5})?$/;
     const telPat = /^[67]\d{7}$/;
     const emailPat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,13 +79,40 @@ export default function AdminUsersPage() {
     if (!esEdicion && f.contrasena.trim() && !contrasenaPat.test(f.contrasena)) {
       e.contrasena = 'Debe incluir mayúscula, número y carácter especial';
     }
+
+    // Validación de fecha de nacimiento añadida al cálculo global
+    const errorFecha = validarFechaNacimientoLogica(f.fechaNacimiento);
+    if (errorFecha) {
+      e.fechaNacimiento = errorFecha;
+    }
+
     return e;
   }
 
-  function validar(): boolean {
-    const e = calcularErrores(form, Boolean(editandoId));
-    setErrores(e);
-    return Object.keys(e).length === 0;
+  // Función interna auxiliar para validar las restricciones de edad
+  function validarFechaNacimientoLogica(fecha: string): string {
+    if (!fecha) return 'La fecha de nacimiento es requerida';
+    
+    const nacimiento = new Date(fecha);
+    const hoy = new Date();
+
+    if (isNaN(nacimiento.getTime())) {
+      return 'Fecha inválida';
+    }
+    if (nacimiento >= hoy) {
+      return 'La fecha no puede ser futura o la actual';
+    }
+
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const mes = hoy.getMonth() - nacimiento.getMonth();
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+      edad--;
+    }
+
+    if (edad < 1) return 'La edad debe ser mayor a 1 año';
+    if (edad > 120) return 'Ingrese una edad válida (menor a 120 años)';
+    
+    return '';
   }
 
   async function loadUsers() {
@@ -103,7 +131,7 @@ export default function AdminUsersPage() {
 
   function validarCampo(name: string, value: string, _f?: typeof initial): string {
     const letras = /^[a-zA-ZáéíóúñÑ\s.'-]+$/;
-    const ciPat = /^\d{4,15}([-\s][a-zA-Z0-9]{1,5})?$/;
+    const ciPat = /^\d{7,10}([-]?[a-zA-Z0-9]{1,5})?$/;
     const telPat = /^[67]\d{7}$/;
     const emailPat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -115,6 +143,7 @@ export default function AdminUsersPage() {
       case 'ci': return (!ciPat.test(value.trim())) ? 'Ej: 1234567 o 1234567-1L' : '';
       case 'correo': return (value.trim() && !emailPat.test(value.trim())) ? 'Correo electrónico inválido' : '';
       case 'telefono': return (value.trim() && !telPat.test(value.trim())) ? 'Formato: 6 o 7 + 8 dígitos' : '';
+      case 'fechaNacimiento': return validarFechaNacimientoLogica(value); // Caso añadido
       default: return '';
     }
   }
@@ -152,7 +181,7 @@ export default function AdminUsersPage() {
       ci: usuario.ci || '',
       correo: usuario.correo || '',
       telefono: usuario.telefono || '',
-      fechaNacimiento: usuario.fechaNacimiento || '',
+      fechaNacimiento: usuario.fechaNacimiento ? usuario.fechaNacimiento.split('T')[0] : '', // Sanitizado para el input date
       contrasena: '',
       nit: (usuario as any).nit || '',
       razonSocial: (usuario as any).razonSocial || '',
@@ -166,7 +195,8 @@ export default function AdminUsersPage() {
     const nuevosErrores: Record<string, string> = {};
     let esValido = true;
 
-    const camposAValidar = ['nombre1', 'apellidoP', 'ci', 'correo'];
+    // Se agrega 'fechaNacimiento' a la validación estricta previa al envío
+    const camposAValidar = ['nombre1', 'apellidoP', 'ci', 'correo', 'fechaNacimiento'];
     if (!editandoId) {
       camposAValidar.push('contrasena');
     }
@@ -179,7 +209,6 @@ export default function AdminUsersPage() {
       }
     });
 
-    // Validar teléfono si tiene valor
     if (form.telefono) {
       const errorTelefono = validarCampo('telefono', form.telefono);
       if (errorTelefono) {
@@ -412,7 +441,19 @@ export default function AdminUsersPage() {
               {esValido('ci') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
             </fieldset>
             <fieldset className="relative">
-              <Field label="Fecha de nacimiento" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={update} min="1900-01-01" max={new Date().toISOString().split('T')[0]} autoComplete="bday" />
+              {/* CORRECCIÓN: Se agrega prop 'error' y 'required' para desplegar la alerta inline debajo del input */}
+              <Field 
+                label="Fecha de nacimiento" 
+                name="fechaNacimiento" 
+                type="date" 
+                required
+                value={form.fechaNacimiento} 
+                onChange={update} 
+                error={errores.fechaNacimiento}
+                min="1900-01-01" 
+                max={new Date().toISOString().split('T')[0]} 
+                autoComplete="bday" 
+              />
             </fieldset>
           </div>
 
@@ -510,8 +551,6 @@ export default function AdminUsersPage() {
               </div>
             )}
           </div>
-
-
 
           {contrasenaTemporal && (
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">

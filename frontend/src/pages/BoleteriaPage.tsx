@@ -25,7 +25,8 @@ const InputField = ({
   placeholder = '',
   error,
   icon,
-  onIconClick
+  onIconClick,
+  max // Añadimos max para restringir fechas futuras en el calendario
 }: any) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(name, e.target.value);
@@ -45,6 +46,7 @@ const InputField = ({
           value={value || ''}
           onChange={handleChange}
           placeholder={placeholder}
+          max={max}
           className={`w-full rounded-lg border px-4 py-2.5 text-sm transition
             ${error 
               ? 'border-red-500 bg-red-500/10 text-red-300 placeholder-red-300/50 focus:border-red-400 focus:ring-red-500/20' 
@@ -79,6 +81,9 @@ export default function BoleteriaPage() {
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [contrasenaCopiada, setContrasenaCopiada] = useState(false);
+
+  // Fecha actual en formato YYYY-MM-DD
+  const hoyString = new Date().toISOString().split('T')[0];
 
   function generarContrasena(ci: string, apellidoP: string, apellidoM: string) {
     const ciLimpia = ci.replace(/[^0-9]/g, '');
@@ -133,6 +138,24 @@ export default function BoleteriaPage() {
           }
         }
         return '';
+      case 'fechaNacimiento':
+        if (!value) return 'La fecha de nacimiento es requerida';
+        
+        const nacimiento = new Date(value);
+        const hoy = new Date();
+        
+        if (isNaN(nacimiento.getTime())) return 'Fecha inválida';
+        if (nacimiento >= hoy) return 'La fecha no puede ser futura o la actual';
+        
+        let edad = hoy.getFullYear() - nacimiento.getFullYear();
+        const mes = hoy.getMonth() - nacimiento.getMonth();
+        if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+          edad--;
+        }
+        
+        if (edad < 1) return 'La edad del cliente debe ser mayor a 1 año';
+        if (edad > 120) return 'Ingrese una edad válida (menor a 120 años)';
+        return '';
       case 'contrasena':
         if (!value.trim()) return 'La contraseña es requerida';
         if (value.trim().length < 8) return 'La contraseña debe tener al menos 8 caracteres';
@@ -160,7 +183,8 @@ export default function BoleteriaPage() {
     const nuevosErrores: Record<string, string> = {};
     let esValido = true;
 
-    const camposAValidar = ['nombre1', 'apellidoP', 'apellidoM', 'ci', 'correo', 'contrasena'];
+    // Añadimos 'fechaNacimiento' para asegurar que sea validada antes del submit
+    const camposAValidar = ['nombre1', 'apellidoP', 'apellidoM', 'ci', 'correo', 'fechaNacimiento', 'contrasena'];
     
     camposAValidar.forEach(key => {
       const error = validarCampo(key, form[key as keyof typeof form] as string);
@@ -315,12 +339,17 @@ export default function BoleteriaPage() {
           error={errores.telefono}
           placeholder="Ej: 71234567"
         />
+        
+        {/* CORRECCIÓN: Ahora el InputField cuenta con props error, max y required */}
         <InputField 
           label="Fecha nacimiento" 
           name="fechaNacimiento" 
           type="date" 
+          required
           value={form.fechaNacimiento} 
           onChange={update}
+          error={errores.fechaNacimiento}
+          max={hoyString}
         />
         <InputField
           label="Contraseña temporal"
@@ -344,13 +373,7 @@ export default function BoleteriaPage() {
                   Contraseña temporal: 
                   <span className="ml-2 font-mono text-white">{form.contrasena}</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={copiarContrasena}
-                  className="btn-secondary px-3 py-1 text-xs"
-                >
-                  {contrasenaCopiada ? '✅ Copiado' : '📋 Copiar'}
-                </button>
+                
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-xs text-cinema-gray">Fortaleza:</span>
