@@ -45,6 +45,20 @@ export default function AdminUsersPage() {
   const [rolFiltro, setRolFiltro] = useState<'TODOS' | Rol>('TODOS');
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>('TODOS');
 
+  // Función para generar contraseña con CI + iniciales
+  function generarContrasena(ci: string, apellidoP: string, apellidoM: string) {
+    const ciLimpia = ci.replace(/[^0-9]/g, '');
+    const inicialP = apellidoP.trim().charAt(0).toUpperCase();
+    const inicialM = apellidoM.trim().charAt(0).toUpperCase();
+    // Si no hay apellido materno, solo usamos el paterno
+    const contraseña = `${ciLimpia}${inicialP}${inicialM || ''}!`;
+    // Asegurar que tenga al menos 8 caracteres
+    if (contraseña.length < 8) {
+      return `${contraseña}123`;
+    }
+    return contraseña;
+  }
+
   const contrasenaPat = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
 
   function calcularErrores(f: typeof initial, esEdicion: boolean): Record<string, string> {
@@ -53,7 +67,7 @@ export default function AdminUsersPage() {
  
     const ciPat = /^\d{7,10}([- ]?[a-zA-Z0-9]{1,5})?$/;
     const telPat = /^[67]\d{7}$/;
-    const emailPat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailPat = /^[^\s@]+@gmail\.com$/;
 
     if (!f.nombre1.trim() || !letras.test(f.nombre1.trim())) {
       e.nombre1 = 'Solo letras, sin números';
@@ -71,7 +85,7 @@ export default function AdminUsersPage() {
       e.ci = 'Ej: 1234567 o 1234567-1L';
     }
     if (f.correo.trim() && !emailPat.test(f.correo.trim())) {
-      e.correo = 'Correo electrónico inválido';
+      e.correo = 'Correo electrónico inválido (debe ser de Gmail)';
     }
     if (f.telefono.trim() && !telPat.test(f.telefono.trim())) {
       e.telefono = 'Formato: 6 o 7 + 8 dígitos';
@@ -109,7 +123,7 @@ export default function AdminUsersPage() {
       edad--;
     }
 
-    if (edad < 1) return 'La edad debe ser mayor a 1 año';
+    if (edad < 18) return 'La edad debe ser mayor o igual a 18 años';
     if (edad > 120) return 'Ingrese una edad válida (menor a 120 años)';
     
     return '';
@@ -129,24 +143,44 @@ export default function AdminUsersPage() {
     });
   }, []);
 
-  function validarCampo(name: string, value: string, _f?: typeof initial): string {
-    const letras = /^[a-zA-ZáéíóúñÑ\s.'-]+$/;
-    const ciPat = /^\d{7,10}([-]?[a-zA-Z0-9]{1,5})?$/;
-    const telPat = /^[67]\d{7}$/;
-    const emailPat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    switch (name) {
-      case 'nombre1': return (!value.trim() || !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
-      case 'nombre2': return (value.trim() && !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
-      case 'apellidoP': return (!value.trim() || !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
-      case 'apellidoM': return (value.trim() && !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
-      case 'ci': return (!ciPat.test(value.trim())) ? 'Ej: 1234567 o 1234567-1L' : '';
-      case 'correo': return (value.trim() && !emailPat.test(value.trim())) ? 'Correo electrónico inválido' : '';
-      case 'telefono': return (value.trim() && !telPat.test(value.trim())) ? 'Formato: 6 o 7 + 8 dígitos' : '';
-      case 'fechaNacimiento': return validarFechaNacimientoLogica(value); // Caso añadido
-      default: return '';
+  // Auto-generar contraseña cuando se complete CI y apellidos
+  useEffect(() => {
+    if (form.ci && form.apellidoP && !editandoId) {
+      const contrasenaGenerada = generarContrasena(form.ci, form.apellidoP, form.apellidoM || '');
+      setForm(prev => ({ ...prev, contrasena: contrasenaGenerada }));
     }
+  }, [form.ci, form.apellidoP, form.apellidoM, editandoId]);
+
+  function validarCampo(name: string, value: string, _f?: typeof initial): string {
+  const letras = /^[a-zA-ZáéíóúñÑ\s.'-]+$/;
+  const ciPat = /^\d{7,10}([-]?[a-zA-Z0-9]{1,5})?$/;
+  const telPat = /^[67]\d{7}$/;
+  const emailPat = /^[^\s@]+@gmail\.com$/;
+
+  switch (name) {
+    case 'nombre1': return (!value.trim() || !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
+    case 'nombre2': return (value.trim() && !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
+    case 'apellidoP': return (!value.trim() || !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
+    case 'apellidoM': return (value.trim() && !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
+    case 'ci': return (!ciPat.test(value.trim())) ? 'Ej: 1234567 o 1234567-1L' : '';
+    case 'correo': return (value.trim() && !emailPat.test(value.trim())) ? 'Correo electrónico inválido (debe ser de Gmail)' : '';
+
+    case 'telefono': return (value.trim() && !telPat.test(value.trim())) ? 'Formato: 6 o 7 + 8 dígitos' : '';
+    case 'fechaNacimiento': return validarFechaNacimientoLogica(value);
+    case 'contrasena': 
+      if (!editandoId && value.trim()) {
+        if (value.trim().length < 8) return 'La contraseña debe tener al menos 8 caracteres';
+        if (value.trim().length > 20) return 'La contraseña no puede tener más de 20 caracteres';
+        if (!/[A-Z]/.test(value)) return 'Debe incluir al menos una letra mayúscula';
+        if (!/[0-9]/.test(value)) return 'Debe incluir al menos un número';
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)) {
+          return 'Debe incluir al menos un carácter especial';
+        }
+      }
+      return '';
+    default: return '';
   }
+}
 
   function update(name: string, value: string) {
     setForm((current) => {
@@ -166,6 +200,7 @@ export default function AdminUsersPage() {
     setErrores({});
     setMessage(null);
     setContrasenaCopiada(false);
+    setContrasenaTemporal('');
   }
 
   function editarUsuario(usuario: Usuario) {
@@ -181,7 +216,7 @@ export default function AdminUsersPage() {
       ci: usuario.ci || '',
       correo: usuario.correo || '',
       telefono: usuario.telefono || '',
-      fechaNacimiento: usuario.fechaNacimiento ? usuario.fechaNacimiento.split('T')[0] : '', // Sanitizado para el input date
+      fechaNacimiento: usuario.fechaNacimiento ? usuario.fechaNacimiento.split('T')[0] : '',
       contrasena: '',
       nit: (usuario as any).nit || '',
       razonSocial: (usuario as any).razonSocial || '',
@@ -195,7 +230,6 @@ export default function AdminUsersPage() {
     const nuevosErrores: Record<string, string> = {};
     let esValido = true;
 
-    // Se agrega 'fechaNacimiento' a la validación estricta previa al envío
     const camposAValidar = ['nombre1', 'apellidoP', 'ci', 'correo', 'fechaNacimiento'];
     if (!editandoId) {
       camposAValidar.push('contrasena');
@@ -248,24 +282,25 @@ export default function AdminUsersPage() {
         idRol: [form.idRol[0]]
       };
 
+      // Para edición, si se proporciona contraseña, se incluye
       if (editandoId && form.contrasena.trim()) {
         (payload as any).contrasena = form.contrasena.trim();
       }
+
       const response = editandoId
         ? await api.actualizarUsuario(editandoId, payload)
         : await api.crearUsuario({ ...payload, contrasena: form.contrasena });
 
-      const contrIngresada = form.contrasena.trim();
-      const contrMostrar = contrIngresada || response.contrasenaTemporal || '';
-      const etiqueta = contrIngresada ? 'Contraseña generada' : 'Contraseña temporal generada';
+      // Mostrar la contraseña generada
+      const contrMostrar = form.contrasena.trim() || response.contrasenaTemporal || '';
+      setContrasenaTemporal(contrMostrar);
 
       const msg = editandoId
         ? 'Usuario actualizado correctamente.'
         : contrMostrar
-          ? `Usuario registrado. ${etiqueta}: ${contrMostrar}`
+          ? `Usuario registrado. Contraseña temporal: ${contrMostrar}`
           : 'Usuario registrado correctamente.';
 
-      setContrasenaTemporal(contrMostrar);
       setMessage({ type: 'ok', text: response.mensaje || msg });
 
       limpiarFormulario();
@@ -326,8 +361,9 @@ export default function AdminUsersPage() {
   }
 
   function copiarContrasena() {
-    if (form.contrasena) {
-      navigator.clipboard.writeText(form.contrasena);
+    const contrasenaACopiar = form.contrasena || contrasenaTemporal;
+    if (contrasenaACopiar) {
+      navigator.clipboard.writeText(contrasenaACopiar);
       setContrasenaCopiada(true);
       setTimeout(() => setContrasenaCopiada(false), 3000);
     }
@@ -441,7 +477,6 @@ export default function AdminUsersPage() {
               {esValido('ci') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
             </fieldset>
             <fieldset className="relative">
-              {/* CORRECCIÓN: Se agrega prop 'error' y 'required' para desplegar la alerta inline debajo del input */}
               <Field 
                 label="Fecha de nacimiento" 
                 name="fechaNacimiento" 
@@ -512,10 +547,34 @@ export default function AdminUsersPage() {
             </div>
 
             <fieldset className="relative">
-              <Field label="Contraseña" name="contrasena" type="password" value={form.contrasena} onChange={update} placeholder={editandoId ? 'Nueva contraseña' : 'Vacío = temporal'} autoComplete="new-password" />
+              <Field 
+                label="Contraseña" 
+                name="contrasena" 
+                type={mostrarContrasena ? 'text' : 'password'} 
+                value={form.contrasena} 
+                onChange={update} 
+                placeholder={editandoId ? 'Nueva contraseña' : 'Se genera automáticamente'} 
+                autoComplete="new-password"
+                error={errores.contrasena}
+              />
+              {!editandoId && form.contrasena && (
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[11px] text-cinema-gray/60">Fortaleza:</span>
+                  <span className={`text-[11px] font-semibold ${getFortalezaContrasena(form.contrasena).color}`}>
+                    {getFortalezaContrasena(form.contrasena).texto}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={copiarContrasena}
+                    className="text-[11px] text-cinema-gold hover:text-cinema-gold/80 transition"
+                  >
+                    {contrasenaCopiada ? '✅' : '📋'}
+                  </button>
+                </div>
+              )}
               {!editandoId && (
                 <p className="mt-1.5 text-[11px] leading-tight text-cinema-gray/60">
-                  Mín. 8 caracteres — debe tener al menos una mayúscula, un número y un carácter especial
+                  Se genera con: CI + Inicial Apellido Paterno + Inicial Apellido Materno + !
                 </p>
               )}
               {editandoId && (
@@ -554,7 +613,7 @@ export default function AdminUsersPage() {
 
           {contrasenaTemporal && (
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">
-              <span className="font-medium">{form.contrasena.trim() ? 'Contraseña generada' : 'Contraseña temporal generada'}:</span>{' '}
+              <span className="font-medium">Contraseña temporal generada:</span>{' '}
               <span className="font-mono font-bold tracking-wider">{contrasenaTemporal}</span>
             </div>
           )}

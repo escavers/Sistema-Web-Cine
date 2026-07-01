@@ -3,7 +3,6 @@ export function validarNombre(nombre: string): boolean {
 }
 
 export function validarCI(ci: string): boolean {
-    // Permite números, guiones y letras (para complemento como LP, SC, -1A, etc.)
     // Ejemplos válidos: 1234567, 1234567LP, 1234567-1A, 9876543SC
     return /^[0-9]+[A-Za-z0-9\-]*$/.test(ci.trim()) && /[0-9]/.test(ci);
 }

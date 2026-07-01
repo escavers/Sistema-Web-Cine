@@ -56,7 +56,7 @@ export async function createAudit(data: AuditInput): Promise<void> {
       `,
       [
         data.tablaNombre,
-        data.registroId === undefined || data.registroId === null ? null : String(data.registroId),
+        data.registroId === undefined || data.registroId === null ? "0" : String(data.registroId),
         data.accion,
         data.campo ?? null,
         toText(data.valorAnterior),

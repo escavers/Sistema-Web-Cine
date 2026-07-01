@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Message from '../components/Message';
 import { api } from '../services/api';
+
 
 const initial = {
   nombre1: '',
@@ -14,7 +15,6 @@ const initial = {
   contrasena: ''
 };
 
-// Componente InputField personalizado
 const InputField = ({ 
   label, 
   name, 
@@ -80,7 +80,6 @@ export default function BoleteriaPage() {
   const [loading, setLoading] = useState(false);
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
-  const [contrasenaCopiada, setContrasenaCopiada] = useState(false);
 
   // Fecha actual en formato YYYY-MM-DD
   const hoyString = new Date().toISOString().split('T')[0];
@@ -97,7 +96,7 @@ export default function BoleteriaPage() {
       case 'nombre1':
         if (!value.trim()) return 'El primer nombre es requerido';
         if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El nombre solo puede contener letras';
-        if (value.trim().length < 2) return 'El nombre debe tener al menos 2 caracteres';
+        if (value.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres';
         return '';
       case 'nombre2':
         if (value.trim() && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El nombre solo puede contener letras';
@@ -105,12 +104,12 @@ export default function BoleteriaPage() {
       case 'apellidoP':
         if (!value.trim()) return 'El apellido paterno es requerido';
         if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El apellido solo puede contener letras';
-        if (value.trim().length < 2) return 'El apellido debe tener al menos 2 caracteres';
+        if (value.trim().length < 3) return 'El apellido debe tener al menos 3 caracteres';
         return '';
       case 'apellidoM':
         if (!value.trim()) return 'El apellido materno es requerido';
         if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El apellido solo puede contener letras';
-        if (value.trim().length < 2) return 'El apellido debe tener al menos 2 caracteres';
+        if (value.trim().length < 3) return 'El apellido debe tener al menos 3   caracteres';
         return '';
       case 'ci':
         if (!value.trim()) return 'El CI es requerido';
@@ -122,7 +121,7 @@ export default function BoleteriaPage() {
         return '';
       case 'correo':
         if (!value.trim()) return 'El correo es requerido';
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return 'Ingrese un correo electrónico válido';
+        if (!/^[^\s@]+@gmail\.com$/.test(value.trim())) return 'Ingrese un correo electrónico válido (debe ser de Gmail)';
         return '';
       case 'telefono':
         if (value.trim()) {
@@ -153,13 +152,20 @@ export default function BoleteriaPage() {
           edad--;
         }
         
-        if (edad < 1) return 'La edad del cliente debe ser mayor a 1 año';
+        if (edad < 18) return 'La edad del cliente debe ser mayor o igual a 18 años';
         if (edad > 120) return 'Ingrese una edad válida (menor a 120 años)';
         return '';
       case 'contrasena':
-        if (!value.trim()) return 'La contraseña es requerida';
+      if (!value.trim()) return 'La contraseña es requerida';
         if (value.trim().length < 8) return 'La contraseña debe tener al menos 8 caracteres';
-        return '';
+        if (value.trim().length > 15) return 'La contraseña no puede tener más de 15 caracteres';
+        if (!/[A-Z]/.test(value)) return 'La contraseña debe incluir al menos una letra mayúscula';
+        if (!/[0-9]/.test(value)) return 'La contraseña debe incluir al menos un número';
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)) {
+          return 'La contraseña debe incluir al menos un carácter especial';
+        }
+ 
+      return '';
       default:
         return '';
     }
@@ -198,13 +204,6 @@ export default function BoleteriaPage() {
     return esValido;
   }
 
-  function copiarContrasena() {
-    if (form.contrasena) {
-      navigator.clipboard.writeText(form.contrasena);
-      setContrasenaCopiada(true);
-      setTimeout(() => setContrasenaCopiada(false), 3000);
-    }
-  }
 
   function getFortalezaContrasena(contrasena: string): { texto: string; color: string } {
     if (!contrasena) return { texto: '', color: '' };
@@ -256,7 +255,6 @@ export default function BoleteriaPage() {
 
       setForm(initial);
       setErrores({});
-      setContrasenaCopiada(false);
     } catch (err) {
       setMessage({
         type: 'error',
@@ -369,10 +367,7 @@ export default function BoleteriaPage() {
           <div className="md:col-span-2 space-y-2">
             <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-cinema-gray">
-                  Contraseña temporal: 
-                  <span className="ml-2 font-mono text-white">{form.contrasena}</span>
-                </span>
+                
                 
               </div>
               <div className="mt-2 flex items-center gap-2">
