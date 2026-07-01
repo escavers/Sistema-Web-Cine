@@ -196,21 +196,6 @@ export default function BoleteriaPage() {
     return { texto: 'Fuerte', color: 'text-green-400' };
   }
 
-  function handleBlur(name: string, value: string) {
-    let error = '';
-    if (name === 'nombre1' && !value.trim()) error = 'Ingresa el primer nombre del cliente.';
-    else if (name === 'apellidoP' && !value.trim()) error = 'Ingresa el apellido paterno del cliente.';
-    else if (name === 'ci' && !value.trim()) error = 'Ingresa el número de cédula de identidad.';
-    else if (name === 'correo' && !value.trim()) error = 'Ingresa un correo electrónico.';
-    else if (name === 'correo' && value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = 'Ingresa un correo electrónico válido (ejemplo@correo.com).';
-    setFieldErrors((prev) => {
-      const next = { ...prev };
-      if (error) next[name] = error;
-      else delete next[name];
-      return next;
-    });
-  }
-
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setMessage(null);
@@ -359,6 +344,13 @@ export default function BoleteriaPage() {
                   Contraseña temporal: 
                   <span className="ml-2 font-mono text-white">{form.contrasena}</span>
                 </span>
+                <button
+                  type="button"
+                  onClick={copiarContrasena}
+                  className="btn-secondary px-3 py-1 text-xs"
+                >
+                  {contrasenaCopiada ? '✅ Copiado' : '📋 Copiar'}
+                </button>
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-xs text-cinema-gray">Fortaleza:</span>

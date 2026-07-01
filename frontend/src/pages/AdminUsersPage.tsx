@@ -13,14 +13,7 @@ const initial = {
   telefono: '',
   fechaNacimiento: '',
   contrasena: '',
-<<<<<<< HEAD
   idRol: ['CLIENTE'] as Rol[]
-=======
-  idRol: ['CLIENTE'] as Rol[],
-  nit: '',
-  razonSocial: '',
-  estado: true
->>>>>>> a8553a9c7d9459a6f17e6d589c7b5cce5a954efe
 };
 
 const roleLabels: Record<Rol, string> = {
@@ -105,8 +98,6 @@ export default function AdminUsersPage() {
   const [busqueda, setBusqueda] = useState('');
   const [rolFiltro, setRolFiltro] = useState<'TODOS' | Rol>('TODOS');
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>('TODOS');
-  const [errores, setErrores] = useState<Record<string, string>>({});
-  const [contrasenaTemporal, setContrasenaTemporal] = useState('');
 
   async function loadUsers() {
     const response = await api.listarUsuarios();
@@ -122,51 +113,12 @@ export default function AdminUsersPage() {
     });
   }, []);
 
-<<<<<<< HEAD
   function generarContrasena(ci: string, apellidoP: string, apellidoM: string) {
+    // Limpiar CI (eliminar complemento como LP, SC, etc.)
+    const ciLimpia = ci.replace(/[^0-9]/g, '');
     const inicialP = apellidoP.trim().charAt(0).toUpperCase();
     const inicialM = apellidoM.trim().charAt(0).toUpperCase();
-    return `${ci}${inicialP}${inicialM}!`;
-=======
-  function update(name: string, value: string) {
-    setForm((current) => ({ ...current, [name]: value }));
-    if (errores[name]) {
-      setErrores((prev) => {
-        const next = { ...prev };
-        delete next[name];
-        return next;
-      });
-    }
-  }
-
-  function validar(): boolean {
-    const e: Record<string, string> = {};
-    const letras = /^[a-zA-ZáéíóúñÑ\s.'-]+$/;
-    const ciPat = /^\d{3,15}$/;
-    const telPat = /^[67]\d{7}$/;
-
-    if (!form.nombre1.trim() || !letras.test(form.nombre1.trim())) {
-      e.nombre1 = 'Solo letras, sin números';
-    }
-    if (form.nombre2.trim() && !letras.test(form.nombre2.trim())) {
-      e.nombre2 = 'Solo letras, sin números';
-    }
-    if (!form.apellidoP.trim() || !letras.test(form.apellidoP.trim())) {
-      e.apellidoP = 'Solo letras, sin números';
-    }
-    if (form.apellidoM.trim() && !letras.test(form.apellidoM.trim())) {
-      e.apellidoM = 'Solo letras, sin números';
-    }
-    if (!ciPat.test(form.ci.trim())) {
-      e.ci = 'Solo números (3-15 dígitos)';
-    }
-    if (form.telefono.trim() && !telPat.test(form.telefono.trim())) {
-      e.telefono = 'Formato: 6 o 7 + 8 dígitos';
-    }
-
-    setErrores(e);
-    return Object.keys(e).length === 0;
->>>>>>> a8553a9c7d9459a6f17e6d589c7b5cce5a954efe
+    return `${ciLimpia}${inicialP}${inicialM}!`;
   }
 
   function validarCampo(name: string, value: string): string {
@@ -189,13 +141,34 @@ export default function AdminUsersPage() {
         return '';
       case 'ci':
         if (!value.trim()) return 'El CI es requerido';
+        // Permitir números y letras (para complemento como LP, SC, etc.)
+        const ciLimpia = value.replace(/[^0-9]/g, '');
+        if (ciLimpia.length < 7 || ciLimpia.length > 10) return 'El CI debe tener entre 7 y 10 dígitos';
+        // Verificar que solo tenga números y opcionalmente letras al final
+        if (!/^\d{7,10}[A-Za-z]*$/.test(value.replace(/\s/g, ''))) {
+          return 'El CI solo puede contener números y opcionalmente letras al final (ej: 1234567LP)';
+        }
         return '';
       case 'correo':
         if (!value.trim()) return 'El correo es requerido';
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return 'Ingrese un correo electrónico válido';
         return '';
       case 'telefono':
-        if (value.trim() && !/^[67][0-9]{7}$/.test(value.trim())) return 'El teléfono debe tener 8 dígitos y comenzar con 6 o 7';
+        if (value.trim()) {
+          const telefonoLimpio = value.trim().replace(/\s/g, '');
+          // Validar que sean exactamente 8 dígitos
+          if (!/^\d{8}$/.test(telefonoLimpio)) {
+            return 'El teléfono debe tener exactamente 8 dígitos';
+          }
+          // Validar que comience con 6 o 7
+          if (!/^[67]/.test(telefonoLimpio)) {
+            return 'El teléfono debe comenzar con 6 o 7';
+          }
+          // Validar que no sean todos iguales
+          if (/^(\d)\1{7}$/.test(telefonoLimpio)) {
+            return 'El teléfono no puede tener todos los dígitos iguales';
+          }
+        }
         return '';
       case 'contrasena':
         if (!editandoId && !value.trim()) return 'La contraseña es requerida';
@@ -247,14 +220,7 @@ export default function AdminUsersPage() {
       telefono: usuario.telefono || '',
       fechaNacimiento: usuario.fechaNacimiento || '',
       contrasena: '',
-<<<<<<< HEAD
       idRol: usuario.idRol?.length ? [usuario.idRol[0]] : ['CLIENTE']
-=======
-      idRol: usuario.idRol?.length ? [usuario.idRol[0]] : ['CLIENTE'],
-      nit: usuario.nit || '',
-      razonSocial: usuario.razonSocial || '',
-      estado: Boolean(usuario.estado)
->>>>>>> a8553a9c7d9459a6f17e6d589c7b5cce5a954efe
     });
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -277,22 +243,21 @@ export default function AdminUsersPage() {
       }
     });
 
+    // Validar teléfono si tiene valor
+    if (form.telefono) {
+      const errorTelefono = validarCampo('telefono', form.telefono);
+      if (errorTelefono) {
+        nuevosErrores.telefono = errorTelefono;
+        esValido = false;
+      }
+    }
+
     setErrores(nuevosErrores);
     return esValido;
   }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-<<<<<<< HEAD
-=======
-
-    if (!validar()) {
-      setMessage({ type: 'error', text: 'Corrija los errores del formulario.' });
-      return;
-    }
-
-    setLoading(true);
->>>>>>> a8553a9c7d9459a6f17e6d589c7b5cce5a954efe
     setMessage(null);
 
     if (!validarFormularioCompleto()) {
@@ -306,7 +271,7 @@ export default function AdminUsersPage() {
     setLoading(true);
 
     try {
-      const payload: Record<string, any> = {
+      const payload = {
         nombre1: form.nombre1.trim(),
         nombre2: form.nombre2.trim() || null,
         apellidoP: form.apellidoP.trim(),
@@ -315,31 +280,17 @@ export default function AdminUsersPage() {
         correo: form.correo.trim().toLowerCase(),
         telefono: form.telefono.trim() || null,
         fechaNacimiento: form.fechaNacimiento || null,
-<<<<<<< HEAD
         idRol: [form.idRol[0]]
-=======
-        idRol: [form.idRol[0]],
-        nit: form.nit.trim() || null,
-        razonSocial: form.razonSocial.trim() || null,
-        contrasena: form.contrasena.trim() || null
->>>>>>> a8553a9c7d9459a6f17e6d589c7b5cce5a954efe
       };
-      if (editandoId) {
-        payload.estado = form.estado;
-      }
 
       const response = editandoId
         ? await api.actualizarUsuario(editandoId, payload)
         : await api.crearUsuario({ ...payload, contrasena: form.contrasena });
 
-      const msg = editandoId
-        ? 'Usuario actualizado correctamente.'
-        : response.contrasenaTemporal
-          ? `Usuario registrado. Contraseña temporal: ${response.contrasenaTemporal}`
-          : 'Usuario registrado correctamente.';
-
-      setContrasenaTemporal(response.contrasenaTemporal || '');
-      setMessage({ type: 'ok', text: response.mensaje || msg });
+      setMessage({
+        type: 'ok',
+        text: response.mensaje || (editandoId ? 'Usuario actualizado correctamente.' : 'Usuario registrado correctamente.')
+      });
 
       limpiarFormulario();
       await loadUsers();
@@ -475,7 +426,6 @@ export default function AdminUsersPage() {
         </div>
 
         <form className="mt-6 grid gap-4 md:grid-cols-3" onSubmit={submit}>
-<<<<<<< HEAD
           <InputField 
             label="Primer nombre" 
             name="nombre1" 
@@ -517,7 +467,7 @@ export default function AdminUsersPage() {
             required 
             onChange={update}
             error={errores.ci}
-            placeholder="Ej: 1234567"
+            placeholder="Ej: 1234567 o 1234567LP"
           />
           <InputField 
             label="Correo" 
@@ -556,34 +506,6 @@ export default function AdminUsersPage() {
             icon={mostrarContrasena ? '👁️' : '👁️‍🗨️'}
             onIconClick={() => setMostrarContrasena(!mostrarContrasena)}
           />
-=======
-          <div>
-            <Field label="Primer nombre" name="nombre1" value={form.nombre1} required onChange={update} />
-            {errores.nombre1 && <p className="mt-1 text-xs text-red-400">{errores.nombre1}</p>}
-          </div>
-          <div>
-            <Field label="Segundo nombre" name="nombre2" value={form.nombre2} onChange={update} />
-            {errores.nombre2 && <p className="mt-1 text-xs text-red-400">{errores.nombre2}</p>}
-          </div>
-          <div>
-            <Field label="Apellido paterno" name="apellidoP" value={form.apellidoP} required onChange={update} />
-            {errores.apellidoP && <p className="mt-1 text-xs text-red-400">{errores.apellidoP}</p>}
-          </div>
-          <div>
-            <Field label="Apellido materno" name="apellidoM" value={form.apellidoM} onChange={update} />
-            {errores.apellidoM && <p className="mt-1 text-xs text-red-400">{errores.apellidoM}</p>}
-          </div>
-          <div>
-            <Field label="CI" name="ci" value={form.ci} required onChange={update} />
-            {errores.ci && <p className="mt-1 text-xs text-red-400">{errores.ci}</p>}
-          </div>
-          <Field label="Correo" name="correo" type="email" value={form.correo} required onChange={update} />
-          <div>
-            <Field label="Teléfono" name="telefono" value={form.telefono} onChange={update} />
-            {errores.telefono && <p className="mt-1 text-xs text-red-400">{errores.telefono}</p>}
-          </div>
-          <Field label="Fecha nacimiento" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={update} min="1900-01-01" max={new Date().toISOString().split('T')[0]} />
->>>>>>> a8553a9c7d9459a6f17e6d589c7b5cce5a954efe
 
           <div className="block">
             <span className="label-cine">
@@ -607,7 +529,6 @@ export default function AdminUsersPage() {
             </div>
           </div>
 
-<<<<<<< HEAD
           {!editandoId && form.contrasena && (
             <div className="md:col-span-3 space-y-2">
               <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
@@ -650,43 +571,8 @@ export default function AdminUsersPage() {
                 }}
                 className="btn-secondary px-4 py-2 text-sm"
               >
-                Cambiar contraseña
+                🔑 Cambiar contraseña
               </button>
-=======
-          {editandoId && (
-            <div className="block">
-              <span className="label-cine">Estado</span>
-              <div className="mt-1 flex gap-2">
-                <button type="button"
-                  onClick={() => setForm(c => ({ ...c, estado: true }))}
-                  className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
-                    form.estado !== false
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-white/[0.05] text-cinema-gray hover:bg-white/[0.1]'
-                  }`}>
-                  Activo
-                </button>
-                <button type="button"
-                  onClick={() => setForm(c => ({ ...c, estado: false }))}
-                  className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
-                    form.estado === false
-                      ? 'bg-red-500 text-white'
-                      : 'bg-white/[0.05] text-cinema-gray hover:bg-white/[0.1]'
-                  }`}>
-                  Inactivo
-                </button>
-              </div>
-            </div>
-          )}
-
-          <Field label="NIT" name="nit" value={form.nit} onChange={update} />
-          <Field label="Razón social" name="razonSocial" value={form.razonSocial} onChange={update} />
-          <Field label="Contraseña (vacío = temporal)" name="contrasena" type="password" value={form.contrasena} onChange={update} />
-
-          {contrasenaTemporal && (
-            <div className="md:col-span-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-              Contraseña temporal generada: <span className="font-mono font-bold">{contrasenaTemporal}</span>
->>>>>>> a8553a9c7d9459a6f17e6d589c7b5cce5a954efe
             </div>
           )}
 
@@ -806,6 +692,9 @@ export default function AdminUsersPage() {
                         {Boolean(usuario.estado) ? 'Inactivar' : 'Activar'}
                       </button>
 
+                      <button className="btn-primary px-3 py-2" onClick={() => darBaja(usuario)}>
+                        Dar de baja
+                      </button>
                     </div>
                   </td>
                 </tr>
