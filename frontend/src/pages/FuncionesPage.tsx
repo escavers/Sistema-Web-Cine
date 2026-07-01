@@ -5,13 +5,13 @@ import { api } from '../services/api';
 
 const initial = { idSala: '', idPelicula: '', fecha: '', horaInicio: '', precioBase: '' };
 const diasSemana = [
-  { key: 'lunes', label: 'Lunes', value: 1 },
-  { key: 'martes', label: 'Martes', value: 2 },
-  { key: 'miercoles', label: 'Miércoles', value: 3 },
-  { key: 'jueves', label: 'Jueves', value: 4 },
-  { key: 'viernes', label: 'Viernes', value: 5 },
-  { key: 'sabado', label: 'Sábado', value: 6 },
-  { key: 'domingo', label: 'Domingo', value: 0 },
+  { key: 'lunes', label: 'Lunes', short: 'Lun', value: 1 },
+  { key: 'martes', label: 'Martes', short: 'Mar', value: 2 },
+  { key: 'miercoles', label: 'Miércoles', short: 'Mié', value: 3 },
+  { key: 'jueves', label: 'Jueves', short: 'Jue', value: 4 },
+  { key: 'viernes', label: 'Viernes', short: 'Vie', value: 5 },
+  { key: 'sabado', label: 'Sábado', short: 'Sáb', value: 6 },
+  { key: 'domingo', label: 'Domingo', short: 'Dom', value: 0 },
 ];
 
 interface Validations {
@@ -102,6 +102,10 @@ export default function FuncionesPage() {
   const [selectedFunctionIds, setSelectedFunctionIds] = useState<number[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [modalMsg, setModalMsg] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [timelineZoom, setTimelineZoom] = useState<'hour' | '30min' | '15min'>('hour');
+  const [timelineScrollPct, setTimelineScrollPct] = useState(0);
+  const timelineContainerRef = useRef<HTMLDivElement | null>(null);
   const modalMsgTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -134,16 +138,46 @@ export default function FuncionesPage() {
     return { valid: true, error: '' };
   };
 
-  const validateFecha = (value: string, fechaEstreno?: string): { valid: boolean; error: string } => {
+  const parseLocalDateTime = (date: string, time: string) => {
+    const [y, m, d] = date.split('-').map(Number);
+    const [h, min] = time.split(':').map(Number);
+    return new Date(y, m - 1, d, h, min, 0, 0);
+  };
+
+  const validateFecha = (value: string, hora?: string, fechaEstreno?: string): { valid: boolean; error: string } => {
     if (!value) return { valid: false, error: 'La fecha es obligatoria' };
     const fecha = parseLocalDate(value);
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
-    if (fecha < hoy) return { valid: false, error: 'No puedes programar fechas pasadas' };
+
+    if (fecha < hoy) {
+      return { valid: false, error: 'No puedes programar fechas pasadas' };
+    }
+
+    if (value === hoy.toISOString().slice(0, 10) && hora) {
+      const fechaHora = parseLocalDateTime(value, hora);
+      const ahora = new Date();
+      ahora.setSeconds(0, 0);
+      if (fechaHora < ahora) {
+        return { valid: false, error: 'No puedes programar una hora pasada para hoy' };
+      }
+    }
+
     if (fechaEstreno) {
       const estreno = parseLocalDate(fechaEstreno);
-      if (fecha < estreno) return { valid: false, error: 'No puedes programar antes de la fecha de estreno de la película' };
+      if (fecha < estreno) {
+        return { valid: false, error: 'No puedes programar antes de la fecha de estreno de la película' };
+      }
+      if (value === estreno.toISOString().slice(0, 10) && hora) {
+        const fechaHora = parseLocalDateTime(value, hora);
+        const estrenoHora = new Date(estreno);
+        estrenoHora.setHours(0, 0, 0, 0);
+        if (fechaHora < estrenoHora) {
+          return { valid: false, error: 'No puedes programar antes de la fecha de estreno de la película' };
+        }
+      }
     }
+
     return { valid: true, error: '' };
   };
 
@@ -157,7 +191,7 @@ export default function FuncionesPage() {
     if (!value) return { valid: false, error: 'El precio base es obligatorio' };
     const num = Number(value);
     if (isNaN(num)) return { valid: false, error: 'El precio debe ser un número válido' };
-    if (num < 0) return { valid: false, error: 'El precio no puede ser menor a 0' };
+    if (num <= 0) return { valid: false, error: 'El precio debe ser mayor a 0' };
     if (num > 9999) return { valid: false, error: 'El precio no puede tener más de 4 dígitos' };
     return { valid: true, error: '' };
   };
@@ -202,12 +236,19 @@ export default function FuncionesPage() {
     const validations = {
       idSala: validateIdSala(formData.idSala),
       idPelicula: validateIdPelicula(formData.idPelicula),
-      fecha: programacionMasiva ? { valid: true, error: '' } : validateFecha(formData.fecha, fechaEstreno),
+      fecha: programacionMasiva ? { valid: true, error: '' } : validateFecha(formData.fecha, formData.horaInicio, fechaEstreno),
       horaInicio: validateHoraInicio(formData.horaInicio),
       precioBase: validatePrecio(formData.precioBase),
-      fechaInicio: programacionMasiva ? validateFecha(masivaDatos.fechaInicio, fechaEstreno) : { valid: true, error: '' },
-      fechaFin: programacionMasiva ? validateFecha(masivaDatos.fechaFin, fechaEstreno) : { valid: true, error: '' },
+      fechaInicio: programacionMasiva ? validateFecha(masivaDatos.fechaInicio, formData.horaInicio, fechaEstreno) : { valid: true, error: '' },
+      fechaFin: programacionMasiva ? validateFecha(masivaDatos.fechaFin, formData.horaInicio, fechaEstreno) : { valid: true, error: '' },
     };
+
+    if (programacionMasiva && masivaDatos.fechaInicio && masivaDatos.fechaFin && parseLocalDate(masivaDatos.fechaFin) < parseLocalDate(masivaDatos.fechaInicio)) {
+      return {
+        ...validations,
+        fechaFin: { valid: false, error: 'La fecha de fin no puede ser anterior a la fecha de inicio' },
+      };
+    }
 
     if (!programacionMasiva && formData.idSala && formData.fecha && formData.horaInicio && formData.idPelicula) {
       const pelicula = peliculas.find((p) => p.idPelicula === Number(formData.idPelicula));
@@ -312,9 +353,13 @@ export default function FuncionesPage() {
     }
 
     debounceTimeoutRef.current = setTimeout(() => {
-      setValidations(validateAll(form));
+      const nextValidations = validateAll(form);
+      setValidations(nextValidations);
+      if (Object.values(nextValidations).every((v) => v.valid) && conflictoHorario === '') {
+        setMessage(null);
+      }
 
-      if (form.idSala && form.fecha && form.horaInicio && form.idPelicula) {
+      if (!programacionMasiva && form.idSala && form.fecha && form.horaInicio && form.idPelicula) {
         const pelicula = peliculas.find(p => p.idPelicula === Number(form.idPelicula));
         detectarConflicto(form.idSala, form.fecha, form.horaInicio, pelicula?.duracionMinutos || 120);
       }
@@ -325,7 +370,7 @@ export default function FuncionesPage() {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [form, peliculas]);
+  }, [form, peliculas, masivaDatos, programacionMasiva, conflictoHorario]);
 
   const calcularHoraFin = (horaInicio: string, duracion: number) => {
     if (!horaInicio) return '';
@@ -351,6 +396,54 @@ export default function FuncionesPage() {
     }
 
     return resultado;
+  };
+
+  const addDaysToDate = (dateStr: string, days: number) => {
+    const date = parseLocalDate(dateStr);
+    date.setDate(date.getDate() + days);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const handleTimelineScroll = () => {
+    const el = timelineContainerRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    if (maxScroll <= 0) {
+      setTimelineScrollPct(0);
+      return;
+    }
+    setTimelineScrollPct((el.scrollLeft / maxScroll) * 100);
+  };
+
+  const handleMiniMapClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const el = event.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const ratio = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1);
+    const timelineEl = timelineContainerRef.current;
+    if (!timelineEl) return;
+    const maxScroll = timelineEl.scrollWidth - timelineEl.clientWidth;
+    timelineEl.scrollLeft = ratio * maxScroll;
+  };
+
+  const handleZoomChange = (level: 'hour' | '30min' | '15min') => {
+    setTimelineZoom(level);
+    requestAnimationFrame(() => handleTimelineScroll());
+  };
+
+  const handleCopiarSemana = () => {
+    if (!masivaDatos.fechaInicio || !masivaDatos.fechaFin) {
+      setMessage({ type: 'error', text: 'Define el rango antes de copiar la semana.' });
+      return;
+    }
+    setMasivaDatos((prev) => ({
+      ...prev,
+      fechaInicio: addDaysToDate(prev.fechaInicio, 7),
+      fechaFin: addDaysToDate(prev.fechaFin, 7),
+    }));
+    setMessage({ type: 'ok', text: 'Semana copiada al siguiente período.' });
   };
 
   async function submit(e: React.FormEvent) {
@@ -421,6 +514,12 @@ export default function FuncionesPage() {
       return;
     }
 
+    setValidations(validationErrors);
+    setShowConfirmModal(true);
+  }
+
+  async function confirmMasiva() {
+    setShowConfirmModal(false);
     setLoading(true);
     setMessage(null);
 
@@ -433,6 +532,7 @@ export default function FuncionesPage() {
       let conflictos = 0;
       let promocionActivadaCount = 0;
       const fechasConflicto: string[] = [];
+      const fechas = massPreviewDates;
 
       for (const fecha of fechas) {
         if (hasScheduleConflict(form.idSala, fecha, form.horaInicio, duracion)) {
@@ -529,17 +629,53 @@ export default function FuncionesPage() {
   // Timeline helpers
   const getTimelineLeft = (time: string) => {
     const mins = getMinutes(time);
-    return ((mins - TIMELINE_START * 60) / TIMELINE_MINUTES) * 100;
+    const pct = ((mins - TIMELINE_START * 60) / TIMELINE_MINUTES) * 100;
+    return Math.max(0, Math.min(100, pct));
   };
 
   const getTimelineWidth = (start: string, end: string) => {
     const s = getMinutes(start);
     const e = getMinutes(end);
-    return Math.max(((e - s) / TIMELINE_MINUTES) * 100, 2);
+    const pct = ((e - s) / TIMELINE_MINUTES) * 100;
+    return Math.max(2, Math.min(100, pct));
   };
 
   const timelineProposedStart = form.horaInicio ? getTimelineLeft(form.horaInicio) : null;
   const timelineProposedWidth = form.horaInicio ? getTimelineWidth(form.horaInicio, horaFinalCalculada) : null;
+  const massTimelineProposedStart = form.horaInicio ? getTimelineLeft(form.horaInicio) : null;
+  const massTimelineProposedWidth = form.horaInicio ? getTimelineWidth(form.horaInicio, horaFinalCalculada) : null;
+
+  const massPreviewDates = useMemo(() => {
+    if (!programacionMasiva || !masivaDatos.fechaInicio || !masivaDatos.fechaFin || masivaDatos.diasSeleccionados.length === 0) {
+      return [] as string[];
+    }
+
+    if (parseLocalDate(masivaDatos.fechaInicio) > parseLocalDate(masivaDatos.fechaFin)) {
+      return [] as string[];
+    }
+
+    return generarFechasEnRango(masivaDatos.fechaInicio, masivaDatos.fechaFin, masivaDatos.diasSeleccionados);
+  }, [programacionMasiva, masivaDatos]);
+
+  const massPreviewDateForTimeline = useMemo(() => {
+    if (massPreviewDates.length === 0 || !form.idSala) return '';
+    const firstWithFunciones = massPreviewDates.find((fecha) =>
+      funciones.some((f) => f.idSala === form.idSala && f.fecha === fecha)
+    );
+    return firstWithFunciones ?? massPreviewDates[0];
+  }, [massPreviewDates, form.idSala, funciones]);
+
+  const massConflictDates = useMemo(() => {
+    if (!form.idSala || !form.horaInicio || !form.idPelicula || massPreviewDates.length === 0) return [] as string[];
+    return massPreviewDates.filter((fecha) => hasScheduleConflict(form.idSala, fecha, form.horaInicio, duracionPelicula));
+  }, [massPreviewDates, form.idSala, form.horaInicio, form.idPelicula, duracionPelicula]);
+
+  const funcionesSalaSeleccionadaMass = useMemo(() => {
+    if (!form.idSala || !massPreviewDateForTimeline) return [] as FuncionItem[];
+    return funciones
+      .filter((f) => f.idSala === form.idSala && f.fecha === massPreviewDateForTimeline)
+      .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+  }, [funciones, form.idSala, massPreviewDateForTimeline]);
 
   // Suggested available time slots
   const availableSlots = useMemo(() => {
@@ -570,6 +706,34 @@ export default function FuncionesPage() {
     return slots;
   }, [form.idSala, form.fecha, funcionesSalaSeleccionada, duracionPelicula]);
 
+  const availableSlotsMass = useMemo(() => {
+    if (!form.idSala || !massPreviewDateForTimeline) return [];
+    const slots: string[] = [];
+    const sorted = funcionesSalaSeleccionadaMass;
+
+    let cursor = TIMELINE_START * 60;
+    const endOfDay = TIMELINE_END * 60;
+
+    for (const f of sorted) {
+      const existingStart = getMinutes(f.horaInicio.substring(0, 5));
+      const gapEnd = existingStart - BUFFER;
+      if (cursor + duracionPelicula <= gapEnd) {
+        for (let t = cursor; t + duracionPelicula <= gapEnd; t += 30) {
+          slots.push(formatTime(t));
+        }
+      }
+      cursor = getMinutes(f.horaFin.substring(0, 5)) + BUFFER;
+    }
+
+    if (cursor + duracionPelicula <= endOfDay) {
+      for (let t = cursor; t + duracionPelicula <= endOfDay; t += 30) {
+        slots.push(formatTime(t));
+      }
+    }
+
+    return slots;
+  }, [form.idSala, massPreviewDateForTimeline, funcionesSalaSeleccionadaMass, duracionPelicula]);
+
   const getValidationFeedback = (errors?: Validations): string | null => {
     const source = errors ?? validations;
     if (!source.idPelicula.valid) return source.idPelicula.error || 'Selecciona una película';
@@ -578,20 +742,53 @@ export default function FuncionesPage() {
 
     if (programacionMasiva) {
       if (!masivaDatos.fechaInicio) return 'Ingresa la fecha de inicio';
+      if (!source.fechaInicio?.valid) return source.fechaInicio?.error || 'Ingresa una fecha de inicio válida';
       if (!masivaDatos.fechaFin) return 'Ingresa la fecha de fin';
+      if (!source.fechaFin?.valid) return source.fechaFin?.error || 'Ingresa una fecha de fin válida';
       if (masivaDatos.diasSeleccionados.length === 0) return 'Selecciona al menos un día de la semana';
       if (parseLocalDate(masivaDatos.fechaInicio) > parseLocalDate(masivaDatos.fechaFin)) return 'La fecha de fin debe ser posterior a la fecha de inicio';
     } else {
       if (!source.fecha.valid) return source.fecha.error || 'Selecciona una fecha válida';
     }
 
-    if (!source.precioBase.valid) return source.precioBase.error || 'Ingresa un precio válido entre 0 y 9999';
+    if (!source.precioBase.valid) return source.precioBase.error || 'Ingresa un precio válido mayor a 0 y menor a 10000';
     if (conflictoHorario) return conflictoHorario;
 
     return null;
   };
 
   const validationFeedback = getValidationFeedback();
+
+  const selectedDayLabels = useMemo(() => {
+    return diasSemana
+      .filter((d) => masivaDatos.diasSeleccionados.includes(d.value))
+      .map((d) => d.short);
+  }, [masivaDatos.diasSeleccionados]);
+
+  const massPreviewSummary = useMemo(() => {
+    if (!programacionMasiva) return null;
+    const total = massPreviewDates.length;
+    const conflicts = massConflictDates.length;
+    const days = selectedDayLabels.length > 0 ? selectedDayLabels.join(' · ') : 'Ninguno';
+    return {
+      total,
+      conflicts,
+      days,
+      range: masivaDatos.fechaInicio && masivaDatos.fechaFin ? `${formatDateLocal(masivaDatos.fechaInicio)} — ${formatDateLocal(masivaDatos.fechaFin)}` : null,
+      schedule: form.horaInicio ? `${form.horaInicio} → ${horaFinalCalculada}` : null,
+    };
+  }, [programacionMasiva, massPreviewDates, massConflictDates, selectedDayLabels, masivaDatos.fechaInicio, masivaDatos.fechaFin, form.horaInicio, horaFinalCalculada]);
+
+  const presetDays = {
+    todos: diasSemana.map((d) => d.value),
+    lunesAViernes: diasSemana.filter((d) => d.value >= 1 && d.value <= 5).map((d) => d.value),
+    finesDeSemana: diasSemana.filter((d) => d.value === 6 || d.value === 0).map((d) => d.value),
+    ninguno: [] as number[],
+  };
+
+  const applyDayPreset = (preset: number[]) => {
+    setMasivaDatos((prev) => ({ ...prev, diasSeleccionados: preset }));
+  };
 
   const HOUR_LABELS = Array.from({ length: TIMELINE_END - TIMELINE_START }, (_, i) => i + TIMELINE_START);
 
@@ -620,6 +817,8 @@ export default function FuncionesPage() {
                 horaInicio: { valid: false, error: '' },
                 precioBase: { valid: false, error: '' },
               });
+              setMessage(null);
+              setConflictoHorario('');
             }}
           >
             {programacionMasiva ? '← Individual' : 'Masiva →'}
@@ -750,35 +949,79 @@ export default function FuncionesPage() {
 
               {/* Días de la semana (solo programación masiva) */}
               {programacionMasiva && (
-                <div className="md:col-span-2">
-                  <span className="label-cine block mb-3">Días de la semana</span>
-                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                    {diasSemana.map(d => (
-                      <label key={d.key} className="flex items-center gap-2 cursor-pointer group">
-                        <input
-                          type="checkbox"
-                          checked={masivaDatos.diasSeleccionados.includes(d.value)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setMasivaDatos(m => ({
-                                ...m,
-                                diasSeleccionados: [...m.diasSeleccionados, d.value].sort(),
-                              }));
-                            } else {
-                              setMasivaDatos(m => ({
-                                ...m,
-                                diasSeleccionados: m.diasSeleccionados.filter(v => v !== d.value),
-                              }));
-                            }
-                          }}
-                          className="w-4 h-4 rounded border-white/20 bg-white/[0.05] text-cinema-gold focus:ring-cinema-gold/40"
-                        />
-                        <span className="text-xs text-cinema-cream group-hover:text-white transition-colors">{d.label}</span>
-                      </label>
-                    ))}
+              <div className="md:col-span-2 space-y-4">
+                <div className="flex flex-col gap-3">
+                  <span className="label-cine block">Días de la semana</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-cinema-cream hover:bg-cinema-gold/10"
+                      onClick={() => applyDayPreset(presetDays.todos)}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-cinema-cream hover:bg-cinema-gold/10"
+                      onClick={() => applyDayPreset(presetDays.lunesAViernes)}
+                    >
+                      Lunes a viernes
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-cinema-cream hover:bg-cinema-gold/10"
+                      onClick={() => applyDayPreset(presetDays.finesDeSemana)}
+                    >
+                      Fines de semana
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-cinema-cream hover:bg-cinema-gold/10"
+                      onClick={() => {
+                        applyDayPreset(presetDays.ninguno);
+                        setMessage(null);
+                      }}
+                    >
+                      Ninguno
+                    </button>
                   </div>
                 </div>
-              )}
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                  {diasSemana.map(d => (
+                    <label key={d.key} className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={masivaDatos.diasSeleccionados.includes(d.value)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setMasivaDatos(m => ({
+                              ...m,
+                              diasSeleccionados: [...m.diasSeleccionados, d.value].sort(),
+                            }));
+                          } else {
+                            setMasivaDatos(m => ({
+                              ...m,
+                              diasSeleccionados: m.diasSeleccionados.filter(v => v !== d.value),
+                            }));
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-white/20 bg-white/[0.05] text-cinema-gold focus:ring-cinema-gold/40"
+                      />
+                      <span className="text-xs text-cinema-cream group-hover:text-white transition-colors">{d.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-cinema-gold/20 bg-white/[0.03] p-3 text-xs text-cinema-gray">
+                  <p className="font-semibold text-cinema-cream">Vista previa masiva</p>
+                  <p className="mt-2">Días seleccionados: {selectedDayLabels.length > 0 ? selectedDayLabels.join(' · ') : 'Ninguno'}</p>
+                  <p>Rango: {masivaDatos.fechaInicio && masivaDatos.fechaFin ? `${formatDateLocal(masivaDatos.fechaInicio)} — ${formatDateLocal(masivaDatos.fechaFin)}` : 'No definido'}</p>
+                  <p>Funciones posibles: {massPreviewDates.length}</p>
+                  <p className={massConflictDates.length > 0 ? 'text-amber-200' : 'text-cinema-gray'}>
+                    Conflictos detectados: {massConflictDates.length}
+                  </p>
+                </div>
+              </div>
+            )}
 
               {/* Mensaje y Botón */}
               <div className="md:col-span-2 space-y-4">
@@ -789,7 +1032,7 @@ export default function FuncionesPage() {
                     <p className="text-sm text-red-300">{validationFeedback}</p>
                   </div>
                 )}
-                <button
+                      <button
                   className="btn-primary w-full disabled:opacity-50"
                   disabled={loading || !allValid || conflictoHorario !== '' || (programacionMasiva && masivaDatos.diasSeleccionados.length === 0)}
                 >
@@ -928,6 +1171,74 @@ export default function FuncionesPage() {
                 )}
               </div>
             )}
+
+            {programacionMasiva && form.idSala && massPreviewDateForTimeline && (
+              <div className="mt-6 pt-6 border-t border-white/10">
+                <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur-md border-b border-white/10 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-cinema-cream uppercase tracking-wider">
+                        Programación masiva — {form.idSala}
+                      </h4>
+                      <p className="text-xs text-cinema-gray">
+                        Fecha de vista previa: {formatDateLocal(massPreviewDateForTimeline)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs px-3 py-2"
+                        onClick={handleCopiarSemana}
+                      >
+                        Copiar semana
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-primary text-xs px-3 py-2"
+                        onClick={() => setShowConfirmModal(true)}
+                      >
+                        Crear todas
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="mb-4 text-sm text-cinema-gray">
+                  {funcionesSalaSeleccionadaMass.length > 0 ? (
+                    <p>{funcionesSalaSeleccionadaMass.length} función(es) existente(s) para la fecha de vista previa.</p>
+                  ) : (
+                    <p>No hay funciones programadas en esta sala para la fecha de vista previa.</p>
+                  )}
+                  {form.horaInicio && (
+                    <p className="mt-2 text-xs text-cinema-gray">Horario propuesto: {form.horaInicio} - {horaFinalCalculada}</p>
+                  )}
+                </div>
+
+                {availableSlotsMass.length > 0 && !form.horaInicio && (
+                  <div className="mt-3">
+                    <p className="text-xs text-cinema-cream/70 mb-2 font-semibold uppercase tracking-wider">
+                      Horarios sugeridos ({duracionPelicula} min + {BUFFER} min recarga)
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableSlotsMass.slice(0, 12).map((slot) => (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => update('horaInicio', slot)}
+                          className="px-3 py-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] text-xs text-cinema-cream hover:bg-cinema-gold/20 hover:border-cinema-gold/40 hover:text-cinema-gold transition-all duration-200"
+                        >
+                          {slot}
+                        </button>
+                      ))}
+                      {availableSlotsMass.length > 12 && (
+                        <span className="px-3 py-1.5 text-xs text-cinema-gray self-center">
+                          +{availableSlotsMass.length - 12} más
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Context Panel (right 1/3) */}
@@ -1036,12 +1347,88 @@ export default function FuncionesPage() {
                       <span className="text-green-400 font-semibold">Bs. {Number(form.precioBase).toFixed(2)}</span>
                     </div>
                   )}
+                  {programacionMasiva && (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 mt-2 text-xs">
+                      <p className="font-semibold text-cinema-cream mb-2">Preview masiva</p>
+                      <div className="space-y-1 text-cinema-gray">
+                        <p>Días: {selectedDayLabels.length > 0 ? selectedDayLabels.join(' · ') : 'Ninguno'}</p>
+                        <p>Rango: {massPreviewSummary?.range || 'No definido'}</p>
+                        <p>Funciones estimadas: <span className="text-white font-semibold">{massPreviewSummary?.total ?? 0}</span></p>
+                        <p className={massPreviewSummary?.conflicts ? 'text-amber-200' : 'text-cinema-gray'}>Conflictos detectados: <span className="text-white font-semibold">{massPreviewSummary?.conflicts ?? 0}</span></p>
+                        {massPreviewSummary?.conflicts ? (
+                          <p className="text-[11px] text-amber-300">Se crearán solo las funciones sin conflicto. Revisa las fechas bloqueadas antes de confirmar.</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {showConfirmModal && massPreviewSummary && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-950/95 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-semibold text-white">Confirmar programación masiva</h3>
+                <p className="mt-1 text-sm text-cinema-gray">Revisa cuántas funciones se crearán y cuántas fechas presentan conflictos.</p>
+              </div>
+              <button
+                type="button"
+                className="text-cinema-gray hover:text-white"
+                onClick={() => setShowConfirmModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-cinema-cream/60 mb-3">Resumen</p>
+                <div className="space-y-2 text-sm text-cinema-gray">
+                  <p><span className="text-cinema-cream">Sala:</span> {form.idSala}</p>
+                  <p><span className="text-cinema-cream">Película:</span> {peliculaSeleccionada?.titulo}</p>
+                  <p><span className="text-cinema-cream">Horario:</span> {massPreviewSummary.schedule || 'No definido'}</p>
+                  <p><span className="text-cinema-cream">Rango:</span> {massPreviewSummary.range || 'No definido'}</p>
+                  <p><span className="text-cinema-cream">Días:</span> {massPreviewSummary.days}</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-cinema-cream/60 mb-3">Valores estimados</p>
+                <div className="space-y-2 text-sm text-cinema-gray">
+                  <p><span className="text-cinema-cream">Funciones totales:</span> {massPreviewSummary.total}</p>
+                  <p><span className="text-cinema-cream">Conflictos:</span> {massPreviewSummary.conflicts}</p>
+                  <p><span className="text-cinema-cream">Precio:</span> Bs. {Number(form.precioBase || '0').toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+            {massPreviewSummary.conflicts > 0 && (
+              <div className="mt-4 rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-100">
+                <p className="font-semibold">Advertencia de conflicto</p>
+                <p>Hay {massPreviewSummary.conflicts} fecha(s) con conflicto en la sala seleccionada. Solo se crearán las fechas válidas.</p>
+              </div>
+            )}
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                className="btn-secondary w-full sm:w-auto"
+                onClick={() => setShowConfirmModal(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-primary w-full sm:w-auto"
+                onClick={confirmMasiva}
+              >
+                Confirmar creación ({massPreviewSummary.total - massPreviewSummary.conflicts} válidas)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabla de funciones */}
       <div className="card-cine overflow-hidden">

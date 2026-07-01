@@ -35,6 +35,7 @@ export async function obtenerAsientosPorFuncion(req: Request<{ id: string }>, re
        a.fila,
        a.columna,
        CASE
+         WHEN a.estado = 0 THEN 0
          WHEN EXISTS(
            SELECT 1 FROM Boleto b
            JOIN Venta v ON b.idVenta = v.idVenta

@@ -3,8 +3,28 @@ import Field from '../components/Field';
 import Message from '../components/Message';
 import { api } from '../services/api';
 
-const initial = { idSala: '', tipo: 'Estándar', capacidadTotal: '', filas: '', columnas: '' };
-const tipos = ['Estándar', '3D', 'VIP'];
+const initial = { idSala: '', tipo: 'personalizado', capacidadTotal: '', filas: '', columnas: '' };
+const tipoOptions = [
+  { value: 'personalizado', label: 'Personalizado' },
+  { value: 'grande', label: 'Grande' },
+  { value: 'mediano', label: 'Mediano' },
+  { value: 'pequeno', label: 'Pequeño' },
+] as const;
+
+const tipoPresetMap: Record<'grande' | 'mediano' | 'pequeno', { filas: number; columnas: number }> = {
+  grande: { filas: 20, columnas: 20 },
+  mediano: { filas: 15, columnas: 15 },
+  pequeno: { filas: 10, columnas: 10 },
+};
+
+const tipoLabelMap: Record<'personalizado' | 'grande' | 'mediano' | 'pequeno', string> = {
+  personalizado: 'Personalizado',
+  grande: 'Grande',
+  mediano: 'Mediana',
+  pequeno: 'Pequeña',
+};
+
+const normalizeTipo = (tipo: string) => tipo?.toString().trim().toLowerCase();
 
 interface AsientoPreview {
   fila: string;
@@ -89,7 +109,8 @@ export default function SalasPage() {
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const salasFiltradas = useMemo(() => {
-    const result = filterTipo ? salas.filter(s => s.tipo === filterTipo) : [...salas];
+    const normalizedFilter = normalizeTipo(filterTipo);
+    const result = normalizedFilter ? salas.filter(s => normalizeTipo(s.tipo) === normalizedFilter) : [...salas];
     if (sortCapacidad === 'desc') result.sort((a, b) => Number(b.capacidadTotal) - Number(a.capacidadTotal));
     if (sortCapacidad === 'asc') result.sort((a, b) => Number(a.capacidadTotal) - Number(b.capacidadTotal));
     return result;
@@ -139,8 +160,33 @@ export default function SalasPage() {
 
   useEffect(() => { load(); }, []);
 
+  const getTipoFromSize = (filas: string | number, columnas: string | number) => {
+    const filasNum = Number(filas);
+    const columnasNum = Number(columnas);
+    if (filasNum === 20 && columnasNum === 20) return 'grande';
+    if (filasNum === 15 && columnasNum === 15) return 'mediano';
+    if (filasNum === 10 && columnasNum === 10) return 'pequeno';
+    return 'personalizado';
+  };
+
   function update(name: string, value: string) {
-    setForm((prevForm) => ({ ...prevForm, [name]: value }));
+    setForm((prevForm) => {
+      if (name === 'tipo') {
+        if (value === 'personalizado') {
+          return { ...prevForm, tipo: value };
+        }
+        const preset = tipoPresetMap[value as keyof typeof tipoPresetMap];
+        return {
+          ...prevForm,
+          tipo: value,
+          filas: String(preset.filas),
+          columnas: String(preset.columnas),
+          capacidadTotal: String(preset.filas * preset.columnas),
+        };
+      }
+
+      return { ...prevForm, [name]: value };
+    });
   }
   
   const buildSeatLayout = (filas: string, columnas: string, existing: AsientoPreview[] = []) => {
@@ -222,7 +268,7 @@ export default function SalasPage() {
     try {
       const payload = {
         ...form,
-        capacidadTotal: activeSeatCount,
+        capacidadTotal: Number(form.filas) * Number(form.columnas),
         filas: Number(form.filas),
         columnas: Number(form.columnas),
         asientos: seatLayout.map((seat) => ({ fila: seat.fila, numero: seat.numero, activo: seat.activo })),
@@ -436,10 +482,15 @@ export default function SalasPage() {
                     value={form.tipo}
                     onChange={(e) => update('tipo', e.target.value)}
                   >
-                    {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+                    {tipoOptions.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                   <span className="absolute right-8 top-2.5 text-green-500">✓</span>
                 </div>
+                {form.tipo !== 'personalizado' && (
+                  <p className="mt-2 text-xs text-cinema-gray">
+                    Se aplicará automáticamente {form.tipo === 'grande' ? '20 × 20' : form.tipo === 'mediano' ? '15 × 15' : '10 × 10'} asientos.
+                  </p>
+                )}
               </label>
 
               {/* Filas */}
@@ -451,6 +502,7 @@ export default function SalasPage() {
                 placeholder="1-26"
                 validation={validations.filas}
                 onChange={update}
+                disabled={form.tipo !== 'personalizado'}
               />
 
               {/* Columnas */}
@@ -462,6 +514,7 @@ export default function SalasPage() {
                 placeholder="1-50"
                 validation={validations.columnas}
                 onChange={update}
+                disabled={form.tipo !== 'personalizado'}
               />
 
               {/* Capacidad Total - Auto-calculado, no editable */}
@@ -471,7 +524,7 @@ export default function SalasPage() {
                   <input
                     className="w-full rounded-xl border border-green-500/50 bg-green-500/5 px-4 py-2.5 text-sm text-green-400 placeholder-cinema-gray/50 outline-none transition cursor-not-allowed"
                     type="number"
-                    value={activeSeatCount}
+                    value={Number(form.filas || 0) * Number(form.columnas || 0)}
                     disabled
                   />
                   <span className="absolute right-3 top-2.5 text-green-500">✓</span>
@@ -553,7 +606,7 @@ export default function SalasPage() {
               onChange={e => setFilterTipo(e.target.value)}
             >
               <option value="">Todos</option>
-              {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+              {tipoOptions.filter(t => t.value !== 'personalizado').map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -599,7 +652,7 @@ export default function SalasPage() {
                         onClick={() => {
                           setForm({
                             idSala: s.idSala,
-                            tipo: s.tipo,
+                            tipo: getTipoFromSize(s.filas, s.columnas),
                             capacidadTotal: String(s.capacidadTotal),
                             filas: String(s.filas),
                             columnas: String(s.columnas)
