@@ -30,6 +30,9 @@ export default function VentaPresencialPage() {
   const [modalAvailableDates, setModalAvailableDates] = useState<string[]>([]);
   const [selectedModalFuncion, setSelectedModalFuncion] = useState<any>(null);
   const [selectedModalIsPast, setSelectedModalIsPast] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [filtroClasificacion, setFiltroClasificacion] = useState('');
+  const [filtroPromocion, setFiltroPromocion] = useState(false);
 
   useEffect(() => {
     api.listarFunciones().then(res => setFunciones(res.funciones)).catch(() => {});
@@ -142,9 +145,19 @@ export default function VentaPresencialPage() {
     setModalSelectedDate('');
   }
 
-  const peliculasFiltradas = Array.from(
-    new Map(funciones.map(funcion => [funcion.idPelicula ?? funcion.peliculaTitulo, funcion])).values()
-  );
+  const clasificaciones = Array.from(new Set(funciones.map(f => f.peliculaClasificacion).filter(Boolean))) as string[];
+
+  const peliculasFiltradas = (() => {
+    const unique = Array.from(
+      new Map(funciones.map(funcion => [funcion.idPelicula ?? funcion.peliculaTitulo, funcion])).values()
+    );
+    return unique.filter(f => {
+      if (searchText && !f.peliculaTitulo?.toLowerCase().includes(searchText.toLowerCase())) return false;
+      if (filtroClasificacion && f.peliculaClasificacion !== filtroClasificacion) return false;
+      if (filtroPromocion && !funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1)) return false;
+      return true;
+    });
+  })();
 
   const modalFuncionesFiltradas = modalSelectedDate
     ? modalFunciones.filter(fn => fn.fecha === modalSelectedDate)
@@ -284,6 +297,47 @@ export default function VentaPresencialPage() {
 
       {step === 1 && (
         <>
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-cinema-gray/50 pointer-events-none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Buscar película..."
+                autoComplete="off"
+                className="input-cine w-full pr-8"
+                style={{ paddingLeft: '2.5rem' }}
+              />
+              {searchText && (
+                <button type="button" onClick={() => setSearchText('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-cinema-gray hover:text-white transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              )}
+            </div>
+            <select
+              value={filtroClasificacion}
+              onChange={(e) => setFiltroClasificacion(e.target.value)}
+              className="input-cine w-auto min-w-[150px]"
+            >
+              <option value="">Todas las clasificaciones</option>
+              {clasificaciones.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={() => setFiltroPromocion(!filtroPromocion)}
+              className={`flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                filtroPromocion
+                  ? 'border-cinema-gold/60 bg-cinema-gold/15 text-cinema-gold shadow-sm shadow-cinema-gold/10'
+                  : 'border-white/[0.08] bg-white/[0.04] text-cinema-gray hover:border-white/20 hover:text-cinema-cream'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${filtroPromocion ? 'bg-cinema-gold' : 'bg-white/[0.15]'}`} />
+              2x1
+            </button>
+          </div>
+
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {peliculasFiltradas.map(f => (
               <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] transition hover:border-cinema-gold/30">
@@ -330,81 +384,93 @@ export default function VentaPresencialPage() {
           </div>
 
           {previewFuncion && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 md:items-center" role="dialog" aria-modal="true" aria-labelledby="preview-funcion-title">
-              <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#08080d] shadow-2xl my-8 md:my-0">
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 backdrop-blur-sm p-4 md:items-center" role="dialog" aria-modal="true" aria-labelledby="preview-funcion-title">
+              <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-white/[0.08] bg-[#08080d] shadow-2xl shadow-black/60 my-8 md:my-0">
                 <div className="flex flex-col gap-6 p-6 lg:p-8">
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 id="preview-funcion-title" className="text-3xl font-bold text-white">{previewFuncion.peliculaTitulo}</h3>
-                      <p className="text-sm text-cinema-gray mt-2">
-                        {previewFuncion.peliculaDirector ? `Director: ${previewFuncion.peliculaDirector}` : ''}
-                        {previewFuncion.peliculaDuracion ? ` · ${previewFuncion.peliculaDuracion} min` : ''}
-                        {previewFuncion.peliculaClasificacion ? ` · ${previewFuncion.peliculaClasificacion}` : ''}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <h3 id="preview-funcion-title" className="text-2xl font-bold text-white lg:text-3xl">{previewFuncion.peliculaTitulo}</h3>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-cinema-gray">
+                        {previewFuncion.peliculaDirector && <span>{previewFuncion.peliculaDirector}</span>}
+                        {previewFuncion.peliculaDuracion && (
+                          <span className="inline-flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            {previewFuncion.peliculaDuracion} min
+                          </span>
+                        )}
+                        <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[11px] font-bold text-cinema-gold">{previewFuncion.peliculaClasificacion || 'TP'}</span>
+                      </div>
                     </div>
-                    <button className="btn-secondary" onClick={closePreviewModal} aria-label="Cerrar">Cerrar</button>
+                    <button className="btn-secondary shrink-0" onClick={closePreviewModal} aria-label="Cerrar">Cerrar</button>
                   </div>
 
-                  <div className="grid gap-6 lg:grid-cols-[350px_minmax(0,1fr)]">
-                    {previewFuncion.peliculaPoster && (
-                      <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} referrerPolicy="no-referrer" className="max-h-[80vh] w-full rounded-3xl bg-black object-contain" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
-                    )}
-                    <div className="space-y-4">
-                      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-                        <h4 className="text-white font-semibold mb-3">Sinopsis</h4>
-                        <p className="text-sm leading-7 text-cinema-gray">{previewFuncion.peliculaSinopsis}</p>
+                  <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+                    {/* Poster */}
+                    <div className="hidden lg:block">
+                      {previewFuncion.peliculaPoster ? (
+                        <img src={previewFuncion.peliculaPoster} alt={previewFuncion.peliculaTitulo} referrerPolicy="no-referrer" className="w-full rounded-2xl bg-black object-cover aspect-[2/3]" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
+                      ) : (
+                        <div className="w-full aspect-[2/3] rounded-2xl bg-white/[0.03] flex items-center justify-center text-6xl opacity-20">🎬</div>
+                      )}
+                    </div>
+
+                    <div className="space-y-5">
+                      {/* Sinopsis */}
+                      {previewFuncion.peliculaSinopsis && (
+                        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+                          <p className="text-sm leading-7 text-cinema-gray/90">{previewFuncion.peliculaSinopsis}</p>
+                        </div>
+                      )}
+
+                      {/* Date selector */}
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-cinema-cream/60 font-semibold mb-3">Selecciona una fecha</p>
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                          {modalAvailableDates.map((date) => {
+                            const fechaObj = buildLocalDateTime(date) || new Date();
+                            const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
+                            const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
+                            const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
+                            const active = modalSelectedDate === date;
+                            const hasFuncs = modalFunciones.filter(fn => fn.fecha === date).length > 0;
+                            return (
+                              <button
+                                key={date}
+                                type="button"
+                                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border py-3 text-center transition-all duration-200 ${
+                                  active
+                                    ? 'border-cinema-gold bg-cinema-gold text-cinema-black shadow-lg shadow-cinema-gold/20'
+                                    : hasFuncs
+                                      ? 'border-white/[0.08] bg-white/[0.03] text-cinema-cream hover:border-white/20 hover:bg-white/[0.06]'
+                                      : 'border-white/[0.04] bg-white/[0.01] text-cinema-gray/40 cursor-default'
+                                }`}
+                                onClick={() => hasFuncs && setModalSelectedDate(date)}
+                              >
+                                <span className={`text-[9px] uppercase tracking-[0.15em] font-semibold ${active ? 'text-cinema-black/70' : 'text-cinema-cream/50'}`}>{weekday}</span>
+                                <span className="text-xl font-bold leading-none">{day}</span>
+                                <span className={`text-[10px] uppercase tracking-[0.15em] ${active ? 'text-cinema-black/70' : 'text-cinema-cream/60'}`}>{month}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
-                      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.25em] text-cinema-cream/70">Información</p>
-                          {selectedModalFuncion ? (
-                            <>
-                              <p className="mt-3 text-sm text-cinema-gray">Sala: <span className="text-white">{selectedModalFuncion.idSala} ({selectedModalFuncion.salaTipo})</span></p>
-                              <p className="mt-1 text-sm text-cinema-gray">Precio: <span className="text-white">Bs. {Number(selectedModalFuncion.precioBase).toFixed(2)}</span></p>
-                              {selectedModalFuncion.promocionActiva === 1 && (
-                                <div className="mt-2 inline-block rounded-full bg-cinema-gold/20 border border-cinema-gold/30 px-3 py-1 text-xs font-bold text-cinema-gold">
-                                  🔥 ¡Promoción 2x1 Activa!
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <p className="mt-3 text-sm text-cinema-gray">Seleccione una función para ver los detalles.</p>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.25em] text-cinema-cream/70">Selecciona fecha</p>
-                          <div className="grid grid-cols-2 gap-3 mt-4 sm:grid-cols-3 lg:grid-cols-4">
-                            {modalAvailableDates.map((date) => {
-                              const fechaObj = buildLocalDateTime(date) || new Date();
-                              const weekday = fechaObj.toLocaleDateString('es-BO', { weekday: 'short' });
-                              const day = fechaObj.toLocaleDateString('es-BO', { day: '2-digit' });
-                              const month = fechaObj.toLocaleDateString('es-BO', { month: 'short' });
-                              const active = modalSelectedDate === date;
-                              return (
-                                <button
-                                  key={date}
-                                  type="button"
-                                  className={`group flex flex-col items-center justify-center gap-1 rounded-[2rem] border px-3 py-4 text-center transition ${active ? 'border-cinema-gold bg-cinema-gold text-cinema-black' : 'border-white/10 bg-white/[0.05] text-cinema-gray hover:border-white/20 hover:bg-white/[0.1]'}`}
-                                  onClick={() => setModalSelectedDate(date)}
-                                >
-                                  <span className="text-[10px] uppercase tracking-[0.25em] text-cinema-cream/80">{weekday}</span>
-                                  <span className="text-2xl font-bold leading-none">{day}</span>
-                                  <span className="text-xs uppercase tracking-[0.2em] text-cinema-cream/80">{month}</span>
-                                </button>
-                              );
-                            })}
+                      {/* Functions by room type */}
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-cinema-cream/60 font-semibold mb-3">Horarios disponibles</p>
+                        {Object.keys(funcionesPorSala).length === 0 ? (
+                          <div className="rounded-2xl border border-dashed border-white/[0.08] p-8 text-center">
+                            <p className="text-sm text-cinema-gray">No hay funciones para esta fecha.</p>
                           </div>
-                        </div>
-
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.25em] text-cinema-cream/70">Funciones por sala</p>
-                          <div className="space-y-5 mt-3">
+                        ) : (
+                          <div className="space-y-3">
                             {Object.entries(funcionesPorSala).map(([salaTipo, funciones]) => (
-                              <div key={salaTipo} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-                                <h4 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-white">{salaTipo}</h4>
-                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              <div key={salaTipo} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-bold text-white uppercase tracking-wider">{salaTipo}</h4>
+                                  <span className="text-[10px] text-cinema-gray/60">{funciones.length} horario(s)</span>
+                                </div>
+                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                   {funciones.map(func => {
                                     const time = func.horaInicio?.substring(0, 5) ?? '—';
                                     const fechaHora = buildLocalDateTime(func.fecha, func.horaInicio || '00:00');
@@ -415,41 +481,72 @@ export default function VentaPresencialPage() {
                                         key={func.idFuncion}
                                         type="button"
                                         disabled={isPast}
-                                        className={`group rounded-3xl border px-4 py-3 text-left transition ${active ? 'border-cinema-gold bg-cinema-gold/10 text-white' : isPast ? 'border-white/10 bg-white/[0.02] text-cinema-gray opacity-60 cursor-not-allowed' : 'border-white/10 bg-white/[0.03] text-cinema-gray hover:border-white/20'}`}
+                                        className={`rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
+                                          active
+                                            ? 'border-cinema-gold bg-cinema-gold/10 ring-1 ring-cinema-gold/30'
+                                            : isPast
+                                              ? 'border-white/[0.04] bg-white/[0.01] opacity-40 cursor-not-allowed'
+                                              : 'border-white/[0.08] bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]'
+                                        }`}
                                         onClick={() => { if (!isPast) setSelectedModalFuncion(func); }}
                                       >
-                                        <div className="flex items-center gap-3">
-                                          <span className="block rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.2em] bg-black/70 text-white">
-                                            Español
-                                          </span>
-                                          <span className="mt-3 block text-lg font-semibold text-white">
-                                            {time}{isPast && <span className="text-sm text-red-400 ml-1">(Cerrada)</span>}
-                                          </span>
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div className="flex items-center gap-2">
+                                            <span className={`text-lg font-bold tabular-nums ${active ? 'text-cinema-gold' : 'text-white'}`}>
+                                              {time}
+                                            </span>
+                                            {func.promocionActiva === 1 && (
+                                              <span className="rounded bg-amber-500/20 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 uppercase tracking-wider">2x1</span>
+                                            )}
+                                          </div>
+                                          {isPast && <span className="text-[10px] text-red-400">Cerrada</span>}
                                         </div>
+                                        <p className="text-[10px] text-cinema-gray/60 mt-1">{func.idSala}</p>
+                                        {func.capacidadTotal > 0 && (
+                                          <p className={`text-[10px] mt-0.5 ${(func.capacidadTotal - (func.boletosVendidos || 0)) < 10 ? 'text-red-400' : 'text-green-400'}`}>
+                                            {func.capacidadTotal - (func.boletosVendidos || 0)} asiento(s) libre(s)
+                                          </p>
+                                        )}
                                       </button>
                                     );
                                   })}
                                 </div>
                               </div>
                             ))}
-                            {funcionesPorSala && Object.keys(funcionesPorSala).length === 0 && (
-                              <p className="text-sm text-cinema-gray">No hay funciones para la fecha seleccionada.</p>
-                            )}
                           </div>
-                        </div>
+                        )}
+                      </div>
+
+                      {/* Selected function summary & CTA */}
+                      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+                        {selectedModalFuncion ? (
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div className="space-y-1">
+                              <p className="text-xs text-cinema-cream/60 uppercase tracking-wider font-semibold">Función seleccionada</p>
+                              <p className="text-white font-bold">{selectedModalFuncion.idSala} · {selectedModalFuncion.horaInicio?.substring(0, 5)}</p>
+                              <div className="flex items-center gap-3 text-sm">
+                                <span className="text-cinema-gray">Bs. {Number(selectedModalFuncion.precioBase).toFixed(2)}</span>
+                                {selectedModalFuncion.promocionActiva === 1 && (
+                                  <span className="text-amber-400 font-bold text-xs bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">2x1 activo</span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              className="btn-primary"
+                              disabled={selectedModalIsPast}
+                              onClick={() => { if (selectedModalFuncion && !selectedModalIsPast) { selectFuncion(selectedModalFuncion); closePreviewModal(); } }}
+                            >
+                              {selectedModalIsPast ? 'Función cerrada' : 'Seleccionar asientos'}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between gap-4">
+                            <p className="text-sm text-cinema-gray/60">Selecciona un horario para continuar</p>
+                            <button className="btn-secondary text-sm" onClick={closePreviewModal}>Cancelar</button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <button
-                      className="btn-primary"
-                      disabled={!selectedModalFuncion || selectedModalIsPast}
-                      onClick={() => { if (selectedModalFuncion && !selectedModalIsPast) { selectFuncion(selectedModalFuncion); closePreviewModal(); } }}
-                    >
-                      {selectedModalFuncion ? (selectedModalIsPast ? 'Función cerrada' : 'Seleccionar asientos') : 'Seleccione una función'}
-                    </button>
-                    <button className="btn-secondary" onClick={closePreviewModal}>Cancelar</button>
                   </div>
                 </div>
               </div>

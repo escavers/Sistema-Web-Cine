@@ -12,6 +12,7 @@ interface FieldProps {
   max?: string;
   step?: string;
   error?: string;
+  autoComplete?: string;
   onChange: (name: string, value: string) => void;
   onBlur?: (name: string, value: string) => void;
 }
@@ -28,6 +29,7 @@ export default function Field({
   max: maxAttr,
   step: stepAttr,
   error,
+  autoComplete,
   onChange,
   onBlur
 }: FieldProps) {
@@ -53,6 +55,7 @@ export default function Field({
           min={minAttr}
           max={maxAttr}
           step={stepAttr}
+          autoComplete={autoComplete}
           aria-describedby={errorId}
           onChange={(event) => onChange(name, event.target.value)}
           onBlur={onBlur ? () => onBlur(name, value) : undefined}

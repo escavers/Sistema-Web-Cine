@@ -236,7 +236,7 @@ const salas = [
 
       // Boletos de prueba (sin idFuncion, via Venta)
       await connection.query(
-        `INSERT INTO Boleto (idBoleto, idVenta, idAsiento, precioPagado, estadoA, fechaA, usuarioA)
+        `INSERT IGNORE INTO Boleto (idBoleto, idVenta, idAsiento, precioPagado, estadoA, fechaA, usuarioA)
          VALUES
          (1, ?, 'SALA-1-A1', 50.00, 1, CURDATE(), 1),
          (2, ?, 'SALA-1-A2', 50.00, 0, CURDATE(), 1)`

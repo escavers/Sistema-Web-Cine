@@ -202,7 +202,7 @@ CREATE TABLE EscanearBoleto (
 CREATE TABLE Auditoria (
     IdAuditoria INT AUTO_INCREMENT PRIMARY KEY,
     TablaNombre VARCHAR(50) NOT NULL,
-    RegistroId VARCHAR(50) NOT NULL,
+    RegistroId VARCHAR(50) NULL,
     Accion VARCHAR(50) NOT NULL,
     Campo VARCHAR(100) NULL,
     ValorAnterior LONGTEXT NULL,
@@ -456,7 +456,7 @@ INSERT INTO Usuario (nombre1, nombre2, apellidoP, apellidoM, ci, correo, telefon
 ('Luis', NULL, 'Quispe', 'Torres', '6789012', 'luis.quispe@email.com', '73456789', '1992-11-20', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', '6789012', 'Luis Quispe Torres'),
 ('María', 'Fernanda', 'Vargas', 'López', '7890124', 'maria.vargas@email.com', '74567890', '2000-03-08', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', '7890124', 'María Fernanda Vargas López'),
 ('Pedro', NULL, 'Huanca', 'Ramos', '8901234', 'pedro.huanca@email.com', '75678901', '1988-09-25', '$2a$10$ELf79l9fQJMWiKLtM0vwk.ZZ6oaQIz5NwWhycwO2Zew8c6I5v.Rea', '8901234', 'Pedro Huanca Ramos'),
-('Jorge', NULL, 'Mendoza', 'Perez', '9012345', 'acceso@cinelapaz.com', '76543212', '1992-05-14', '$2a$10$dAeDvl5.boGs.U792xkdWeT5cRFMGqN42ljMXvr/bIQNex.5jFkWq', NULL, NULL);
+('Jorge', NULL, 'Mendoza', 'Perez', '9012345', 'acceso@cinelapaz.com', '76543212', '1992-05-14', '$2a$10$za2PnMK9BUBq.NCKSqzGZeqhZzlML2eJ.0nPnYW8MtkrAJzfH62/C', NULL, NULL);
 
 -- 3.3 USUARIO_ROL (Multiroles)
 INSERT INTO Usuario_Rol (idUsuario, idRol) VALUES
@@ -814,7 +814,7 @@ BEGIN
         s.capacidadTotal,
         COUNT(b.idBoleto) AS boletosVendidos,
         (s.capacidadTotal - COUNT(b.idBoleto)) AS asientosDisponibles,
-        ROUND(COUNT(b.idBoleto) / s.capacidadTotal * 100, 1) AS ocupacionPorcentaje
+        ROUND(COUNT(b.idBoleto) / NULLIF(s.capacidadTotal, 0) * 100, 1) AS ocupacionPorcentaje
     FROM Funcion f
     JOIN Sala s ON f.idSala = s.idSala
     JOIN Pelicula p ON f.idPelicula = p.idPelicula
@@ -843,7 +843,7 @@ BEGIN
         ROUND(SUM(ingresoFuncion), 2) AS ingresoTotal,
         ROUND(AVG(ocupacionPorcentaje), 1) AS promedioOcupacion,
         COUNT(*) AS cantidadFunciones,
-        DATEDIFF(CURDATE(), MIN(fechaFuncion)) AS semanasEnCartelera
+        FLOOR(DATEDIFF(CURDATE(), MIN(fechaFuncion)) / 7) AS semanasEnCartelera
     FROM (
         SELECT
             p.idPelicula,
@@ -853,7 +853,7 @@ BEGIN
             f.fecha AS fechaFuncion,
             COUNT(b.idBoleto) AS boletosVendidos,
             IFNULL(SUM(b.precioPagado), 0) AS ingresoFuncion,
-            ROUND(COUNT(b.idBoleto) / s.capacidadTotal * 100, 1) AS ocupacionPorcentaje
+            ROUND(COUNT(b.idBoleto) / NULLIF(s.capacidadTotal, 0) * 100, 1) AS ocupacionPorcentaje
         FROM Funcion f
         JOIN Pelicula p ON f.idPelicula = p.idPelicula
         JOIN Sala s ON f.idSala = s.idSala
@@ -865,8 +865,8 @@ BEGIN
         GROUP BY f.idFuncion, p.idPelicula, p.titulo, p.director, f.fecha, s.capacidadTotal
     ) AS sub
     GROUP BY idPelicula, pelicula, director
-    ORDER BY IF(p_orden = 'ASC', totalBoletosVendidos, NULL) ASC,
-             IF(p_orden = 'ASC', NULL, totalBoletosVendidos) DESC
+    ORDER BY IF(p_orden = 'ASC', SUM(boletosVendidos), NULL) ASC,
+             IF(p_orden = 'ASC', NULL, SUM(boletosVendidos)) DESC
     LIMIT 10;
 END$$
 

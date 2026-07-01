@@ -9,7 +9,7 @@ export default function PromocionesPage() {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
 
   const [filterPelicula, setFilterPelicula] = useState('');
-  const [filterEstado, setFilterEstado] = useState('TODOS'); // TODOS, ACTIVO, INACTIVO
+  const [filterEstado, setFilterEstado] = useState('TODOS');
 
   const loadData = async () => {
     try {
@@ -49,15 +49,14 @@ export default function PromocionesPage() {
 
   return (
     <section className="space-y-6 sm:space-y-8">
-      {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="inline-flex rounded-full bg-cinema-gold/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-cinema-gold mb-2">
-            Módulo de Marketing
+            Modulo de Marketing
           </div>
           <h2 className="text-xl sm:text-3xl font-black text-white">Promociones del Cine</h2>
           <p className="text-sm text-cinema-gray">
-            Panel informativo de reglas de negocio y estado de la promoción automática 2x1 en cartelera.
+            Panel informativo de reglas de negocio y estado de la promocion automatica 2x1 en cartelera.
           </p>
         </div>
         <button
@@ -65,19 +64,18 @@ export default function PromocionesPage() {
           disabled={loading}
           className="btn-secondary flex items-center justify-center gap-1.5 self-start sm:self-center"
         >
-          🔄 Actualizar
+          Actualizar
         </button>
       </div>
 
       {message && <Message type={message.type} text={message.text} />}
 
-      {/* Reglas de la promoción */}
       <div className="card-cine p-5 sm:p-6 bg-gradient-to-br from-cinema-gold/5 via-transparent to-transparent">
         <h3 className="text-md sm:text-lg font-black text-cinema-gold uppercase tracking-wider mb-3">
-          📢 Reglas del 2x1 Automático
+          Reglas del 2x1 Automatico
         </h3>
         <p className="text-xs sm:text-sm text-cinema-cream/90 leading-relaxed mb-4">
-          La promoción se aplica de forma <strong>100% automatizada</strong> en el sistema de ventas para incentivar la asistencia a funciones de películas que ya pasaron su periodo de estreno y tienen alta disponibilidad de asientos.
+          La promocion se aplica de forma <strong>100% automatizada</strong> en el sistema de ventas para incentivar la asistencia a funciones de peliculas que ya pasaron su periodo de estreno y tienen alta disponibilidad de asientos.
         </p>
         <div className="grid gap-3 md:grid-cols-2">
           {reglas?.condiciones?.map((c: string, idx: number) => (
@@ -87,7 +85,7 @@ export default function PromocionesPage() {
               </span>
               <div>
                 <p className="text-xs sm:text-sm text-white/90 font-medium">
-                  {idx === 0 ? "Más de 30 días en cartelera" : "Menos del 70% de ocupación"}
+                  {idx === 0 ? "Mas de 30 dias en cartelera" : "Menos del 70% de ocupacion"}
                 </p>
                 <p className="text-[11px] text-cinema-gray mt-0.5">{c}</p>
               </div>
@@ -96,11 +94,10 @@ export default function PromocionesPage() {
         </div>
       </div>
 
-      {/* Filtros */}
       <div className="card-cine p-4">
         <div className="grid gap-3 sm:grid-cols-3 items-end">
           <div>
-            <span className="label-cine block mb-1">Buscar Película</span>
+            <span className="label-cine block mb-1">Buscar Pelicula</span>
             <input
               type="text"
               value={filterPelicula}
@@ -127,11 +124,10 @@ export default function PromocionesPage() {
         </div>
       </div>
 
-      {/* Listado */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16 space-y-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-cinema-gold border-t-transparent" />
-          <span className="text-xs text-cinema-gray font-medium">Analizando cartelera y ocupación...</span>
+          <span className="text-xs text-cinema-gray font-medium">Analizando cartelera y ocupacion...</span>
         </div>
       ) : (
         <div className="card-cine overflow-hidden">
@@ -139,11 +135,11 @@ export default function PromocionesPage() {
             <table className="w-full text-left text-xs sm:text-sm">
               <thead>
                 <tr className="bg-white/[0.02] text-cinema-cream/60 border-b border-white/5 uppercase tracking-wider text-[10px] font-bold">
-                  <th className="px-4 py-3.5">Película</th>
+                  <th className="px-4 py-3.5">Pelicula</th>
                   <th className="px-4 py-3.5">Fecha y Hora</th>
                   <th className="px-4 py-3.5">Sala</th>
-                  <th className="px-4 py-3.5">Ocupación</th>
-                  <th className="px-4 py-3.5">Estado Promoción</th>
+                  <th className="px-4 py-3.5">Ocupacion</th>
+                  <th className="px-4 py-3.5">Estado Promocion</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -154,16 +150,16 @@ export default function PromocionesPage() {
 
                   if (f.promocionActiva) {
                     badgeClass = "bg-amber-500/15 text-amber-400 border-amber-500/30";
-                    statusText = "🔥 2x1 Activo";
+                    statusText = "2x1 Activo";
                     tooltip = "Cumple todas las condiciones.";
                   } else if (!f.masDe30Dias) {
                     badgeClass = "bg-blue-500/15 text-blue-400 border-blue-500/20";
-                    statusText = "🆕 Estreno (<30d)";
-                    tooltip = "Película demasiado reciente en cartelera.";
+                    statusText = "Estreno (<30d)";
+                    tooltip = "Pelicula demasiado reciente en cartelera.";
                   } else if (f.porcentajeOcupacion >= 70) {
                     badgeClass = "bg-rose-500/15 text-rose-400 border-rose-500/20";
-                    statusText = "👥 Alta Ocupación (>=70%)";
-                    tooltip = "Ocupación superior al límite permitido para la oferta.";
+                    statusText = "Alta Ocupacion (>=70%)";
+                    tooltip = "Ocupacion superior al limite permitido para la oferta.";
                   }
 
                   return (

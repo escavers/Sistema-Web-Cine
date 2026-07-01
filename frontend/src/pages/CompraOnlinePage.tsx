@@ -326,7 +326,7 @@ export default function CompraOnlinePage() {
         <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="rounded-3xl border border-white/[0.06] bg-white/[0.03] overflow-hidden animate-pulse">
-              <div className="aspect-[2/3] bg-white/[0.05]" />
+              <div className="aspect-[3/4] bg-white/[0.05]" />
               <div className="p-5 space-y-3">
                 <div className="h-5 bg-white/[0.06] rounded w-3/4" />
                 <div className="h-3 bg-white/[0.04] rounded w-full" />
@@ -369,7 +369,7 @@ export default function CompraOnlinePage() {
               <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3 mb-10">
                 {peliculasPromo.map(f => (
                   <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-3xl border border-amber-500/40 bg-gradient-to-b from-amber-500/[0.04] to-transparent shadow-lg shadow-amber-500/10 transition-all duration-500 hover:border-cinema-gold/30 hover:shadow-xl hover:shadow-cinema-gold/5">
-                    <div className="relative overflow-hidden aspect-[2/3]">
+                    <div className="relative overflow-hidden aspect-[3/4]">
                       {f.peliculaPoster ? (
                         <img src={f.peliculaPoster} alt={f.peliculaTitulo} referrerPolicy="no-referrer" className="w-full h-full object-cover transition duration-700 group-hover:scale-110" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
                       ) : (
@@ -400,9 +400,6 @@ export default function CompraOnlinePage() {
                           2x1
                         </span>
                       </div>
-                      {f.peliculaSinopsis && (
-                        <p className="text-sm leading-6 text-cinema-gray/80 line-clamp-3 hidden sm:block">{f.peliculaSinopsis}</p>
-                      )}
                       <div className="flex flex-wrap items-center gap-2 pt-2">
                         <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-cream/80 uppercase tracking-wider border border-white/[0.06]">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -411,16 +408,6 @@ export default function CompraOnlinePage() {
                         <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-gold uppercase tracking-wider border border-white/[0.06]">
                           {f.peliculaClasificacion || 'TP'}
                         </span>
-                        {f.peliculaFechaEstreno && (() => {
-                          const estreno = new Date(f.peliculaFechaEstreno);
-                          const hoy = new Date();
-                          const dias = Math.floor((hoy.getTime() - estreno.getTime()) / (1000 * 60 * 60 * 24));
-                          return dias > 0 ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-gray/60 uppercase tracking-wider border border-white/[0.06]">
-                              {dias} días en cartelera
-                            </span>
-                          ) : null;
-                        })()}
                       </div>
                     </div>
                   </div>
@@ -438,7 +425,7 @@ export default function CompraOnlinePage() {
             <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
               {peliculasNormales.map(f => (
                 <div key={f.idPelicula ?? f.peliculaTitulo} className="group relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent transition-all duration-500 hover:border-cinema-gold/30 hover:shadow-xl hover:shadow-cinema-gold/5">
-                  <div className="relative overflow-hidden aspect-[2/3]">
+                    <div className="relative overflow-hidden aspect-[3/4]">
                     {f.peliculaPoster ? (
                       <img src={f.peliculaPoster} alt={f.peliculaTitulo} referrerPolicy="no-referrer" className="w-full h-full object-cover transition duration-700 group-hover:scale-110" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22300%22 viewBox=%220 0 200 300%22%3E%3Crect fill=%22%2318181b%22 width=%22200%22 height=%22300%22/%3E%3Ctext x=%22100%22 y=%22150%22 fill=%22%2352525b%22 font-family=%22system-ui%22 font-size=%2213%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESin imagen%3C/text%3E%3C/svg%3E'; e.currentTarget.onerror = null; }} />
                     ) : (
@@ -459,9 +446,6 @@ export default function CompraOnlinePage() {
                   </div>
                   <div className="p-5 space-y-3">
                     <h4 className="text-lg font-bold text-white leading-tight">{f.peliculaTitulo}</h4>
-                    {f.peliculaSinopsis && (
-                      <p className="text-sm leading-6 text-cinema-gray/80 line-clamp-3 hidden sm:block">{f.peliculaSinopsis}</p>
-                    )}
                     <div className="flex flex-wrap items-center gap-2 pt-2">
                       <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-cream/80 uppercase tracking-wider border border-white/[0.06]">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -470,16 +454,6 @@ export default function CompraOnlinePage() {
                       <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-gold uppercase tracking-wider border border-white/[0.06]">
                         {f.peliculaClasificacion || 'TP'}
                       </span>
-                      {f.peliculaFechaEstreno && (() => {
-                        const estreno = new Date(f.peliculaFechaEstreno);
-                        const hoy = new Date();
-                        const dias = Math.floor((hoy.getTime() - estreno.getTime()) / (1000 * 60 * 60 * 24));
-                        return dias > 0 ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-cinema-gray/60 uppercase tracking-wider border border-white/[0.06]">
-                            {dias} días en cartelera
-                          </span>
-                        ) : null;
-                      })()}
                     </div>
                   </div>
                 </div>
@@ -511,14 +485,6 @@ export default function CompraOnlinePage() {
                       </span>
                     )}
                     <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[11px] font-bold text-cinema-gold">{previewFuncion.peliculaClasificacion || 'TP'}</span>
-                    {previewFuncion.peliculaFechaEstreno && (() => {
-                      const estreno = new Date(previewFuncion.peliculaFechaEstreno);
-                      const hoy = new Date();
-                      const dias = Math.floor((hoy.getTime() - estreno.getTime()) / (1000 * 60 * 60 * 24));
-                      return dias > 0 ? (
-                        <span className="rounded-full bg-white/5 border border-white/[0.06] px-2 py-0.5 text-[11px] font-semibold text-cinema-gray/60">{dias} días en cartelera</span>
-                      ) : null;
-                    })()}
                   </div>
                 </div>
                 <button className="btn-secondary shrink-0" onClick={closePreviewModal} aria-label="Cerrar">Cerrar</button>

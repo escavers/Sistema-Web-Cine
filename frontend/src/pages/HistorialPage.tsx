@@ -316,9 +316,6 @@ export default function HistorialPage() {
                     <button type="button" className="flex-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white py-2 text-[11px] font-bold transition" onClick={() => handleDescargarPdf(h.numero)}>
                       Comprobante
                     </button>
-                    <button type="button" className="rounded-lg border border-cinema-gold/30 bg-cinema-gold/10 hover:bg-cinema-gold/20 text-cinema-gold py-2 px-2 text-[11px] font-bold transition" onClick={() => handleDescargarTicket(h.numero)} title="Descargar ticket térmico">
-                      🎟️
-                    </button>
                   </div>
                 )}
                 {cc && (
@@ -371,10 +368,7 @@ export default function HistorialPage() {
                             <button type="button" className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white px-2 py-1 text-[11px] font-bold transition" onClick={() => handleDescargarPdf(h.numero)}>
                               PDF
                             </button>
-                            <button type="button" className="rounded-lg border border-cinema-gold/30 bg-cinema-gold/10 hover:bg-cinema-gold/20 text-cinema-gold px-2.5 py-1 text-[11px] font-bold transition flex items-center gap-1.5" onClick={() => handleDescargarTicket(h.numero)} title="Ticket térmico">
-                              <span>🎟️</span>
-                              <span>Térmico</span>
-                            </button>
+
                           </>
                         )}
                         {cc && (
@@ -513,7 +507,7 @@ export default function HistorialPage() {
                 📥 Descargar Comprobante PDF
               </button>
               <button type="button" onClick={() => handleDescargarTicket(selectedVenta.numero)} className="rounded-xl border border-cinema-gold/30 bg-cinema-gold/10 hover:bg-cinema-gold/20 text-cinema-gold font-bold py-2 sm:py-2.5 text-[11px] sm:text-xs uppercase tracking-wider transition w-full flex items-center justify-center gap-1.5">
-                🎟️ Descargar Ticket Térmico
+                🎟️ Descargar Tickets
               </button>
               <button type="button" onClick={closeModal} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold py-2 sm:py-2.5 text-[11px] sm:text-xs uppercase tracking-wider transition w-full">
                 Volver

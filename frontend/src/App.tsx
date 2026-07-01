@@ -15,9 +15,9 @@ import CompraOnlinePage from './pages/CompraOnlinePage';
 import HistorialPage from './pages/HistorialPage';
 import ReportesPage from './pages/ReportesPage';
 import AccessValidationPage from './pages/AccessValidationPage';
-import PromocionesPage from './pages/PromocionesPage';
 import PerfilPage from './pages/PerfilPage';
 import ComprobantePublicoPage from './pages/ComprobantePublicoPage';
+import PromocionesPage from './pages/PromocionesPage';
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
