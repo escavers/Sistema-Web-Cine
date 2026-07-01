@@ -55,8 +55,8 @@ function formatCell(val: any, key: string): string {
     return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString('es-BO');
   }
   if (key === 'horaInicio') return String(val).substring(0, 5);
-  if (key === 'ocupacionPorcentaje' || key === 'promedioOcupacion') return `${val}%`;
-  if (key === 'montoTotal' || key === 'ingresoTotal') return `Bs. ${Number(val).toFixed(2)}`;
+  if (key === 'ocupacionPorcentaje' || key === 'promedioOcupacion' || key === 'porcentajeOcupacion') return `${val}%`;
+  if (key === 'montoTotal' || key === 'ingresoTotal' || key === 'precioBase') return `Bs. ${Number(val).toFixed(2)}`;
   if (typeof val === 'number') return val.toLocaleString('es-BO', { maximumFractionDigits: 2 });
   return String(val);
 }
@@ -115,12 +115,12 @@ export default function ReportesPage() {
     setData([]);
     try {
       if (tab === 'promociones') {
-        const res = await api.listarFunciones();
+        const res = await api.obtenerFuncionesPromocion();
         const funciones = res.funciones || [];
-        const activas = funciones.filter((f: any) => f.promocionActiva === 1);
+        const activas = funciones.filter((f: any) => f.promocionActiva === true);
         const agrupadas: Record<string, any> = {};
         activas.forEach((f: any) => {
-          const titulo = f.pelicula?.titulo ?? f.tituloPelicula ?? `Pelicula #${f.idPelicula}`;
+          const titulo = f.peliculaTitulo || `Película #${f.idFuncion}`;
           if (!agrupadas[titulo]) {
             agrupadas[titulo] = { pelicula: titulo, funcionesActivas: 0, fechaInicio: f.fecha, fechaFin: f.fecha };
           }
@@ -290,11 +290,11 @@ export default function ReportesPage() {
       {loading && data.length === 0 && (
         <div className="card-cine overflow-hidden">
           <div className="max-h-[70vh] overflow-auto">
-            <table className="min-w-full text-sm text-cinema-gray" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <table className="min-w-max w-full text-sm text-cinema-gray" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
                 <tr>
                   {headers.map(h => (
-                    <th key={h.key} className="px-5 py-4">{h.label}</th>
+                    <th key={h.key} className="px-5 py-4 whitespace-nowrap">{h.label}</th>
                   ))}
                 </tr>
               </thead>
@@ -318,11 +318,11 @@ export default function ReportesPage() {
         <>
           <div className="card-cine overflow-hidden">
             <div className="max-h-[70vh] overflow-auto">
-              <table className="min-w-full text-sm text-cinema-gray" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <table className="min-w-max w-full text-sm text-cinema-gray" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-[0.15em] text-cinema-cream">
                   <tr>
                     {headers.map(h => (
-                      <th key={h.key} className="px-5 py-4">{h.label}</th>
+                      <th key={h.key} className="px-5 py-4 whitespace-nowrap">{h.label}</th>
                     ))}
                   </tr>
                 </thead>
@@ -330,7 +330,7 @@ export default function ReportesPage() {
                   {data.map((row, i) => (
                     <tr key={i} className="border-t border-white/5">
                       {headers.map(h => (
-                        <td key={h.key} className="px-5 py-4">
+                        <td key={h.key} className="px-5 py-4 whitespace-nowrap">
                           {formatCell(row[h.key], h.key)}
                         </td>
                       ))}

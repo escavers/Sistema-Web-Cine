@@ -99,6 +99,48 @@ export default function AdminUsersPage() {
   const [rolFiltro, setRolFiltro] = useState<'TODOS' | Rol>('TODOS');
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>('TODOS');
 
+  const contrasenaPat = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+
+  function calcularErrores(f: typeof initial, esEdicion: boolean): Record<string, string> {
+    const e: Record<string, string> = {};
+    const letras = /^[a-zA-ZáéíóúñÑ\s.'-]+$/;
+    const ciPat = /^\d{4,15}([-\s][a-zA-Z0-9]{1,5})?$/;
+    const telPat = /^[67]\d{7}$/;
+    const emailPat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!f.nombre1.trim() || !letras.test(f.nombre1.trim())) {
+      e.nombre1 = 'Solo letras, sin números';
+    }
+    if (f.nombre2.trim() && !letras.test(f.nombre2.trim())) {
+      e.nombre2 = 'Solo letras, sin números';
+    }
+    if (!f.apellidoP.trim() || !letras.test(f.apellidoP.trim())) {
+      e.apellidoP = 'Solo letras, sin números';
+    }
+    if (f.apellidoM.trim() && !letras.test(f.apellidoM.trim())) {
+      e.apellidoM = 'Solo letras, sin números';
+    }
+    if (!ciPat.test(f.ci.trim())) {
+      e.ci = 'Ej: 1234567 o 1234567-1L';
+    }
+    if (f.correo.trim() && !emailPat.test(f.correo.trim())) {
+      e.correo = 'Correo electrónico inválido';
+    }
+    if (f.telefono.trim() && !telPat.test(f.telefono.trim())) {
+      e.telefono = 'Formato: 6 o 7 + 8 dígitos';
+    }
+    if (!esEdicion && f.contrasena.trim() && !contrasenaPat.test(f.contrasena)) {
+      e.contrasena = 'Debe incluir mayúscula, número y carácter especial';
+    }
+    return e;
+  }
+
+  function validar(): boolean {
+    const e = calcularErrores(form, Boolean(editandoId));
+    setErrores(e);
+    return Object.keys(e).length === 0;
+  }
+
   async function loadUsers() {
     const response = await api.listarUsuarios();
     setUsuarios(response.usuarios);
@@ -113,85 +155,31 @@ export default function AdminUsersPage() {
     });
   }, []);
 
-  function generarContrasena(ci: string, apellidoP: string, apellidoM: string) {
-    // Limpiar CI (eliminar complemento como LP, SC, etc.)
-    const ciLimpia = ci.replace(/[^0-9]/g, '');
-    const inicialP = apellidoP.trim().charAt(0).toUpperCase();
-    const inicialM = apellidoM.trim().charAt(0).toUpperCase();
-    return `${ciLimpia}${inicialP}${inicialM}!`;
-  }
+  function validarCampo(name: string, value: string, f: typeof initial): string {
+    const letras = /^[a-zA-ZáéíóúñÑ\s.'-]+$/;
+    const ciPat = /^\d{4,15}([-\s][a-zA-Z0-9]{1,5})?$/;
+    const telPat = /^[67]\d{7}$/;
+    const emailPat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  function validarCampo(name: string, value: string): string {
     switch (name) {
-      case 'nombre1':
-        if (!value.trim()) return 'El primer nombre es requerido';
-        if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El nombre solo puede contener letras';
-        if (value.trim().length < 2) return 'El nombre debe tener al menos 2 caracteres';
-        return '';
-      case 'nombre2':
-        if (value.trim() && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El nombre solo puede contener letras';
-        return '';
-      case 'apellidoP':
-        if (!value.trim()) return 'El apellido paterno es requerido';
-        if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El apellido solo puede contener letras';
-        if (value.trim().length < 2) return 'El apellido debe tener al menos 2 caracteres';
-        return '';
-      case 'apellidoM':
-        if (value.trim() && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(value.trim())) return 'El apellido solo puede contener letras';
-        return '';
-      case 'ci':
-        if (!value.trim()) return 'El CI es requerido';
-        // Permitir números y letras (para complemento como LP, SC, etc.)
-        const ciLimpia = value.replace(/[^0-9]/g, '');
-        if (ciLimpia.length < 7 || ciLimpia.length > 10) return 'El CI debe tener entre 7 y 10 dígitos';
-        // Verificar que solo tenga números y opcionalmente letras al final
-        if (!/^\d{7,10}[A-Za-z]*$/.test(value.replace(/\s/g, ''))) {
-          return 'El CI solo puede contener números y opcionalmente letras al final (ej: 1234567LP)';
-        }
-        return '';
-      case 'correo':
-        if (!value.trim()) return 'El correo es requerido';
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return 'Ingrese un correo electrónico válido';
-        return '';
-      case 'telefono':
-        if (value.trim()) {
-          const telefonoLimpio = value.trim().replace(/\s/g, '');
-          // Validar que sean exactamente 8 dígitos
-          if (!/^\d{8}$/.test(telefonoLimpio)) {
-            return 'El teléfono debe tener exactamente 8 dígitos';
-          }
-          // Validar que comience con 6 o 7
-          if (!/^[67]/.test(telefonoLimpio)) {
-            return 'El teléfono debe comenzar con 6 o 7';
-          }
-          // Validar que no sean todos iguales
-          if (/^(\d)\1{7}$/.test(telefonoLimpio)) {
-            return 'El teléfono no puede tener todos los dígitos iguales';
-          }
-        }
-        return '';
-      case 'contrasena':
-        if (!editandoId && !value.trim()) return 'La contraseña es requerida';
-        if (!editandoId && value.trim().length < 8) return 'La contraseña debe tener al menos 8 caracteres';
-        return '';
-      default:
-        return '';
+      case 'nombre1': return (!value.trim() || !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
+      case 'nombre2': return (value.trim() && !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
+      case 'apellidoP': return (!value.trim() || !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
+      case 'apellidoM': return (value.trim() && !letras.test(value.trim())) ? 'Solo letras, sin números' : '';
+      case 'ci': return (!ciPat.test(value.trim())) ? 'Ej: 1234567 o 1234567-1L' : '';
+      case 'correo': return (value.trim() && !emailPat.test(value.trim())) ? 'Correo electrónico inválido' : '';
+      case 'telefono': return (value.trim() && !telPat.test(value.trim())) ? 'Formato: 6 o 7 + 8 dígitos' : '';
+      default: return '';
     }
   }
 
   function update(name: string, value: string) {
-    setForm(prev => ({ ...prev, [name]: value }));
-    const error = validarCampo(name, value);
-    setErrores(prev => ({ ...prev, [name]: error }));
+    setForm((current) => {
+      const next = { ...current, [name]: value };
+      setErrores((prev) => ({ ...prev, [name]: validarCampo(name, value, next) }));
+      return next;
+    });
   }
-
-  // Auto-generar contraseña
-  useEffect(() => {
-    if (form.ci && form.apellidoP && !editandoId) {
-      const contrasenaGenerada = generarContrasena(form.ci, form.apellidoP, form.apellidoM || '');
-      setForm(prev => ({ ...prev, contrasena: contrasenaGenerada }));
-    }
-  }, [form.ci, form.apellidoP, form.apellidoM, editandoId]);
 
   function seleccionarRol(rol: Rol) {
     setForm(prev => ({ ...prev, idRol: [rol] }));
@@ -287,10 +275,18 @@ export default function AdminUsersPage() {
         ? await api.actualizarUsuario(editandoId, payload)
         : await api.crearUsuario({ ...payload, contrasena: form.contrasena });
 
-      setMessage({
-        type: 'ok',
-        text: response.mensaje || (editandoId ? 'Usuario actualizado correctamente.' : 'Usuario registrado correctamente.')
-      });
+      const contrIngresada = form.contrasena.trim();
+      const contrMostrar = contrIngresada || response.contrasenaTemporal || '';
+      const etiqueta = contrIngresada ? 'Contraseña generada' : 'Contraseña temporal generada';
+
+      const msg = editandoId
+        ? 'Usuario actualizado correctamente.'
+        : contrMostrar
+          ? `Usuario registrado. ${etiqueta}: ${contrMostrar}`
+          : 'Usuario registrado correctamente.';
+
+      setContrasenaTemporal(contrMostrar);
+      setMessage({ type: 'ok', text: response.mensaje || msg });
 
       limpiarFormulario();
       await loadUsers();
@@ -398,6 +394,21 @@ export default function AdminUsersPage() {
     });
   }, [usuarios, busqueda, rolFiltro, estadoFiltro]);
 
+  function seccion(titulo: string) {
+    return (
+      <div className="col-span-full mb-1 mt-4 flex items-center gap-4">
+        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-cinema-gold">{titulo}</span>
+        <span className="flex-1 border-t border-white/10" />
+      </div>
+    );
+  }
+
+  function esValido(campo: string) {
+    if (!form[campo as keyof typeof form]?.toString().trim()) return null;
+    if (errores[campo]) return false;
+    return true;
+  }
+
   return (
     <section className="space-y-8">
       {/* Mensaje flotante */}
@@ -408,182 +419,146 @@ export default function AdminUsersPage() {
       )}
 
       <div className="card-cine p-7">
-        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-2xl font-bold text-white">
               {editandoId ? 'Editar usuario' : 'Administración de usuarios'}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-cinema-gray">
-              Registre y actualice cuentas con acceso al sistema. Cada usuario debe tener un único rol asignado.
+              Registre y actualice cuentas con acceso al sistema.
             </p>
           </div>
 
           {editandoId && (
-            <button type="button" className="btn-secondary px-4 py-2" onClick={limpiarFormulario}>
+            <button type="button" className="btn-secondary px-4 py-2 self-start" onClick={limpiarFormulario}>
               Cancelar edición
             </button>
           )}
         </div>
 
-        <form className="mt-6 grid gap-4 md:grid-cols-3" onSubmit={submit}>
-          <InputField 
-            label="Primer nombre" 
-            name="nombre1" 
-            value={form.nombre1} 
-            required 
-            onChange={update}
-            error={errores.nombre1}
-            placeholder="Ej: Juan"
-          />
-          <InputField 
-            label="Segundo nombre" 
-            name="nombre2" 
-            value={form.nombre2} 
-            onChange={update}
-            error={errores.nombre2}
-            placeholder="Ej: Carlos"
-          />
-          <InputField 
-            label="Apellido paterno" 
-            name="apellidoP" 
-            value={form.apellidoP} 
-            required 
-            onChange={update}
-            error={errores.apellidoP}
-            placeholder="Ej: Pérez"
-          />
-          <InputField 
-            label="Apellido materno" 
-            name="apellidoM" 
-            value={form.apellidoM} 
-            onChange={update}
-            error={errores.apellidoM}
-            placeholder="Ej: Gómez"
-          />
-          <InputField 
-            label="CI" 
-            name="ci" 
-            value={form.ci} 
-            required 
-            onChange={update}
-            error={errores.ci}
-            placeholder="Ej: 1234567 o 1234567LP"
-          />
-          <InputField 
-            label="Correo" 
-            name="correo" 
-            type="email" 
-            value={form.correo} 
-            required 
-            onChange={update}
-            error={errores.correo}
-            placeholder="ejemplo@correo.com"
-          />
-          <InputField 
-            label="Teléfono" 
-            name="telefono" 
-            value={form.telefono} 
-            onChange={update}
-            error={errores.telefono}
-            placeholder="Ej: 71234567"
-          />
-          <InputField 
-            label="Fecha nacimiento" 
-            name="fechaNacimiento" 
-            type="date" 
-            value={form.fechaNacimiento} 
-            onChange={update}
-          />
-          <InputField
-            label="Contraseña"
-            name="contrasena"
-            value={form.contrasena}
-            onChange={update}
-            type={mostrarContrasena ? 'text' : 'password'}
-            error={errores.contrasena}
-            required={!editandoId}
-            placeholder={editandoId ? 'Dejar vacío para mantener' : 'Se genera automáticamente'}
-            icon={mostrarContrasena ? '👁️' : '👁️‍🗨️'}
-            onIconClick={() => setMostrarContrasena(!mostrarContrasena)}
-          />
+        <form className="mt-6 space-y-3" onSubmit={submit}>
+          {seccion('Datos personales')}
 
-          <div className="block">
-            <span className="label-cine">
-              Rol <span className="ml-1 text-red-500">*</span>
-            </span>
-            <div className="mt-1 grid grid-cols-2 gap-2">
-              {allRoles.map((rol) => (
-                <button
-                  key={rol}
-                  type="button"
-                  onClick={() => seleccionarRol(rol)}
-                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                    form.idRol[0] === rol
-                      ? 'bg-cinema-gold text-cinema-black'
-                      : 'bg-white/[0.05] text-cinema-gray hover:bg-white/[0.1]'
-                  }`}
-                >
-                  {roleLabels[rol]}
-                </button>
-              ))}
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <fieldset className="relative">
+              <Field label="Primer nombre" name="nombre1" value={form.nombre1} required onChange={update} error={errores.nombre1} />
+              {esValido('nombre1') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
+            </fieldset>
+            <fieldset className="relative">
+              <Field label="Segundo nombre" name="nombre2" value={form.nombre2} onChange={update} error={errores.nombre2} />
+              {esValido('nombre2') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
+            </fieldset>
+            <fieldset className="relative">
+              <Field label="Apellido paterno" name="apellidoP" value={form.apellidoP} required onChange={update} error={errores.apellidoP} />
+              {esValido('apellidoP') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
+            </fieldset>
+            <fieldset className="relative">
+              <Field label="Apellido materno" name="apellidoM" value={form.apellidoM} onChange={update} error={errores.apellidoM} />
+              {esValido('apellidoM') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
+            </fieldset>
+            <fieldset className="relative">
+              <Field label="Cédula de Identidad" name="ci" value={form.ci} required onChange={update} error={errores.ci} placeholder="1234567 o 1234567-1L" />
+              {esValido('ci') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
+            </fieldset>
+            <fieldset className="relative">
+              <Field label="Fecha de nacimiento" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={update} min="1900-01-01" max={new Date().toISOString().split('T')[0]} />
+            </fieldset>
           </div>
 
-          {!editandoId && form.contrasena && (
-            <div className="md:col-span-3 space-y-2">
-              <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-cinema-gray">
-                    Contraseña temporal: 
-                    <span className="ml-2 font-mono text-white">{form.contrasena}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={copiarContrasena}
-                    className="btn-secondary px-3 py-1 text-xs"
-                  >
-                    {contrasenaCopiada ? '✅ Copiado' : '📋 Copiar'}
-                  </button>
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-xs text-cinema-gray">Fortaleza:</span>
-                  <span className={`text-xs font-semibold ${getFortalezaContrasena(form.contrasena).color}`}>
-                    {getFortalezaContrasena(form.contrasena).texto}
-                  </span>
-                </div>
+          {seccion('Contacto')}
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <fieldset className="relative">
+              <Field label="Correo electrónico" name="correo" type="email" value={form.correo} required onChange={update} error={errores.correo} />
+              {esValido('correo') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
+            </fieldset>
+            <fieldset className="relative">
+              <Field label="Teléfono" name="telefono" value={form.telefono} onChange={update} error={errores.telefono} placeholder="6XXXXXXX" />
+              {esValido('telefono') && <span className="absolute right-2 top-[38px] text-emerald-400 text-lg leading-none">✓</span>}
+            </fieldset>
+          </div>
+
+          {seccion('Cuenta')}
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="block">
+              <span className="label-cine">Rol <span className="text-red-400">*</span></span>
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                {allRoles.map((rol) => {
+                  return (
+                    <button
+                      key={rol}
+                      type="button"
+                      onClick={() => seleccionarRol(rol)}
+                      className={`rounded-xl px-3 py-2.5 text-xs font-semibold transition-all ${
+                        form.idRol[0] === rol
+                          ? 'bg-cinema-gold text-cinema-black shadow-lg shadow-cinema-gold/20'
+                          : 'bg-white/[0.05] text-cinema-gray hover:bg-white/[0.1] border border-transparent hover:border-white/10'
+                      }`}
+                    >
+                      {roleLabels[rol]}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
 
-          {editandoId && (
-            <div className="md:col-span-3">
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm('¿Desea cambiar la contraseña de este usuario?')) {
-                    const nuevaContrasena = prompt('Ingrese la nueva contraseña (mínimo 8 caracteres):');
-                    if (nuevaContrasena && nuevaContrasena.length >= 8) {
-                      setForm(prev => ({ ...prev, contrasena: nuevaContrasena }));
-                    } else if (nuevaContrasena !== null) {
-                      alert('La contraseña debe tener al menos 8 caracteres.');
-                    }
-                  }
-                }}
-                className="btn-secondary px-4 py-2 text-sm"
-              >
-                🔑 Cambiar contraseña
-              </button>
+            <fieldset className="relative">
+              <Field label="Contraseña" name="contrasena" type="password" value={form.contrasena} onChange={update} placeholder="Vacío = temporal" />
+              {!editandoId && (
+                <p className="mt-1.5 text-[11px] leading-tight text-cinema-gray/60">
+                  Mín. 8 caracteres — debe tener al menos una mayúscula, un número y un carácter especial
+                </p>
+              )}
+            </fieldset>
+
+            {editandoId && (
+              <div className="block">
+                <span className="label-cine">Estado <span className="text-red-400">*</span></span>
+                <div className="mt-1.5 flex gap-2">
+                  <button type="button"
+                    onClick={() => setForm(c => ({ ...c, estado: true }))}
+                    className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition-all ${
+                      form.estado !== false
+                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                        : 'bg-white/[0.05] text-cinema-gray hover:bg-white/[0.1]'
+                    }`}>
+                    Activo
+                  </button>
+                  <button type="button"
+                    onClick={() => setForm(c => ({ ...c, estado: false }))}
+                    className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition-all ${
+                      form.estado === false
+                        ? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
+                        : 'bg-white/[0.05] text-cinema-gray hover:bg-white/[0.1]'
+                    }`}>
+                    Inactivo
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {seccion('Facturación (opcional)')}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="NIT" name="nit" value={form.nit} onChange={update} placeholder="Número de NIT" />
+            <Field label="Razón social" name="razonSocial" value={form.razonSocial} onChange={update} placeholder="Nombre o razón social" />
+          </div>
+
+          {contrasenaTemporal && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">
+              <span className="font-medium">{form.contrasena.trim() ? 'Contraseña generada' : 'Contraseña temporal generada'}:</span>{' '}
+              <span className="font-mono font-bold tracking-wider">{contrasenaTemporal}</span>
             </div>
           )}
 
-          <div className="md:col-span-3 space-y-4">
+          <div className="space-y-4 pt-4">
+            {message && <Message type={message.type} text={message.text} />}
+
             <div className="flex flex-wrap gap-3">
-              <button className="btn-primary" disabled={loading}>
-                {loading
-                  ? 'Guardando...'
-                  : editandoId
-                    ? 'Guardar cambios'
-                    : 'Crear usuario'}
+              <button className="btn-primary min-w-[160px]" disabled={loading}>
+                {loading ? 'Guardando...' : editandoId ? 'Guardar cambios' : 'Crear usuario'}
               </button>
 
               {!editandoId && (
@@ -602,11 +577,12 @@ export default function AdminUsersPage() {
             <div>
               <h3 className="text-xl font-bold text-white">Usuarios registrados</h3>
               <p className="mt-1 text-sm text-cinema-gray">
-                {usuariosFiltrados.length} resultado(s) de {usuarios.length} cuenta(s) registradas.
+                <span className="text-cinema-gold font-semibold">{usuariosFiltrados.length}</span> de{' '}
+                <span className="text-white font-semibold">{usuarios.length}</span> cuenta(s) registradas.
               </p>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3 lg:min-w-[720px]">
+            <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[560px]">
               <div>
                 <label className="label-cine">Buscar</label>
                 <input
@@ -664,36 +640,42 @@ export default function AdminUsersPage() {
 
             <tbody>
               {usuariosFiltrados.map((usuario) => (
-                <tr key={usuario.idUsuario} className="border-t border-white/5">
-                  <td className="px-5 py-4 text-white">
-                    {usuario.nombre1} {usuario.apellidoP}
+                <tr key={usuario.idUsuario} className="border-t border-white/5 transition-colors hover:bg-white/[0.02]">
+                  <td className="px-5 py-4 font-medium text-white whitespace-nowrap">
+                    <span>{usuario.nombre1} {usuario.apellidoP}</span>
+                    {usuario.apellidoM && <span className="text-cinema-gray ml-1">{usuario.apellidoM}</span>}
                   </td>
                   <td className="px-5 py-4">{usuario.correo}</td>
-                  <td className="px-5 py-4">{formatRoles(usuario.idRol)}</td>
-                  <td className="px-5 py-4">{usuario.ci || '—'}</td>
+                  <td className="px-5 py-4">
+                    <span className="rounded-md bg-white/[0.06] px-2.5 py-1 text-xs font-medium text-cinema-cream">
+                      {formatRoles(usuario.idRol)}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 font-mono text-xs">{usuario.ci || '—'}</td>
                   <td className="px-5 py-4">
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                         Boolean(usuario.estado)
                           ? 'bg-emerald-500/10 text-emerald-300'
                           : 'bg-red-500/10 text-red-300'
                       }`}
                     >
+                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                        Boolean(usuario.estado) ? 'bg-emerald-400' : 'bg-red-400'
+                      }`} />
                       {Boolean(usuario.estado) ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex flex-wrap gap-2">
-                      <button className="btn-secondary px-3 py-2" onClick={() => editarUsuario(usuario)}>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button className="btn-secondary px-3 py-1.5 text-xs" onClick={() => editarUsuario(usuario)}>
                         Editar
                       </button>
-
-                      <button className="btn-secondary px-3 py-2" onClick={() => cambiarEstado(usuario)}>
+                      <button className="btn-secondary px-3 py-1.5 text-xs" onClick={() => cambiarEstado(usuario)}>
                         {Boolean(usuario.estado) ? 'Inactivar' : 'Activar'}
                       </button>
-
-                      <button className="btn-primary px-3 py-2" onClick={() => darBaja(usuario)}>
-                        Dar de baja
+                      <button className="btn-primary px-3 py-1.5 text-xs" onClick={() => darBaja(usuario)}>
+                        Baja
                       </button>
                     </div>
                   </td>
@@ -702,8 +684,8 @@ export default function AdminUsersPage() {
 
               {usuariosFiltrados.length === 0 && (
                 <tr>
-                  <td className="px-5 py-8 text-center text-cinema-gray" colSpan={6}>
-                    No se encontraron usuarios.
+                  <td className="px-5 py-12 text-center text-cinema-gray" colSpan={6}>
+                    No se encontraron usuarios con los filtros aplicados.
                   </td>
                 </tr>
               )}
