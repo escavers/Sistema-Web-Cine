@@ -21,6 +21,7 @@ router.get('/funciones', authMiddleware, requireRoles('ADMINISTRADOR'), async (r
         s.idSala,
         s.tipo as salaTipo,
         s.capacidadTotal, 
+        p.idPelicula,
         p.titulo as peliculaTitulo, 
         p.fechaEstreno
       FROM Funcion f
@@ -67,6 +68,7 @@ router.get('/funciones', authMiddleware, requireRoles('ADMINISTRADOR'), async (r
         capacidadTotal: capacidad,
         vendidos,
         porcentajeOcupacion,
+        idPelicula: f.idPelicula,
         peliculaTitulo: f.peliculaTitulo,
         fechaEstreno: f.fechaEstreno,
         masDe30Dias
