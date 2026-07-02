@@ -11,7 +11,7 @@ export default function VentaPresencialPage() {
   const [selectedFuncion, setSelectedFuncion] = useState<any>(null);
   const [asientos, setAsientos] = useState<any[]>([]);
   const [selectedAsientos, setSelectedAsientos] = useState<string[]>([]);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 2.5 | 3>(1);
   const [formaPago, setFormaPago] = useState('EFECTIVO');
   const [nit, setNit] = useState('');
   const [razonSocial, setRazonSocial] = useState('');
@@ -19,10 +19,14 @@ export default function VentaPresencialPage() {
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
 
+  const [qrCode, setQrCode] = useState('');
+  const [qrTimer, setQrTimer] = useState(600);
+
   const [showModal, setShowModal] = useState(false);
   const [modalBoletos, setModalBoletos] = useState<any[]>([]);
   const [modalQrUrls, setModalQrUrls] = useState<string[]>([]);
   const [currentTicketIndex, setCurrentTicketIndex] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const [previewFuncion, setPreviewFuncion] = useState<any>(null);
   const [modalFunciones, setModalFunciones] = useState<any[]>([]);
@@ -154,7 +158,7 @@ export default function VentaPresencialPage() {
     return unique.filter(f => {
       if (searchText && !f.peliculaTitulo?.toLowerCase().includes(searchText.toLowerCase())) return false;
       if (filtroClasificacion && f.peliculaClasificacion !== filtroClasificacion) return false;
-      if (filtroPromocion && !funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1)) return false;
+      if (filtroPromocion && !funciones.some(fn => fn.idPelicula === f.idPelicula && fn.promocionActiva === 1)) return false;
       return true;
     });
   })();
@@ -225,23 +229,39 @@ export default function VentaPresencialPage() {
 
   async function confirmarVenta() {
     if (!selectedFuncion || !selectedAsientos.length || !user) return;
+    
+    if (formaPago === 'QR') {
+      try {
+        const url = await QRCode.toDataURL(`PAGO-QR-${Date.now()}`);
+        setQrCode(url);
+        setQrTimer(600);
+        setStep(2.5);
+      } catch (err) {
+        setMessage({ type: 'error', text: 'Error al generar el QR de cobro.' });
+      }
+      return;
+    }
+    
+    await procesarVentaEnBackend();
+  }
+
+  async function procesarVentaEnBackend() {
     setLoading(true);
     setMessage(null);
     try {
       const res = await api.crearVenta({
-        idEncargado: user.idUsuario,
+        idEncargado: user!.idUsuario,
         idFuncion: selectedFuncion.idFuncion,
         tipo: 'PRESENCIAL',
         formaPago,
         asientos: selectedAsientos,
         nitCliente: nit || null,
         razonSocialCliente: razonSocial || null,
-        usuarioA: user.idUsuario,
+        usuarioA: user!.idUsuario,
       });
       setResultado(res);
       setStep(3);
       setMessage({ type: 'ok', text: 'Venta procesada correctamente.' });
-      // Marcar asientos como vendidos en la UI
       setAsientos(prev => prev.map(a => selectedAsientos.includes(a.idAsiento) ? { ...a, estado: 0 } : a));
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al procesar la venta.' });
@@ -250,14 +270,50 @@ export default function VentaPresencialPage() {
     }
   }
 
+  // Timer para QR
+  useEffect(() => {
+    if (step === 2.5 && qrTimer > 0) {
+      const t = setTimeout(() => setQrTimer(prev => prev - 1), 1000);
+      return () => clearTimeout(t);
+    } else if (step === 2.5 && qrTimer === 0) {
+      setMessage({ type: 'error', text: 'Tiempo expirado para el pago con QR.' });
+      setStep(1);
+    }
+  }, [step, qrTimer]);
+
   async function printTicket() {
-    if (!resultado?.numeroComprobante) return;
+    if (!resultado || !resultado.numeroComprobante) {
+      setMessage({ type: 'error', text: 'Número de comprobante no disponible.' });
+      return;
+    }
+    
     try {
       const blob = await api.descargarComprobanteTicketPdf(resultado.numeroComprobante);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-    } catch (error) {
-      setMessage({ type: 'error', text: 'No se pudo generar la impresión del comprobante.' });
+      const url = window.URL.createObjectURL(blob);
+      const w = window.open(url);
+      if (w) w.print();
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Error al imprimir boletos.' });
+    }
+  }
+
+  async function downloadComprobantePdf() {
+    if (!resultado?.numeroComprobante) return;
+    setIsDownloading(true);
+    try {
+      const blob = await api.descargarComprobantePdf(resultado.numeroComprobante);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `comprobante-${resultado.numeroComprobante}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Error al descargar el comprobante.' });
+    } finally {
+      setIsDownloading(false);
     }
   }
 
@@ -357,7 +413,7 @@ export default function VentaPresencialPage() {
                 <div className="space-y-3 p-5">
                   <h4 className="text-lg font-bold text-white leading-snug">
                     {f.peliculaTitulo}
-                    {funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1) && (
+                    {funciones.some(fn => fn.idPelicula === f.idPelicula && fn.promocionActiva === 1) && (
                       <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-cinema-gold to-cinema-goldLight px-3 py-1 text-xs font-black uppercase tracking-wider text-cinema-black shadow-lg shadow-cinema-gold/25 align-middle">
                         🔥 2x1
                       </span>
@@ -626,6 +682,54 @@ export default function VentaPresencialPage() {
         </div>
       )}
 
+      {step === 2.5 && selectedFuncion && (
+        <div className="card-cine mx-auto max-w-xl p-6 text-center space-y-4">
+          <h3 className="text-xl font-bold text-cinema-gold">Escaneo de QR</h3>
+          <p className="text-sm text-cinema-gray">Pide al cliente que escanee este código para completar el pago.</p>
+
+          <div className="flex justify-center">
+            <div className="bg-white p-3 rounded-2xl">
+              {qrCode && <img src={qrCode} alt="QR Code" className="w-52 h-52" />}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-cinema-cream font-semibold">Tiempo restante:</p>
+            <div className="text-3xl font-bold text-cinema-gold">
+              {Math.floor(qrTimer / 60)}:{String(qrTimer % 60).padStart(2, '0')}
+            </div>
+            <p className="text-xs text-cinema-gray">10 minutos para completar la transacción</p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 space-y-2 text-left">
+            <p className="text-xs uppercase tracking-[0.18em] text-cinema-cream/70">Comprobante</p>
+            <p className="text-sm text-white font-semibold">{selectedFuncion.peliculaTitulo}</p>
+            <p className="text-xs text-cinema-gray">{selectedFuncion.idSala} ({selectedFuncion.salaTipo})</p>
+            <p className="text-xs text-cinema-gray">{(parseLocalDate(selectedFuncion.fecha) || new Date()).toLocaleDateString('es-BO')} {selectedFuncion.horaInicio?.substring(0, 5)}</p>
+            <div className="pt-2 border-t border-white/10 text-sm">
+              <p className="text-cinema-gray">Asientos: {selectedAsientos.length}</p>
+              <p className="text-xs text-white/90 mt-1">{selectedAsientos.map(id => {
+                  const a = asientos.find(s => s.idAsiento === id);
+                  return a ? `${a.fila}${a.columna}` : id;
+              }).join(', ')}</p>
+            </div>
+            <div className="flex justify-between pt-2 border-t border-white/10 text-sm">
+              <span className="text-cinema-gray">Total {is2x1 && <span className="text-xs text-cinema-gold font-bold">(Promo 2x1)</span>}</span>
+              <span className="text-cinema-gold font-semibold">Bs. {precioTotal.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button className="btn-secondary w-full" onClick={() => setStep(2)}>
+              Cancelar
+            </button>
+            <button className="btn-primary w-full" disabled={loading} onClick={procesarVentaEnBackend}>
+              {loading ? 'Verificando...' : 'Verificar Pago y Emitir'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {step === 3 && resultado && (
         <div className="space-y-6">
           <div className="card-cine p-8 text-center space-y-4">
@@ -769,8 +873,15 @@ export default function VentaPresencialPage() {
                 {/* Acciones del Modal */}
                 <div className="flex flex-col gap-2">
                   <button 
-                    onClick={printTicket}
+                    onClick={downloadComprobantePdf}
+                    disabled={isDownloading}
                     className="btn-primary py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 w-full"
+                  >
+                    {isDownloading ? '⏳ Descargando...' : '📄 Descargar Comprobante'}
+                  </button>
+                  <button 
+                    onClick={printTicket}
+                    className="rounded-xl border border-cinema-gold/30 bg-cinema-gold/10 hover:bg-cinema-gold/20 text-cinema-gold font-bold py-2.5 text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition"
                   >
                     🖨️ Imprimir Boleto
                   </button>

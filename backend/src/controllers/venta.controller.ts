@@ -62,7 +62,7 @@ export async function crearVenta(req: Request, res: Response) {
     await connection.beginTransaction();
 
     const [funcionRows] = await connection.query<any[]>(
-      'SELECT precioBase FROM Funcion WHERE idFuncion = ? AND estadoA = 1',
+      'SELECT precioBase, promocionActiva FROM Funcion WHERE idFuncion = ? AND estadoA = 1',
       [data.idFuncion]
     );
 
@@ -72,7 +72,9 @@ export async function crearVenta(req: Request, res: Response) {
     }
 
     const precioBase = parseFloat(funcionRows[0].precioBase);
-    const montoTotal = Number((precioBase * data.asientos.length).toFixed(2));
+    const is2x1 = funcionRows[0].promocionActiva === 1;
+    const boletosACobrar = is2x1 ? Math.ceil(data.asientos.length / 2) : data.asientos.length;
+    const montoTotal = Number((precioBase * boletosACobrar).toFixed(2));
 
     const codigo = `TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 

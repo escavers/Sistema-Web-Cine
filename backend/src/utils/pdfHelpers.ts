@@ -30,6 +30,7 @@ export function createPdfDoc(options?: { size?: any; margin?: number }): PdfDoc 
   const doc = new PDFDocument({
     size: options?.size || 'A4',
     margin: options?.margin || PAGE_MARGIN,
+    bufferPages: true,
   });
   const chunks: Uint8Array[] = [];
   doc.on('data', (chunk: Uint8Array) => chunks.push(chunk));
@@ -89,7 +90,6 @@ export function buildPdfBottomInfo(doc: any, usuario?: string) {
     doc.y,
     { width: CONTENT_WIDTH, align: 'left' },
   );
-  doc.moveDown(0.3);
 }
 
 // ── Table Drawing ───────────────────────────────────────────
@@ -224,7 +224,7 @@ export function addPageFooters(doc: any) {
       `Página ${i - range.start + 1} de ${range.count}`,
       PAGE_MARGIN,
       doc.page.height - 25,
-      { width: CONTENT_WIDTH, align: 'center' },
+      { width: CONTENT_WIDTH, align: 'center', lineBreak: false },
     );
   }
 }

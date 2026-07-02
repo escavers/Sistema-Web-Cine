@@ -10,7 +10,6 @@ import { pool } from '../config/db.js';
  * Evalúa las condiciones para la promoción 2x1 de una función específica y actualiza su estado.
  * Reglas:
  * - La película debe tener más de 30 días en cartelera.
- * - La ocupación actual de la sala para la función debe ser menor al 70%.
  * Retorna true si hubo un cambio en el estado de promocionActiva.
  */
 export async function evaluarPromocionFuncion(idFuncion: number, connectionOrPool: any = pool): Promise<boolean> {
@@ -55,7 +54,7 @@ export async function evaluarPromocionFuncion(idFuncion: number, connectionOrPoo
   const masDe30Dias = dateRows[0]?.masDe30Dias === 1;
 
   // 4. Evaluar condiciones
-  const cumpleCondiciones = masDe30Dias && (porcentajeOcupacion < 70);
+  const cumpleCondiciones = masDe30Dias;
   const nuevoEstado = cumpleCondiciones ? 1 : 0;
 
   // 5. Si el estado cambia, actualizar la base de datos
@@ -64,7 +63,7 @@ export async function evaluarPromocionFuncion(idFuncion: number, connectionOrPoo
       'UPDATE Funcion SET promocionActiva = ?, usuarioA = 1, fechaA = CURDATE() WHERE idFuncion = ?',
       [nuevoEstado, idFuncion]
     );
-    console.log(`  [PROMO ${nuevoEstado === 1 ? 'ACTIVADA' : 'DESACTIVADA'}] Función ID ${idFuncion} ("${funcion.titulo}"): cambió a ${nuevoEstado === 1 ? '2x1 activo' : '2x1 inactivo'} (Ocupación: ${porcentajeOcupacion.toFixed(2)}%, >30 días: ${masDe30Dias}).`);
+    console.log(`  [PROMO ${nuevoEstado === 1 ? 'ACTIVADA' : 'DESACTIVADA'}] Función ID ${idFuncion} ("${funcion.titulo}"): cambió a ${nuevoEstado === 1 ? '2x1 activo' : '2x1 inactivo'} (>30 días: ${masDe30Dias}).`);
     return true;
   }
   

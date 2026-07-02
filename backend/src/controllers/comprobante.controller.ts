@@ -186,14 +186,17 @@ export async function descargarComprobantePdf(req: Request, res: Response) {
     // ─── Footer ───
     buildPdfBottomInfo(doc, nombreUsuario);
 
-    if (doc.y + 40 > 760) doc.addPage();
-    doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).stroke('#cccccc');
     doc.moveDown(0.3);
     doc.fontSize(9).font('Helvetica').fillColor('#999999');
     doc.text('Gracias por comprar en Cine La Paz', { align: 'center' });
     doc.text('Los pases de entrada con codigo QR se descargan por separado.', { align: 'center' });
 
-    addPageFooters(doc);
+    // Ajustar el alto de la página al contenido real. 
+    // Como el PDF usa coordenadas desde abajo hacia arriba, para mantener la parte superior de la página,
+    // debemos subir la base (Y mínimo) y mantener el tope (Y máximo).
+    const newHeight = doc.y + 40;
+    doc.page.dictionary.data.MediaBox = [0, doc.page.height - newHeight, doc.page.width, doc.page.height];
+
     await sendPdf(res, doc, chunks, comprobante.numero);
   } catch (error) {
     console.error(error);
@@ -248,7 +251,7 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   const QRCode = (await import('qrcode')).default;
 
   const qrImages = await Promise.all(
-    boletos.map((b) => QRCode.toDataURL(b.codigoAcceso || String(b.idBoleto)))
+    boletos.map((b) => QRCode.toDataURL(b.codigoAcceso || String(b.idBoleto), { margin: 1 }))
   );
 
   // 80mm roll width = ~226 points
@@ -257,7 +260,8 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
   const TICKET_CONTENT = ROLL_WIDTH - 2 * TICKET_MARGIN;
 
   const PDFDocument = (await import('pdfkit')).default;
-  const doc = new PDFDocument({ size: [ROLL_WIDTH, 800], margin: TICKET_MARGIN });
+  // Usamos una altura ajustada al ticket estándar para que no sobre papel
+  const doc = new PDFDocument({ size: [ROLL_WIDTH, 460], margin: TICKET_MARGIN });
   const chunks: Uint8Array[] = [];
 
   doc.on('data', (chunk: Uint8Array) => chunks.push(chunk));
@@ -268,113 +272,81 @@ export async function descargarComprobanteTicketPdf(req: Request, res: Response)
     res.send(buffer);
   });
 
-  // ─── Header ───
-  doc.fontSize(16).font('Helvetica-Bold').fillColor('#1a1a1a');
-  doc.text('Cine La Paz', TICKET_MARGIN, doc.y, { align: 'left', width: TICKET_CONTENT });
-  doc.fontSize(9).font('Helvetica').fillColor('#666666');
-  doc.text('Ticket de Venta', { align: 'left' });
-  doc.moveDown(0.3);
-  doc.fontSize(8).fillColor('#cccccc');
-  doc.text('- '.repeat(20), { align: 'center' });
-
-  // ─── Datos ───
-  doc.fontSize(8).font('Helvetica').fillColor('#333333');
-  doc.text(`Nro: ${comprobante.numero}`);
-  doc.text(`Fecha: ${new Date(comprobante.fechaEmision).toLocaleString('es-BO')}`);
-  doc.text(`Cajero: Boletería`);
-  doc.fontSize(8).fillColor('#cccccc');
-  doc.text('- '.repeat(20), { align: 'center' });
-  doc.moveDown(0.3);
-
-  // ─── Película ───
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
-  doc.text('PELÍCULA:', { underline: true });
-  doc.font('Helvetica').text(truncateText(doc, comprobante.peliculaTitulo, TICKET_CONTENT - 10), { align: 'center' });
-  doc.moveDown(0.2);
-
-  doc.font('Helvetica-Bold').text('FECHA/HORA:', { underline: true });
-  doc.font('Helvetica').text(`${comprobante.fecha} / ${comprobante.horaInicio}`, { align: 'center' });
-  doc.moveDown(0.2);
-
-  doc.font('Helvetica-Bold').text('SALA:', { underline: true });
-  doc.font('Helvetica').text(`${comprobante.idSala} (${comprobante.salaTipo || 'Estándar'})`, { align: 'center' });
-  doc.moveDown(0.2);
-
-  doc.font('Helvetica-Bold').text('ASIENTOS:', { underline: true });
-  doc.font('Helvetica').text(truncateText(doc, comprobante.asientos, TICKET_CONTENT - 10), { align: 'center' });
-  doc.moveDown(0.3);
-
-  doc.fillColor('#cccccc');
-  doc.text('- '.repeat(20), { align: 'center' });
-
-  // ─── Cliente ───
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
-  doc.text('CLIENTE:', { underline: true });
-  doc.font('Helvetica').text(truncateText(doc, comprobante.razonSocialCliente || 'Consumidor Final', TICKET_CONTENT - 10), { align: 'center' });
-  doc.text(`NIT/CI: ${comprobante.nitCliente || 'N/A'}`, { align: 'center' });
-  doc.moveDown(0.3);
-
-  doc.fillColor('#cccccc');
-  doc.text('- '.repeat(20), { align: 'center' });
-
-  // ─── Total ───
-  const cantidad = boletos.length || 1;
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#1a1a1a');
-  doc.text(`TOTAL (${cantidad}x):`, { align: 'center', underline: true });
-  doc.fontSize(14).text(formatMoney(Number(comprobante.montoTotal)), { align: 'center' });
-  doc.moveDown(0.3);
-
-  doc.fontSize(8).fillColor('#cccccc');
-  doc.text('- '.repeat(20), { align: 'center' });
-  doc.moveDown(0.3);
-
-  // ─── QR por asiento ───
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
-  doc.text('PASES DE ENTRADA', { align: 'center', underline: true });
-  doc.moveDown(0.3);
-
-  const qrSize = 50;
+  const qrSize = 90;
   const qrX = (ROLL_WIDTH - qrSize) / 2;
 
   for (let i = 0; i < boletos.length; i++) {
+    if (i > 0) {
+      // Agregamos una nueva página por cada boleto (provoca el corte en impresoras térmicas)
+      doc.addPage({ size: [ROLL_WIDTH, 460], margin: TICKET_MARGIN });
+    }
+
     const b = boletos[i];
     const img = Buffer.from(qrImages[i].replace('data:image/png;base64,', ''), 'base64');
 
-    doc.fontSize(8).font('Helvetica-Bold').fillColor('#1a1a1a');
-    doc.text(`Asiento: ${b.idAsiento}`, { align: 'center' });
+    // ─── Header ───
+    doc.fontSize(16).font('Helvetica-Bold').fillColor('#1a1a1a');
+    doc.text('Cine La Paz', TICKET_MARGIN, doc.y, { align: 'center', width: TICKET_CONTENT });
+    doc.fontSize(9).font('Helvetica').fillColor('#666666');
+    doc.text('Pase de Entrada', { align: 'center' });
+    doc.moveDown(0.3);
+    doc.fontSize(8).fillColor('#cccccc');
+    doc.text('- '.repeat(20), { align: 'center' });
 
-    const seatTextH = doc.heightOfString(`Asiento: ${b.idAsiento}`, { width: TICKET_CONTENT, align: 'center' });
+    // ─── Película ───
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
+    doc.text('PELÍCULA:', { underline: true });
+    doc.font('Helvetica').text(truncateText(doc, comprobante.peliculaTitulo, TICKET_CONTENT - 10), { align: 'center' });
+    doc.moveDown(0.2);
 
-    doc.image(img, qrX, doc.y + 2, { width: qrSize, height: qrSize });
+    doc.font('Helvetica-Bold').text('FECHA/HORA:', { underline: true });
+    doc.font('Helvetica').text(`${comprobante.fecha} / ${comprobante.horaInicio}`, { align: 'center' });
+    doc.moveDown(0.2);
+
+    doc.font('Helvetica-Bold').text('SALA:', { underline: true });
+    doc.font('Helvetica').text(`${comprobante.idSala} (${comprobante.salaTipo || 'Estándar'})`, { align: 'center' });
+    doc.moveDown(0.2);
+
+    doc.font('Helvetica-Bold').text('ASIENTO:', { underline: true });
+    doc.fontSize(14).font('Helvetica-Bold').text(b.idAsiento, { align: 'center' });
+    doc.moveDown(0.3);
+
+    doc.fontSize(8).fillColor('#cccccc');
+    doc.text('- '.repeat(20), { align: 'center' });
+
+    // ─── Datos de Venta ───
+    doc.fontSize(7).font('Helvetica').fillColor('#666666');
+    doc.text(`Comprobante Nro: ${comprobante.numero}`, { align: 'center' });
+    doc.text(`Cliente: ${truncateText(doc, comprobante.razonSocialCliente || 'Consumidor Final', TICKET_CONTENT - 10)}`, { align: 'center' });
+    doc.moveDown(0.3);
+
+    doc.fontSize(8).fillColor('#cccccc');
+    doc.text('- '.repeat(20), { align: 'center' });
+
+    // ─── QR ───
+    doc.moveDown(0.3);
+    doc.image(img, qrX, doc.y, { width: qrSize, height: qrSize });
     doc.y += qrSize + 4;
 
-    doc.fontSize(7).font('Helvetica').fillColor('#666666');
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('#1a1a1a');
     const codigoDisplay = b.codigoAcceso || `#${b.idBoleto}`;
     doc.text(`Cód: ${codigoDisplay}`, { align: 'center' });
+    
+    doc.moveDown(0.5);
+    doc.fontSize(7).font('Helvetica').fillColor('#999999');
+    doc.text('Gracias por su preferencia.', { align: 'center' });
+    doc.text('Conserve este ticket.', { align: 'center' });
 
-    if (i < boletos.length - 1) {
-      doc.moveDown(1.5);
-      doc.fontSize(6).fillColor('#cccccc');
-      doc.text('- - - - - - - - - - - -', { align: 'center' });
-      doc.moveDown(1.5);
-    }
+    // Info de generación
+    doc.moveDown(0.3);
+    doc.fontSize(6).fillColor('#999999');
+    const now = new Date();
+    const fechaHora = now.toLocaleString('es-BO', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+    doc.text(`Gen: ${fechaHora} | Usu: ${nombreUsuario}`, { align: 'center' });
   }
-
-  doc.moveDown(0.3);
-  doc.fontSize(7).font('Helvetica').fillColor('#999999');
-  doc.text('Gracias por su preferencia.', { align: 'center' });
-  doc.text('Conserve este ticket.', { align: 'center' });
-
-  // Info de generación
-  doc.moveDown(0.3);
-  doc.fontSize(6).fillColor('#999999');
-  const now = new Date();
-  const fechaHora = now.toLocaleString('es-BO', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
-  doc.text(`Gen: ${fechaHora}`, { align: 'center' });
-  doc.text(`Usu: ${nombreUsuario}`, { align: 'center' });
 
   doc.end();
   } catch (error) {

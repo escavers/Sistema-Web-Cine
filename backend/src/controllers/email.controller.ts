@@ -146,7 +146,11 @@ export async function sendComprobanteEmailInternal(idVenta: number, email: strin
 
       resultado = { enviado: true, motivo: '' };
     } catch (err: any) {
-      resultado = { enviado: false, motivo: err.message };
+      let motivo = err.message;
+      if (motivo.includes('Invalid login') || motivo.includes('535')) {
+        motivo = 'Las credenciales de correo (App Password) en el servidor no son válidas o no están configuradas.';
+      }
+      resultado = { enviado: false, motivo };
     }
   }
 

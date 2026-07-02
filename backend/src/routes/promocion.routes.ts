@@ -80,8 +80,7 @@ router.get('/funciones', authMiddleware, requireRoles('ADMINISTRADOR'), async (r
       reglas: {
         nombre: "2x1 Automático",
         condiciones: [
-          "Película con más de 30 días en cartelera desde su fecha de estreno.",
-          "Ocupación de la sala menor al 70% en la función evaluada."
+          "Película con más de 30 días en cartelera desde su fecha de estreno."
         ]
       }
     });

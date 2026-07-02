@@ -190,10 +190,10 @@ export default function CompraOnlinePage() {
   );
 
   const peliculasPromo = peliculasBuscadas.filter(f =>
-    funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1)
+    funciones.some(fn => fn.idPelicula === f.idPelicula && fn.promocionActiva === 1)
   );
   const peliculasNormales = peliculasBuscadas.filter(f =>
-    !funciones.some(fn => fn.peliculaTitulo === f.peliculaTitulo && fn.promocionActiva === 1)
+    !funciones.some(fn => fn.idPelicula === f.idPelicula && fn.promocionActiva === 1)
   );
 
   const modalFuncionesFiltradas = modalSelectedDate
@@ -874,6 +874,26 @@ export default function CompraOnlinePage() {
                     onClick={async () => {
                       if (!resultado?.numeroComprobante) return;
                       try {
+                        const blob = await api.descargarComprobanteTicketPdf(resultado.numeroComprobante);
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `ticket-${resultado.numeroComprobante}.pdf`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                      } catch (error) {
+                        setMessage({ type: 'error', text: 'No se pudo descargar los tickets.' });
+                      }
+                    }}
+                    className="rounded-xl border border-cinema-gold/30 bg-cinema-gold/10 hover:bg-cinema-gold/20 text-cinema-gold font-bold py-2.5 text-xs uppercase tracking-wider transition w-full flex items-center justify-center gap-1.5"
+                  >
+                    🎟️ Descargar Tickets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!resultado?.numeroComprobante) return;
+                      try {
                         const blob = await api.descargarComprobantePdf(resultado.numeroComprobante);
                         const url = URL.createObjectURL(blob);
                         const link = document.createElement('a');
@@ -887,7 +907,7 @@ export default function CompraOnlinePage() {
                     }}
                     className="btn-primary py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 w-full"
                   >
-                    📥 Descargar Boleto PDF
+                    📥 Descargar Comprobante PDF
                   </button>
                   <button
                     type="button"

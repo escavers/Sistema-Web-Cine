@@ -202,9 +202,37 @@ export default function PromocionesPage() {
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-cinema-gray mt-0.5">
-                        Estreno: {pelicula.fechaEstreno ? parseLocalDate(pelicula.fechaEstreno)?.toLocaleDateString('es-BO') : '—'} ·{' '}
-                        {pelicula.funciones.length} función(es) programada(s)
+                      <div className="text-[11px] text-cinema-gray mt-2 flex flex-wrap gap-4">
+                        {(() => {
+                          const fecha = pelicula.fechaEstreno ? parseLocalDate(pelicula.fechaEstreno) : null;
+                          const dias = fecha ? Math.floor((new Date().getTime() - fecha.getTime()) / (1000 * 3600 * 24)) : 0;
+                          const diasEn2x1 = Math.max(0, dias - 30);
+                          return (
+                            <>
+                              <span><strong>Proyectada por 1ra vez:</strong> {fecha ? fecha.toLocaleDateString('es-BO') : '—'}</span>
+                              <span><strong>Días en cartelera:</strong> {dias >= 0 ? dias : 0}</span>
+                              {diasEn2x1 > 0 && <span><strong className="text-amber-400">Días en 2x1:</strong> <span className="text-amber-400">{diasEn2x1}</span></span>}
+                            </>
+                          );
+                        })()}
+                        {(() => {
+                          const totalVendidos = pelicula.funciones.reduce((sum, f) => sum + f.vendidos, 0);
+                          const totalCapacidad = pelicula.funciones.reduce((sum, f) => sum + f.capacidadTotal, 0);
+                          const ocupacionGlobal = totalCapacidad > 0 ? (totalVendidos / totalCapacidad) * 100 : 0;
+                          
+                          const funciones2x1 = pelicula.funciones.filter(f => f.promocionActiva);
+                          const vendidos2x1 = funciones2x1.reduce((sum, f) => sum + f.vendidos, 0);
+                          const capacidad2x1 = funciones2x1.reduce((sum, f) => sum + f.capacidadTotal, 0);
+                          const ocupacion2x1 = capacidad2x1 > 0 ? (vendidos2x1 / capacidad2x1) * 100 : 0;
+
+                          return (
+                            <>
+                              <span><strong>Funciones programadas:</strong> {pelicula.funciones.length}</span>
+                              <span><strong>Ocupación global:</strong> {ocupacionGlobal.toFixed(1)}%</span>
+                              {funciones2x1.length > 0 && <span><strong className="text-amber-400">Ocupación en 2x1:</strong> <span className="text-amber-400">{ocupacion2x1.toFixed(1)}%</span></span>}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -232,15 +260,15 @@ export default function PromocionesPage() {
                           if (f.promocionActiva) {
                             badgeClass = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
                             statusText = '2x1 Activo';
-                            tooltip = 'Cumple todas las condiciones.';
+                            tooltip = 'Cumple la condición de antigüedad.';
                           } else if (!f.masDe30Dias) {
                             badgeClass = 'bg-blue-500/15 text-blue-400 border-blue-500/20';
-                            statusText = 'Estreno (<30d)';
+                            statusText = 'Fase de Estreno';
                             tooltip = 'Película demasiado reciente en cartelera.';
-                          } else if (f.porcentajeOcupacion >= 70) {
-                            badgeClass = 'bg-rose-500/15 text-rose-400 border-rose-500/20';
-                            statusText = 'Alta Ocupación (>=70%)';
-                            tooltip = 'Ocupación superior al límite permitido para la oferta.';
+                          } else {
+                            badgeClass = 'bg-gray-500/15 text-gray-400 border-gray-500/20';
+                            statusText = '2x1 Inactivo';
+                            tooltip = 'Promoción deshabilitada manualmente por el administrador.';
                           }
 
                           return (
@@ -271,13 +299,38 @@ export default function PromocionesPage() {
                                   />
                                 </div>
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                <span
-                                  className={`inline-block px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider border ${badgeClass}`}
-                                  title={tooltip}
-                                >
-                                  {statusText}
-                                </span>
+                              <td className="px-4 py-3 whitespace-nowrap align-top">
+                                <details className="group">
+                                  <summary className="cursor-pointer list-none flex items-center gap-2 outline-none">
+                                    <span
+                                      className={`inline-block px-3 py-1 rounded-full text-[11px] font-bold tracking-wider border ${badgeClass}`}
+                                      title={tooltip}
+                                    >
+                                      {statusText}
+                                    </span>
+                                    <span className="text-cinema-gray text-xs group-open:rotate-180 transition-transform">▼</span>
+                                  </summary>
+                                  <div className="mt-2 text-[10px] text-cinema-gray bg-black/20 p-2.5 rounded border border-white/5 w-full whitespace-normal min-w-[240px]">
+                                    <div className="font-bold text-white/80 mb-2 border-b border-white/10 pb-1">Análisis del Motor de Promociones:</div>
+                                    <div className={`mb-2 ${f.masDe30Dias ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                      {f.masDe30Dias ? '✓' : '✗'} Regla de Antigüedad ({'>'} 30 días)
+                                      <br />
+                                      <span className="text-cinema-gray ml-3 opacity-90">
+                                        {(() => {
+                                          const fecha = pelicula.fechaEstreno ? parseLocalDate(pelicula.fechaEstreno) : null;
+                                          const dias = fecha ? Math.floor((new Date().getTime() - fecha.getTime()) / (1000 * 3600 * 24)) : 0;
+                                          const faltan = 30 - dias;
+                                          return f.masDe30Dias 
+                                            ? `Cumplido. Lleva ${dias - 30} día(s) en 2x1 (Total en cartelera: ${dias} días).`
+                                            : `Incumplido. Faltan ${faltan > 0 ? faltan : 0} día(s) para poder aplicar.`;
+                                        })()}
+                                      </span>
+                                    </div>
+                                    <div className={`mt-2 pt-1.5 border-t border-white/10 font-black text-[11px] ${f.promocionActiva ? 'text-amber-400' : 'text-cinema-gray'}`}>
+                                      {f.promocionActiva ? '➔ RESULTADO: 2x1 ACTIVADO' : '➔ RESULTADO: PROMOCIÓN DENEGADA'}
+                                    </div>
+                                  </div>
+                                </details>
                               </td>
                             </tr>
                           );
